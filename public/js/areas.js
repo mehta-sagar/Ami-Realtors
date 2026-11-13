@@ -18,6 +18,10 @@ const A = [
   ['pandesara', 'Pandesara', 'પાંડેસરા', 'Surat', 21.146, 72.838, 'pandesra'],
   ['dindoli', 'Dindoli', 'ડીંડોલી', 'Surat', 21.143, 72.874, 'dindoli ડિંડોલી'],
   ['sachin', 'Sachin', 'સચિન', 'Surat', 21.086, 72.881, 'sachin gidc'],
+  ['hojiwala', 'Hojiwala (Sachin)', 'હોજીવાલા (સચિન)', 'Surat', 21.073, 72.905, 'hojiwala hoziwala hojiwala industrial estate હોજીવાલા'],
+  ['vip-road-vesu', 'VIP Road (Vesu)', 'વીઆઈપી રોડ (વેસુ)', 'Surat', 21.148, 72.786, 'vip road vip વીઆઈપી'],
+  ['maroli', 'Maroli', 'મરોલી', 'Navsari', 21.025, 72.895, 'maroli arasan'],
+  ['zadeshwar', 'Zadeshwar (Bharuch)', 'ઝાડેશ્વર (ભરૂચ)', 'Bharuch', 21.722, 73.020, 'zadeshwar jhadeshwar ઝાડેશ્વર'],
   ['rander', 'Rander', 'રાંદેર', 'Surat', 21.218, 72.795, 'rander road'],
   ['jahangirpura', 'Jahangirpura', 'જહાંગીરપુરા', 'Surat', 21.228, 72.783, 'jahangirpura'],
   ['chowk-bazaar', 'Chowk Bazaar', 'ચોક બજાર', 'Surat', 21.196, 72.819, 'chowk chok bazar ચોક'],
@@ -32,7 +36,7 @@ const A = [
   ['palsana', 'Palsana', 'પલસાણા', 'Surat', 21.085, 72.985, ''],
   ['bardoli', 'Bardoli', 'બારડોલી', 'Surat', 21.122, 73.112, 'bardoli'],
   ['mandvi-surat', 'Mandvi', 'માંડવી', 'Surat', 21.255, 73.305, 'mandavi'],
-  ['ubhrat', 'Ubhrat', 'ઉભરાટ', 'Navsari', 21.010, 72.740, 'ubhrat beach ubharat ઉભરાટ'],
+  ['ubhrat', 'Ubhrat', 'ઉભરાટ', 'Navsari', 21.010, 72.740, 'ubhrat beach ubharat nimlai ઉભરાટ'],
   ['navsari', 'Navsari', 'નવસારી', 'Navsari', 20.947, 72.952, ''],
   ['gandevi', 'Gandevi', 'ગણદેવી', 'Navsari', 20.812, 72.997, ''],
   ['bilimora', 'Bilimora', 'બીલીમોરા', 'Navsari', 20.769, 72.962, 'billimora'],
@@ -53,7 +57,7 @@ export const AREAS = A.map(([id, en, gu, district, lat, lng, alias]) => ({
 
 function aliasList(s) {
   // aliases are space separated single words, except known multi-word ones we keep whole
-  const multi = ['adajan patiya', 'pal gam', 'varachha road', 'mota varacha', 'sarthana jakatnaka', 'athwa lines', 'ghod dod', 'bhatar road', 'sachin gidc', 'rander road', 'chok bazar', 'dumas road', 'dream city', 'diamond bourse', 'ડ્રીમ સિટી', 'kamrej char rasta', 'ubhrat beach'];
+  const multi = ['hojiwala industrial estate', 'vip road', 'adajan patiya', 'pal gam', 'varachha road', 'mota varacha', 'sarthana jakatnaka', 'athwa lines', 'ghod dod', 'bhatar road', 'sachin gidc', 'rander road', 'chok bazar', 'dumas road', 'dream city', 'diamond bourse', 'ડ્રીમ સિટી', 'kamrej char rasta', 'ubhrat beach'];
   const out = [];
   let rest = s;
   for (const m of multi) if (rest.includes(m)) { out.push(m); rest = rest.replace(m, ' '); }
