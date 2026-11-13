@@ -26,14 +26,14 @@ function quantile(sorted, q) {
 // Median after dropping extreme values (outside 1.5 x IQR). With fewer than 4 prices nothing is dropped.
 export function summarize(points) {
   const vals = points.map((p) => Number(p.price_sqft)).filter((x) => x > 0).sort((a, b) => a - b);
-  if (!vals.length) return { n: 0, used: 0, dropped: 0, median: null, min: null, max: null, lo: null, hi: null };
+  if (!vals.length) return { n: 0, used: 0, dropped: 0, median: null, mean: null, min: null, max: null, lo: null, hi: null };
   let lo = -Infinity, hi = Infinity;
   if (vals.length >= 4) {
     const q1 = quantile(vals, 0.25), q3 = quantile(vals, 0.75), iqr = q3 - q1;
     lo = q1 - 1.5 * iqr; hi = q3 + 1.5 * iqr;
   }
   const kept = vals.filter((x) => x >= lo && x <= hi);
-  return { n: vals.length, used: kept.length, dropped: vals.length - kept.length, median: median(kept), min: kept[0], max: kept[kept.length - 1], lo, hi };
+  return { n: vals.length, used: kept.length, dropped: vals.length - kept.length, median: median(kept), mean: kept.reduce((x, y) => x + y, 0) / kept.length, min: kept[0], max: kept[kept.length - 1], lo, hi };
 }
 
 export function emi(principal, annualRatePct, years) {

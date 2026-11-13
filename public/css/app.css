@@ -96,3 +96,18 @@ button { cursor: pointer; }
 @media (min-width: 560px) { #app, .tabbar, .sheet { max-width: 480px; margin: 0 auto; } .sheet-wrap { justify-content: center; } }
 
 .spot { transform: translate(-50%, -130%); display: inline-block; background: var(--gold); color: var(--ink); font: 600 12px/1.2 'Hind Vadodara', system-ui, sans-serif; padding: 5px 10px; border-radius: 12px; white-space: nowrap; box-shadow: 0 3px 10px rgba(14, 59, 46, .25); }
+
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.card.white, .rowcard.white { background: #fff; }
+.duerow { display: flex; align-items: center; gap: 10px; min-height: 48px; }
+.tick { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--green); background: transparent; flex-shrink: 0; }
+.duetext { border: 0; background: transparent; text-align: left; padding: 4px 0; min-height: 44px; min-width: 0; }
+.board { display: flex; gap: 10px; overflow-x: auto; margin: 0 -16px; padding: 0 16px 8px; align-items: flex-start; }
+.kcol { flex: 0 0 240px; background: #E9E6DB; border-radius: 16px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.kcard { padding: 10px 12px; gap: 6px; border-radius: 14px; } .kcard .badge { align-self: flex-start; }
+.badge.st-token, .badge.st-dastavej { background: #DCE9E2; color: var(--green); } .badge.st-nego { background: #F3E3B6; }
+.statseg .seg button { font-size: 12px; min-height: 36px; } .statseg { padding: 2px 0 10px; border-bottom: 1px solid #ECE9DF; }
+.gbadge { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 8px; background: #ECE9DF; } .g-premium { background: var(--green); color: #fff; } .g-standard { background: var(--gold); }
+.tagb { font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 10px; background: #ECE9DF; } .tagb.v-yes, .tagb.v-final, .tagb.v-inside { background: var(--green); color: #fff; } .tagb.v-construction, .tagb.v-planned, .tagb.v-proposed, .tagb.v-draft { background: var(--gold); }
+.pc { background: var(--ground); border-radius: 10px; padding: 8px 10px; border: 1px solid transparent; } .pc.pro { border-color: #BFD8CC; } .pc.con { border-color: #E6CF95; }
+.input.share { width: 92px; flex-shrink: 0; }

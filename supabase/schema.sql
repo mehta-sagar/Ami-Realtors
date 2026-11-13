@@ -154,3 +154,57 @@ insert into areas (id, name_en, name_gu, district, lat, lng) values
   ('ankleshwar', 'Ankleshwar', 'અંકલેશ્વર', 'Bharuch', 21.626, 73.015),
   ('bharuch', 'Bharuch', 'ભરૂચ', 'Bharuch', 21.705, 72.996)
 on conflict (id) do update set name_en = excluded.name_en, name_gu = excluded.name_gu, district = excluded.district, lat = excluded.lat, lng = excluded.lng;
+
+-- ===== Version 2: CRM, brokers, price grades, area notes =====
+create table if not exists customers (
+  id uuid primary key default gen_random_uuid(),
+  owner uuid not null references auth.users default auth.uid(),
+  name text, phone text, alt_phone text, notes text,
+  created_at timestamptz default now(), updated_at timestamptz default now()
+);
+create table if not exists brokers (
+  id uuid primary key default gen_random_uuid(),
+  owner uuid not null references auth.users default auth.uid(),
+  name text not null, phone text, firm text, notes text,
+  created_at timestamptz default now(), updated_at timestamptz default now()
+);
+create table if not exists activities (
+  id uuid primary key default gen_random_uuid(),
+  owner uuid not null references auth.users default auth.uid(),
+  customer_id uuid references customers(id) on delete cascade,
+  type text, text text, at timestamptz default now(),
+  created_at timestamptz default now(), updated_at timestamptz default now()
+);
+create table if not exists tasks (
+  id uuid primary key default gen_random_uuid(),
+  owner uuid not null references auth.users default auth.uid(),
+  customer_id uuid references customers(id) on delete cascade,
+  title text, due_at timestamptz, done boolean default false,
+  created_at timestamptz default now(), updated_at timestamptz default now()
+);
+create table if not exists area_notes (
+  id uuid primary key default gen_random_uuid(),
+  owner uuid not null references auth.users default auth.uid(),
+  area_id text references areas(id), kind text check (kind in ('pro','con')), text text,
+  created_at timestamptz default now(), updated_at timestamptz default now()
+);
+alter table inquiries add column if not exists customer_id uuid references customers(id) on delete set null;
+alter table price_points add column if not exists grade text check (grade in ('premium','standard','basic'));
+alter table properties add column if not exists brokers jsonb default '[]';
+alter table deals add column if not exists brokers jsonb default '[]';
+
+alter table customers enable row level security;
+alter table brokers enable row level security;
+alter table activities enable row level security;
+alter table tasks enable row level security;
+alter table area_notes enable row level security;
+drop policy if exists "own customers" on customers;
+create policy "own customers" on customers for all to authenticated using (owner = auth.uid()) with check (owner = auth.uid());
+drop policy if exists "own brokers" on brokers;
+create policy "own brokers" on brokers for all to authenticated using (owner = auth.uid()) with check (owner = auth.uid());
+drop policy if exists "own activities" on activities;
+create policy "own activities" on activities for all to authenticated using (owner = auth.uid()) with check (owner = auth.uid());
+drop policy if exists "own tasks" on tasks;
+create policy "own tasks" on tasks for all to authenticated using (owner = auth.uid()) with check (owner = auth.uid());
+drop policy if exists "own area notes" on area_notes;
+create policy "own area notes" on area_notes for all to authenticated using (owner = auth.uid()) with check (owner = auth.uid());
