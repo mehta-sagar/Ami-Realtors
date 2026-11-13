@@ -126,7 +126,9 @@ function initMap() {
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap' }).addTo(S.map);
   S.layer = L.layerGroup().addTo(S.map);
   S.map.on('moveend', drawPins);
+  S.map.on('click', (e) => showSpot(e.latlng.lat, e.latlng.lng));
   S.border = null; S.spot = null;
+  if (S.spotAt) setTimeout(() => showSpot(S.spotAt.lat, S.spotAt.lng, S.spotAt.label), 0);
   drawPins();
   drawMapCard();
   if (sel) drawBorder(sel);
@@ -152,48 +154,136 @@ async function drawBorder(a) {
   const style = { color: '#0E3B2E', weight: 2.5, fillColor: '#E3B341', fillOpacity: 0.12, interactive: false };
   S.border = g ? L.geoJSON(g, { style }).addTo(S.map) : L.circle([a.lat, a.lng], { radius: 900, dashArray: '6 6', ...style }).addTo(S.map);
 }
+// ---------- nearby estimate (k nearest areas with prices) ----------
+// For a place or street with no quotes of its own, the price is the inverse-distance weighted average
+// of the nearest areas that do have quotes. Only areas within 15 km count, and the card names them.
+const KNN_K = 4, KNN_MAX_KM = 15;
+function knn(lat, lng, ptype, skipId) {
+  const near = AREAS.filter((a) => a.id !== skipId).map((a) => ({ a, d: km(lat, lng, a.lat, a.lng) })).filter((x) => x.d <= KNN_MAX_KM)
+    .sort((x, y) => x.d - y.d).map((x) => ({ ...x, v: stats(x.a.id, ptype, 'market', null).median })).filter((x) => x.v != null).slice(0, KNN_K);
+  if (!near.length) return null;
+  let w = 0, s = 0;
+  for (const x of near) { const wi = 1 / Math.max(0.3, x.d) ** 2; w += wi; s += wi * x.v; }
+  return { value: s / w, near };
+}
+const knnLine = (e, unit) => e.near.map((x) => `${areaName(x.a, getLang())} ${x.d.toFixed(1)} km ${rate(x.v, unit)}`).join(' · ');
+
+// ---------- all named places (OpenStreetMap), fetched once and cached on the phone ----------
+const PLACES_KEY = 'places.v1';
+async function loadPlaces() {
+  const c = cfg.get(PLACES_KEY, null);
+  if (c && Date.now() - c.at < 30 * 864e5) { S.places = c.rows; return; }
+  const q = '[out:json][timeout:60];area["ISO3166-2"~"^IN-(GJ|DH|DN|DD)$"]->.g;node(area.g)(around:200000,21.1702,72.8311)[place~"^(city|town|village|suburb|neighbourhood|quarter|hamlet)$"][name];out body;';
+  for (const host of ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter']) {
+    try {
+      const r = await fetch(host, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+      if (!r.ok) continue;
+      const j = await r.json();
+      const known = new Set(AREAS.flatMap((a) => a.keys));
+      S.places = j.elements.map((e) => ({ en: e.tags['name:en'] || e.tags.name, gu: e.tags['name:gu'] || (/[઀-૿]/.test(e.tags.name) ? e.tags.name : ''), lat: e.lat, lng: e.lon, type: e.tags.place }))
+        .filter((p) => !known.has((p.en || '').toLowerCase()));
+      try { cfg.set(PLACES_KEY, { at: Date.now(), rows: S.places }); } catch { /* storage full: keep in memory only */ }
+      if (S.map) drawPins();
+      return;
+    } catch { /* try the next server */ }
+  }
+}
+const placeName = (p) => (getLang() === 'en' ? p.en : p.gu || p.en);
+function searchPlaces(q) {
+  q = q.trim().toLowerCase(); if (q.length < 2) return [];
+  return (S.places || []).filter((p) => (p.en || '').toLowerCase().includes(q) || (p.gu && p.gu.includes(q)))
+    .sort((a, b) => ((b.en || '').toLowerCase().startsWith(q) - (a.en || '').toLowerCase().startsWith(q)) || km(SURAT.lat, SURAT.lng, a.lat, a.lng) - km(SURAT.lat, SURAT.lng, b.lat, b.lng));
+}
+
 function drawPins() {
-  const L = window.L, b = S.map.getBounds().pad(0.15), c = S.map.getCenter(), unit = defaultUnit(S.mapType);
+  const L = window.L, b = S.map.getBounds().pad(0.15), c = S.map.getCenter(), unit = defaultUnit(S.mapType), z = S.map.getZoom();
   S.layer.clearLayers();
   const placed = [];
+  const free = (lat, lng, w) => { const p = S.map.latLngToContainerPoint([lat, lng]); if (placed.some((q) => Math.abs(q.x - p.x) < w && Math.abs(q.y - p.y) < 46)) return false; placed.push(p); return true; };
   AREAS.filter((a) => b.contains([a.lat, a.lng])).map((a) => ({ a, s: stats(a.id, S.mapType, 'market', null) }))
     .sort((x, y) => (y.a.id === S.mapSel) - (x.a.id === S.mapSel) || (y.s.median != null) - (x.s.median != null) || km(c.lat, c.lng, x.a.lat, x.a.lng) - km(c.lat, c.lng, y.a.lat, y.a.lng))
-    .filter(({ a }) => { const p = S.map.latLngToContainerPoint([a.lat, a.lng]); if (placed.some((q) => Math.abs(q.x - p.x) < 92 && Math.abs(q.y - p.y) < 50)) return false; placed.push(p); return true; })
-    .slice(0, 40).forEach(({ a, s }) => {
-    const html = `<div class="pin${a.id === S.mapSel ? ' sel' : ''}"><span>${areaName(a, getLang())}</span><b>${s.median == null ? '—' : rate(s.median, unit)}</b></div>`;
-    L.marker([a.lat, a.lng], { icon: L.divIcon({ className: 'pinwrap', html, iconSize: null }), keyboard: true, title: a.en })
-      .on('click', () => { S.mapSel = a.id; S.spotNote = null; drawPins(); drawMapCard(); drawBorder(a); }).addTo(S.layer);
-  });
+    .filter(({ a }) => free(a.lat, a.lng, 92)).slice(0, 40).forEach(({ a, s }) => {
+      const est = s.median == null ? knn(a.lat, a.lng, S.mapType, a.id) : null;
+      const val = s.median != null ? rate(s.median, unit) : est ? '≈ ' + rate(est.value, unit) : '—';
+      const html = `<div class="pin${a.id === S.mapSel ? ' sel' : ''}${est ? ' est' : ''}"><span>${areaName(a, getLang())}</span><b>${val}</b></div>`;
+      L.marker([a.lat, a.lng], { icon: L.divIcon({ className: 'pinwrap', html, iconSize: null }), keyboard: true, title: a.en })
+        .on('click', () => { S.mapSel = a.id; S.spotNote = null; S.spotAt = null; drawPins(); drawMapCard(); drawBorder(a); }).addTo(S.layer);
+    });
+  // Smaller pins for every other named place once zoomed in; their price is the nearby estimate.
+  if (z >= 12 && S.places) {
+    S.places.filter((p) => b.contains([p.lat, p.lng])).sort((x, y) => km(c.lat, c.lng, x.lat, x.lng) - km(c.lat, c.lng, y.lat, y.lng)).slice(0, 300)
+      .filter((p) => free(p.lat, p.lng, 84)).slice(0, 30).forEach((p) => {
+        const est = knn(p.lat, p.lng, S.mapType);
+        const html = `<div class="pin est small"><span>${placeName(p)}</span><b>${est ? '≈ ' + rate(est.value, unit) : '—'}</b></div>`;
+        L.marker([p.lat, p.lng], { icon: L.divIcon({ className: 'pinwrap', html, iconSize: null }), title: p.en }).on('click', () => showSpot(p.lat, p.lng, placeName(p))).addTo(S.layer);
+      });
+  }
+}
+// A spot is any point on the map: a tapped street, a searched landmark or a small place pin.
+async function showSpot(lat, lng, label) {
+  const L = window.L;
+  S.mapSel = null; S.spotAt = { lat, lng, label: label || '…' };
+  if (S.border) { S.border.remove(); S.border = null; }
+  if (S.spot) S.spot.remove();
+  S.spot = L.marker([lat, lng], { icon: L.divIcon({ className: 'pinwrap', html: '<div class="spot">●</div>', iconSize: null }), interactive: false }).addTo(S.map);
+  drawPins(); drawMapCard();
+  if (!label) {
+    try {
+      const r = await (await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=17&lat=${lat}&lon=${lng}`, { headers: { 'Accept-Language': 'en' } })).json();
+      const ad = r.address || {};
+      S.spotAt.label = [ad.road, ad.neighbourhood || ad.suburb || ad.village || ad.town].filter(Boolean).join(', ') || r.name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    } catch { S.spotAt.label = `${lat.toFixed(4)}, ${lng.toFixed(4)}`; }
+    if (S.spotAt && S.spotAt.lat === lat) drawMapCard();
+  }
 }
 function drawMapCard() {
   const el = $('#mapcard'); if (!el) return;
+  const unit = defaultUnit(S.mapType);
+  if (S.spotAt) {
+    const sp = S.spotAt, est = knn(sp.lat, sp.lng, S.mapType), near = AREAS.map((a) => ({ a, d: km(sp.lat, sp.lng, a.lat, a.lng) })).sort((x, y) => x.d - y.d)[0];
+    return el.replaceChildren(h('div', { class: 'card float' },
+      h('div', { class: 'between' }, h('div', { class: 'title' }, sp.label), h('div', { class: 'muted small' }, `${t(S.mapType)} · ${t('per')} ${unitLabel(unit)}`)),
+      h('div', { class: 'between' }, h('span', { class: 'gold xs b' }, t('nearby_estimate')), h('span', { class: 'title big' }, est ? '≈ ' + rate(est.value, unit) : t('no_price'))),
+      est ? h('div', { class: 'xs muted' }, t('based_on'), ': ', knnLine(est, unit)) : h('div', { class: 'xs muted' }, t('no_nearby')),
+      near && near.d <= 8 && h('button', { class: 'btn gold', onclick: () => { S.spotAt = null; S.price.area = near.a.id; S.price.ptype = S.mapType; S.price.unit = null; S.price.grade = 'all'; S.tab = 'prices'; render(); } }, `${t('full_detail')}: ${areaName(near.a, getLang())}`)));
+  }
   const a = S.mapSel && areaById(S.mapSel);
   if (!a) return el.replaceChildren();
-  const unit = defaultUnit(S.mapType), j = stats(a.id, S.mapType, 'jantri'), d = stats(a.id, S.mapType, 'dastavej'), mk = stats(a.id, S.mapType, 'market', null);
+  const j = stats(a.id, S.mapType, 'jantri'), d = stats(a.id, S.mapType, 'dastavej'), mk = stats(a.id, S.mapType, 'market', null);
+  const est = mk.median == null ? knn(a.lat, a.lng, S.mapType, a.id) : null;
   el.replaceChildren(h('div', { class: 'card float' },
     h('div', { class: 'between' }, h('div', { class: 'title big' }, areaName(a, getLang())), h('div', { class: 'muted small' }, `${t(S.mapType)} · ${t('per')} ${unitLabel(unit)}`)),
     S.spotNote && h('div', { class: 'small goldtext b' }, S.spotNote),
     h('div', { class: 'grid3' },
       h('div', { class: 'tile' }, h('div', { class: 'muted xs' }, t('jantri')), h('div', { class: 'b' }, rate(j.median, unit))),
       h('div', { class: 'tile' }, h('div', { class: 'muted xs' }, t('dastavej')), h('div', { class: 'b' }, rate(d.median, unit))),
-      h('div', { class: 'tile dark' }, h('div', { class: 'gold xs' }, t('market_rate')), h('div', { class: 'b' }, rate(mk.median, unit)))),
+      h('div', { class: 'tile dark' }, h('div', { class: 'gold xs' }, est ? t('nearby_estimate') : t('market_rate')), h('div', { class: 'b' }, est ? '≈ ' + rate(est.value, unit) : rate(mk.median, unit)))),
+    est && h('div', { class: 'xs muted' }, t('based_on'), ': ', knnLine(est, unit)),
     h('button', { class: 'btn gold', onclick: () => { S.price.area = a.id; S.price.ptype = S.mapType; S.price.unit = null; S.price.grade = 'all'; S.tab = 'prices'; render(); } }, t('full_detail'))));
 }
 function mapSuggest(e) {
   const q = e.target.value.trim(), box = $('#mapsug');
   if (!q) return box.replaceChildren();
-  box.replaceChildren(...searchAreas(q).slice(0, 6).map((a) => h('button', { class: 'row', onclick: () => goArea(a) },
-    h('span', {}, areaName(a, getLang())), h('span', { class: 'muted' }, `${a.en} · ${Math.round(km(SURAT.lat, SURAT.lng, a.lat, a.lng))} km`))));
+  const areas = searchAreas(q).slice(0, 5), places = searchPlaces(q).slice(0, 6 - Math.min(5, areas.length) + 2);
+  box.replaceChildren(
+    ...areas.map((a) => h('button', { class: 'row', onclick: () => goArea(a) }, h('span', {}, areaName(a, getLang())), h('span', { class: 'muted' }, `${a.en} · ${Math.round(km(SURAT.lat, SURAT.lng, a.lat, a.lng))} km`))),
+    ...places.map((p) => h('button', { class: 'row', onclick: () => goPlace(p) }, h('span', {}, placeName(p)), h('span', { class: 'muted' }, `${p.en} · ${Math.round(km(SURAT.lat, SURAT.lng, p.lat, p.lng))} km`))));
 }
 function goArea(a) {
-  S.mapSel = a.id; S.spotNote = null; if (S.spot) { S.spot.remove(); S.spot = null; }
+  S.mapSel = a.id; S.spotNote = null; S.spotAt = null; if (S.spot) { S.spot.remove(); S.spot = null; }
   $('#mapsug').replaceChildren(); $('#mapq').value = a.en; $('#mapq').blur();
   S.map.flyTo([a.lat, a.lng], 14, { duration: 0.6 }); drawMapCard(); drawBorder(a);
+}
+function goPlace(p) {
+  $('#mapsug').replaceChildren(); $('#mapq').value = p.en; $('#mapq').blur();
+  S.map.flyTo([p.lat, p.lng], 14, { duration: 0.6 }); showSpot(p.lat, p.lng, placeName(p));
 }
 async function mapSearch(q) {
   q = q.trim(); if (!q) return;
   const local = searchAreas(q);
   if (local.length) return goArea(local[0]);
+  const pl = searchPlaces(q);
+  if (pl.length) return goPlace(pl[0]);
   toast(t('not_found_local'));
   try {
     const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=in&viewbox=70.8,23.1,74.9,19.2&bounded=1&q=' + encodeURIComponent(q);
@@ -201,12 +291,7 @@ async function mapSearch(q) {
     const p = r[0] && { lat: Number(r[0].lat), lng: Number(r[0].lon) };
     if (!p || km(SURAT.lat, SURAT.lng, p.lat, p.lng) > 200) return toast(t('not_found'), true);
     $('#mapsug').replaceChildren(); $('#mapq').blur();
-    // A landmark (college, society, road): pin it and show the price of the area it falls in.
-    const L = window.L, near = AREAS.map((a) => [km(p.lat, p.lng, a.lat, a.lng), a]).sort((x, y) => x[0] - y[0])[0];
-    if (S.spot) S.spot.remove();
-    S.spot = L.marker([p.lat, p.lng], { icon: L.divIcon({ className: 'pinwrap', html: h('div', {}, h('div', { class: 'spot' }, q)).innerHTML, iconSize: null }), interactive: false }).addTo(S.map);
-    if (near[0] <= 6) { S.mapSel = near[1].id; S.spotNote = `${q} · ${near[0].toFixed(1)} km`; drawMapCard(); drawBorder(near[1]); }
-    S.map.flyTo([p.lat, p.lng], 14, { duration: 0.6 });
+    S.map.flyTo([p.lat, p.lng], 15, { duration: 0.6 }); showSpot(p.lat, p.lng, q);
   } catch { toast(t('not_found'), true); }
 }
 
@@ -224,11 +309,12 @@ function pricePointForm(init) {
     f.kind === 'market' && seg([['', t('g_none')], ...GRADES.map((g) => [g, t('g_' + g)])], f.grade || '', (v) => { f.grade = v; api.redraw(); }),
     h('div', { class: 'grid2' }, field(t('source'), h('select', { class: 'input', value: f.source, onchange: (e) => { f.source = e.target.value; } }, ['own', 'whatsapp', 'listing', 'news', 'garvi', 'other'].map((s) => h('option', { value: s }, t('src_' + s))))),
       field(t('date'), inp(f, 'observed_on', { type: 'date' }))),
+    h('button', { type: 'button', class: 'input pick', onclick: () => brokersSheet((b) => { f.broker_id = b.id; api.redraw(); }) }, h('span', { class: f.broker_id ? '' : 'muted' }, f.broker_id && brokerOf(f.broker_id) ? `${t('quoted_by')}: ${brokerOf(f.broker_id).name}` : t('quoted_by_pick')), icon('down', 18)),
     field(t('notes'), inp(f, 'note')), field(t('link'), inp(f, 'source_url', { inputmode: 'url', autocapitalize: 'none' })),
     h('button', { class: 'btn gold', onclick: async () => {
       const v = N(f.value); if (!v || !f.area_id) return toast(t('area') + ' + ' + t('prices'), true);
       try {
-        await saveRec('price_points', { area_id: f.area_id, ptype: f.ptype, kind: f.kind, price_sqft: rateToSqft(v, f.unit, vigha()), furnished: f.furnished === 'yes' ? true : f.furnished === 'no' ? false : null, grade: f.kind === 'market' && f.grade ? f.grade : null, source: f.source, note: f.note || null, source_url: f.source_url || null, observed_on: f.observed_on });
+        await saveRec('price_points', { area_id: f.area_id, ptype: f.ptype, kind: f.kind, price_sqft: rateToSqft(v, f.unit, vigha()), furnished: f.furnished === 'yes' ? true : f.furnished === 'no' ? false : null, grade: f.kind === 'market' && f.grade ? f.grade : null, source: f.source, broker_id: f.broker_id || null, note: f.note || null, source_url: f.source_url || null, observed_on: f.observed_on });
         S.price.area = f.area_id; S.price.ptype = f.ptype; sh.close(); toast(t('saved')); render();
       } catch (e) { fail(e); }
     } }, t('save')),
@@ -703,6 +789,7 @@ function stats(areaId, ptype, kind, furnished, grade) {
 function viewPrices() {
   const P = S.price, a = areaById(P.area) || AREAS[0], unit = unitsFor(P.ptype).includes(P.unit) ? P.unit : defaultUnit(P.ptype), rd = () => render();
   const j = stats(a.id, P.ptype, 'jantri'), d = stats(a.id, P.ptype, 'dastavej'), mk = stats(a.id, P.ptype, 'market', P.furnished, P.grade);
+  const estP = mk.median == null ? knn(a.lat, a.lng, P.ptype, a.id) : null;
   const quotes = [...mk.points, ...d.points, ...j.points].sort((x, y) => String(y.observed_on).localeCompare(String(x.observed_on)));
   const last = quotes.map((p) => p.observed_on).sort().pop();
   const bare = (v) => rate(v, unit).replace('₹ ', '');
@@ -713,7 +800,7 @@ function viewPrices() {
     return h('div', { class: 'pt' + (out || old ? ' out' : '') },
       h('div', { class: 'between small' }, h('span', { class: 'b' }, rate(p.price_sqft, unit), p.kind !== 'market' ? ` · ${t(p.kind)}` : '', out ? ` (${t('outlier')})` : '', old === 'bad' ? ` (${t('check_quote')})` : old ? ` (${t('old_quote')})` : ''),
         h('span', {}, p.grade && h('span', { class: 'gbadge g-' + p.grade }, t('g_' + p.grade)), ' ', h('span', { class: 'muted' }, fmtDate(p.observed_on, { day: 'numeric', month: 'short', year: '2-digit' })))),
-      h('div', { class: 'between xs muted' }, h('span', {}, t('src_' + (p.source || 'other')), p.note ? ' · ' + p.note : ''),
+      h('div', { class: 'between xs muted' }, h('span', {}, t('src_' + (p.source || 'other')), p.broker_id && brokerOf(p.broker_id) ? ' · ' + brokerOf(p.broker_id).name : '', p.note ? ' · ' + p.note : ''),
         h('span', {}, p.source_url && h('a', { href: p.source_url, target: '_blank', rel: 'noopener' }, t('link')), ' ', !p.pub && (p.owner || !cloud.ready) && h('button', { class: 'linkbtn xs', onclick: async () => { if (confirm(t('confirm_del'))) { await delRec('price_points', p.id).catch(fail); rd(); } } }, t('del')))));
   };
   return [
@@ -725,7 +812,7 @@ function viewPrices() {
     seg([[false, t('unfurnished')], [true, t('furnished')]], P.furnished, (v) => { P.furnished = v; rd(); }),
     chips([['all', t('all')], ...GRADES.map((g) => [g, t('g_' + g)])], P.grade, (v) => { P.grade = v; rd(); }, 'scroll'),
     h('section', { class: 'card rates' },
-      line(t('market_rate'), mk.median == null ? t('no_price') : [P.stat === 'range' && `${t('median')} ${rate(mk.median, unit)}`, pct(mk.median, j.median) && `${t('vs_jantri')} ${pct(mk.median, j.median)}`, `${mk.used} ${t('prices_found')}`, mk.dropped ? `${mk.dropped} ${t('dropped')}` : null].filter(Boolean).join(' · '), mk.median == null ? '—' : head, true),
+      line(t('market_rate'), mk.median == null ? (estP ? `${t('nearby_estimate')}: ${knnLine(estP, unit)}` : t('no_price')) : [P.stat === 'range' && `${t('median')} ${rate(mk.median, unit)}`, pct(mk.median, j.median) && `${t('vs_jantri')} ${pct(mk.median, j.median)}`, `${mk.used} ${t('prices_found')}`, mk.dropped ? `${mk.dropped} ${t('dropped')}` : null].filter(Boolean).join(' · '), mk.median == null ? (estP ? '≈ ' + rate(estP.value, unit) : '—') : head, true),
       h('div', { class: 'statseg' }, seg([['range', t('range')], ['median', t('median')], ['mean', t('mean')], ['low', t('low')], ['high', t('high')]], P.stat, (v) => { P.stat = v; rd(); })),
       line(t('dastavej'), pct(d.median, j.median) && `${t('vs_jantri')} ${pct(d.median, j.median)}`, rate(d.median, unit)),
       line(t('jantri'), [t('jantri_sub') + ' · ' + t('src_garvi'), j.used > 1 && `${t('median')} ${rate(j.median, unit)} · ${j.used} TP/FP`].filter(Boolean).join(' · '), j.used > 1 && j.min !== j.max ? `₹ ${bare(j.min)} – ${bare(j.max)}` : rate(j.median, unit))),
@@ -795,12 +882,70 @@ async function shareArea(a, mk, unit) {
   else h('a', { href: URL.createObjectURL(out), download: file.name }).click();
 }
 
+// ---------- capital gains tax on property ----------
+// Cost Inflation Index, FY 2001-02 = 100. FY 2026-27 = 384 (CBDT notification 85/2026).
+const CII = { 2001: 100, 2002: 105, 2003: 109, 2004: 113, 2005: 117, 2006: 122, 2007: 129, 2008: 137, 2009: 148, 2010: 167, 2011: 184, 2012: 200, 2013: 220, 2014: 240, 2015: 254, 2016: 264, 2017: 272, 2018: 280, 2019: 289, 2020: 301, 2021: 317, 2022: 331, 2023: 348, 2024: 363, 2025: 376, 2026: 384 };
+const fyStart = (d) => { const x = new Date(d); return x.getMonth() >= 3 ? x.getFullYear() : x.getFullYear() - 1; };
+const ciiFor = (d) => CII[Math.max(2001, Math.min(2026, fyStart(d)))];
+function capGains(f) {
+  const buy = new Date(f.buy_date), sell = new Date(f.sell_date);
+  if (isNaN(buy) || isNaN(sell) || sell <= buy) return null;
+  const months = (sell.getFullYear() - buy.getFullYear()) * 12 + (sell.getMonth() - buy.getMonth()) - (sell.getDate() < buy.getDate() ? 1 : 0);
+  const cost = N(f.cost) || 0, impr = N(f.improve) || 0, exp = N(f.expenses) || 0, price = N(f.price) || 0, stamp = N(f.stamp_value) || 0;
+  // If the jantri (stamp duty) value is more than 110% of the price, the jantri value is taken as the sale price.
+  const consideration = stamp > price * 1.1 ? stamp : price;
+  const cess = 1.04, longTerm = months > 24, exempt = N(f.exempt) || 0;
+  if (!longTerm) {
+    const gain = consideration - exp - cost - impr, slab = (N(f.slab) || 0) / 100;
+    return { months, longTerm, consideration, gain, taxable: Math.max(0, gain), tax: Math.max(0, gain) * slab * cess, method: 'stcg' };
+  }
+  const gainA = consideration - exp - cost - impr;
+  const taxA = Math.max(0, gainA - exempt) * 0.125 * cess;
+  const r = { months, longTerm, consideration, gain: gainA, taxable: Math.max(0, gainA - exempt), tax: taxA, method: 'a', taxA };
+  // Bought before 23 July 2024 by a resident individual or HUF: may pay 20% on the indexed gain instead, whichever is lower.
+  if (buy < new Date('2024-07-23') && f.resident !== false) {
+    const idxCost = cost * ciiFor(sell) / ciiFor(buy < new Date('2001-04-01') ? new Date('2001-04-01') : buy);
+    const idxImpr = f.improve_date ? impr * ciiFor(sell) / ciiFor(f.improve_date) : impr;
+    const gainB = consideration - exp - idxCost - idxImpr, taxB = Math.max(0, gainB - exempt) * 0.20 * cess;
+    Object.assign(r, { idxCost, gainB, taxB });
+    if (taxB < taxA) Object.assign(r, { gain: gainB, taxable: Math.max(0, gainB - exempt), tax: taxB, method: 'b' });
+  }
+  return r;
+}
+function cgCalc() {
+  const f = { buy_date: '', cost: '', improve: '', improve_date: '', sell_date: new Date().toISOString().slice(0, 10), price: '', stamp_value: '', expenses: '', exempt: '', slab: 30, resident: true };
+  const out = h('div', { class: 'card inset' });
+  const calc = () => {
+    const r = capGains(f);
+    if (!r) return out.replaceChildren(h('div', { class: 'small muted' }, t('cg_fill')));
+    const rows = [result(t('cg_holding'), `${r.months} ${t('cg_months')} · ${r.longTerm ? t('cg_ltcg') : t('cg_stcg')}`), result(t('cg_consideration'), money(r.consideration))];
+    if (r.longTerm) {
+      rows.push(result(t('cg_opt_a'), money(r.taxA)));
+      if (r.taxB != null) rows.push(result(`${t('cg_opt_b')} (${t('cg_indexed_cost')} ${money(r.idxCost)})`, money(r.taxB)));
+    }
+    rows.push(result(t('cg_gain'), money(r.gain)), result(t('cg_tax'), money(r.tax), true),
+      h('div', { class: 'xs muted' }, r.method === 'b' ? t('cg_used_b') : r.method === 'a' ? t('cg_used_a') : t('cg_used_stcg')));
+    if (N(f.price) >= 5e6) rows.push(h('div', { class: 'xs muted' }, t('cg_tds')));
+    out.replaceChildren(...rows);
+  };
+  openSheet(t('cg_calc'), () => [
+    h('div', { class: 'grid2' }, field(t('cg_buy_date'), inp(f, 'buy_date', { type: 'date' })), field(t('cg_cost'), numInp(f, 'cost'))),
+    h('div', { class: 'grid2' }, field(t('cg_improve'), numInp(f, 'improve')), field(t('cg_improve_date'), inp(f, 'improve_date', { type: 'date' }))),
+    h('div', { class: 'grid2' }, field(t('cg_sell_date'), inp(f, 'sell_date', { type: 'date' })), field(t('cg_price'), numInp(f, 'price'))),
+    h('div', { class: 'grid2' }, field(t('cg_stamp_value'), numInp(f, 'stamp_value')), field(t('cg_expenses'), numInp(f, 'expenses'))),
+    h('div', { class: 'grid2' }, field(t('cg_exempt'), numInp(f, 'exempt')), field(t('cg_slab'), numInp(f, 'slab'))),
+    h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: true, onchange: (e) => { f.resident = e.target.checked; calc(); } }), t('cg_resident')),
+    out, h('p', { class: 'xs muted' }, t('cg_note')),
+  ]).body.addEventListener('input', calc);
+  calc();
+}
+
 // ---------- More ----------
 function viewMore() {
   const row = (k, fn) => h('button', { class: 'row big', onclick: fn }, h('span', {}, t(k)), icon('chev', 18));
   return [h('header', { class: 'hdr' }, h('h1', { class: 'grow' }, t('more'))),
     h('section', { class: 'card' }, row('prices', () => go('prices')), row('brokers', () => brokersSheet()), row('commission', commission)),
-    h('section', { class: 'card' }, row('emi_calc', emiCalc), row('stamp_calc', stampCalc)),
+    h('section', { class: 'card' }, row('emi_calc', emiCalc), row('stamp_calc', stampCalc), row('cg_calc', cgCalc)),
     h('section', { class: 'card' }, row('settings', settings))];
 }
 
@@ -830,5 +975,6 @@ document.addEventListener('visibilitychange', async () => {
   await cloud.init();
   await load();
   render();
+  loadPlaces();
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

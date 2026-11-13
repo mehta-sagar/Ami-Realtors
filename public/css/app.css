@@ -111,3 +111,5 @@ button { cursor: pointer; }
 .tagb { font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 10px; background: #ECE9DF; } .tagb.v-yes, .tagb.v-final, .tagb.v-inside { background: var(--green); color: #fff; } .tagb.v-construction, .tagb.v-planned, .tagb.v-proposed, .tagb.v-draft { background: var(--gold); }
 .pc { background: var(--ground); border-radius: 10px; padding: 8px 10px; border: 1px solid transparent; } .pc.pro { border-color: #BFD8CC; } .pc.con { border-color: #E6CF95; }
 .input.share { width: 92px; flex-shrink: 0; }
+
+.pin.est { background: #FBF7EA; border: 1px dashed #B79A4A; } .pin.est b { font-style: italic; } .pin.small { font-size: 11px; padding: 3px 8px; }
