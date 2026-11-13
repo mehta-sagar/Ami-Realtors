@@ -22,7 +22,7 @@ const T = {
   src_own: ['પોતાની એન્ટ્રી', 'Own entry'], src_whatsapp: ['વોટ્સએપ ગ્રુપ', 'WhatsApp group'], src_listing: ['ઓનલાઇન લિસ્ટિંગ', 'Online listing'], src_news: ['સમાચાર', 'News'], src_garvi: ['ગરવી ગુજરાત', 'Garvi Gujarat'], src_other: ['અન્ય', 'Other'],
   outlier: ['અતિરેક', 'extreme'],
   furnished: ['ફર્નિશ્ડ', 'Furnished'], unfurnished: ['ફર્નિચર વગર', 'Unfurnished'], any: ['કોઈ પણ', 'Any'],
-  u_sqft: ['ચો.ફૂટ', 'sq ft'], u_sqm: ['ચો.મી.', 'sq m'], u_var: ['વાર', 'var'], u_vigha: ['વીઘા', 'vigha'], u_hectare: ['હેક્ટર', 'hectare'], per: ['પ્રતિ', 'per'],
+  u_sqft: ['ચો.ફૂટ', 'sq ft'], u_sqm: ['ચો.મી.', 'sq m'], u_var: ['વાર', 'var'], u_vigha: ['વીઘા', 'vigha'], u_hectare: ['હેક્ટર', 'hectare'], u_acre: ['એકર', 'acre'], check_quote: ['ચકાસો, ગણતરીમાં નથી', 'check, not counted'], per: ['પ્રતિ', 'per'],
   flat: ['ફ્લેટ', 'Flat'], bungalow: ['બંગલો', 'Bungalow'], shop: ['દુકાન', 'Shop'], office: ['ઓફિસ', 'Office'], plot: ['પ્લોટ', 'Plot'], land: ['જમીન', 'Land'], industrial: ['ઔદ્યોગિક', 'Industrial'],
   sale: ['વેચાણ', 'Sale'], rent: ['ભાડે', 'Rent'], buy: ['ખરીદી', 'Buy'],
   paste_hint: ['ફોન એપમાંથી નંબર કૉપી કરી અહીં પેસ્ટ કરો', 'Copy the number from the Phone app and paste it here'],

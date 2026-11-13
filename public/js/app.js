@@ -1,6 +1,6 @@
 import { t, getLang, setLang, money, moneyShort, fmtDate } from './i18n.js';
 import { AREAS, SURAT, areaById, areaName, km, searchAreas } from './areas.js';
-import { UNITS, PTYPES, sqftPer, toSqft, rateToSqft, rateFromSqft, defaultUnit, summarize, emi, DEFAULT_VIGHA_SQFT } from './units.js';
+import { UNITS, unitsFor, inBounds, PTYPES, sqftPer, toSqft, rateToSqft, rateFromSqft, defaultUnit, summarize, emi, DEFAULT_VIGHA_SQFT } from './units.js';
 import { parseEntry } from './parse.js';
 import { store, cloud, cfg, lock, DEFAULT_SB_URL } from './store.js';
 
@@ -276,7 +276,7 @@ function propTitle(p, lang = getLang()) {
   const tr = (k) => (lang === getLang() ? t(k) : EN[k] || k);
   return [p.bhk && p.bhk + ' BHK', p.ptype && tr(p.ptype), p.size && `${Number(p.size).toLocaleString('en-IN')} ${lang === getLang() ? unitLabel(p.size_unit || 'sqft') : EN['u_' + (p.size_unit || 'sqft')]}`].filter(Boolean).join(' · ') || '—';
 }
-const EN = { flat: 'Flat', bungalow: 'Bungalow', shop: 'Shop', office: 'Office', plot: 'Plot', land: 'Land', industrial: 'Industrial', u_sqft: 'sq ft', u_sqm: 'sq m', u_var: 'sq yd', u_vigha: 'vigha', u_hectare: 'hectare' };
+const EN = { flat: 'Flat', bungalow: 'Bungalow', shop: 'Shop', office: 'Office', plot: 'Plot', land: 'Land', industrial: 'Industrial', u_sqft: 'sq ft', u_sqm: 'sq m', u_var: 'sq yd', u_vigha: 'vigha', u_acre: 'acre', u_hectare: 'hectare' };
 function propCard(p) {
   const a = areaById(p.area_id), ph = tel(p.owner_phone);
   const img = h('div', { class: 'thumb' });
@@ -688,7 +688,8 @@ const FRESH_DAYS = 183;
 const GRADES = ['premium', 'standard', 'basic'];
 function stats(areaId, ptype, kind, furnished, grade) {
   const cut = new Date(Date.now() - FRESH_DAYS * 864e5).toISOString().slice(0, 10);
-  let all = S.data.price_points.filter((p) => p.area_id === areaId && p.ptype === ptype && p.kind === kind);
+  const every = S.data.price_points.filter((p) => p.area_id === areaId && p.ptype === ptype && p.kind === kind);
+  let all = every.filter(inBounds);
   if (kind === 'market' && furnished != null) all = all.filter((p) => (furnished ? p.furnished === true : p.furnished !== true));
   if (grade && grade !== 'all') all = all.filter((p) => p.grade === grade);
   if (kind === 'jantri') {
@@ -697,10 +698,10 @@ function stats(areaId, ptype, kind, furnished, grade) {
     return { ...sm, points: all, old: [], lo: -Infinity, hi: Infinity };
   }
   const pts = all.filter((p) => String(p.observed_on) >= cut);
-  return { ...summarize(pts), points: pts, old: all.filter((p) => String(p.observed_on) < cut) };
+  return { ...summarize(pts), points: pts, old: all.filter((p) => String(p.observed_on) < cut), bad: every.filter((p) => !inBounds(p)) };
 }
 function viewPrices() {
-  const P = S.price, a = areaById(P.area) || AREAS[0], unit = P.unit || defaultUnit(P.ptype), rd = () => render();
+  const P = S.price, a = areaById(P.area) || AREAS[0], unit = unitsFor(P.ptype).includes(P.unit) ? P.unit : defaultUnit(P.ptype), rd = () => render();
   const j = stats(a.id, P.ptype, 'jantri'), d = stats(a.id, P.ptype, 'dastavej'), mk = stats(a.id, P.ptype, 'market', P.furnished, P.grade);
   const quotes = [...mk.points, ...d.points, ...j.points].sort((x, y) => String(y.observed_on).localeCompare(String(x.observed_on)));
   const last = quotes.map((p) => p.observed_on).sort().pop();
@@ -710,7 +711,7 @@ function viewPrices() {
   const quote = (p, old) => {
     const out = p.kind === 'market' && !old && (p.price_sqft < mk.lo || p.price_sqft > mk.hi);
     return h('div', { class: 'pt' + (out || old ? ' out' : '') },
-      h('div', { class: 'between small' }, h('span', { class: 'b' }, rate(p.price_sqft, unit), p.kind !== 'market' ? ` · ${t(p.kind)}` : '', out ? ` (${t('outlier')})` : '', old ? ` (${t('old_quote')})` : ''),
+      h('div', { class: 'between small' }, h('span', { class: 'b' }, rate(p.price_sqft, unit), p.kind !== 'market' ? ` · ${t(p.kind)}` : '', out ? ` (${t('outlier')})` : '', old === 'bad' ? ` (${t('check_quote')})` : old ? ` (${t('old_quote')})` : ''),
         h('span', {}, p.grade && h('span', { class: 'gbadge g-' + p.grade }, t('g_' + p.grade)), ' ', h('span', { class: 'muted' }, fmtDate(p.observed_on, { day: 'numeric', month: 'short', year: '2-digit' })))),
       h('div', { class: 'between xs muted' }, h('span', {}, t('src_' + (p.source || 'other')), p.note ? ' · ' + p.note : ''),
         h('span', {}, p.source_url && h('a', { href: p.source_url, target: '_blank', rel: 'noopener' }, t('link')), ' ', !p.pub && (p.owner || !cloud.ready) && h('button', { class: 'linkbtn xs', onclick: async () => { if (confirm(t('confirm_del'))) { await delRec('price_points', p.id).catch(fail); rd(); } } }, t('del')))));
@@ -720,7 +721,7 @@ function viewPrices() {
       h('button', { class: 'grow areahd', onclick: () => pickArea((x) => { P.area = x.id; rd(); }) }, h('h1', {}, areaName(a, getLang()), icon('down', 20)),
         h('div', { class: 'muted small' }, `${a.district} · ${getLang() === 'en' ? Math.round(km(SURAT.lat, SURAT.lng, a.lat, a.lng)) + ' km from Surat' : 'સુરતથી ' + Math.round(km(SURAT.lat, SURAT.lng, a.lat, a.lng)) + ' કિમી'}${last ? ' · ' + t('updated') + ' ' + fmtDate(last, { day: 'numeric', month: 'short' }) : ''}`)),
       h('select', { class: 'input sel', 'aria-label': t('type'), value: P.ptype, onchange: (e) => { P.ptype = e.target.value; P.unit = null; rd(); } }, PTYPES.map((p) => h('option', { value: p }, t(p))))),
-    h('div', { class: 'grid5' }, UNITS.map((u) => h('button', { class: 'chip sq' + (u === unit ? ' on' : ''), 'aria-pressed': String(u === unit), onclick: () => { P.unit = u; rd(); } }, unitLabel(u)))),
+    h('div', { class: 'grid5', style: `grid-template-columns: repeat(${unitsFor(P.ptype).length}, minmax(0, 1fr))` }, unitsFor(P.ptype).map((u) => h('button', { class: 'chip sq' + (u === unit ? ' on' : ''), 'aria-pressed': String(u === unit), onclick: () => { P.unit = u; rd(); } }, unitLabel(u)))),
     seg([[false, t('unfurnished')], [true, t('furnished')]], P.furnished, (v) => { P.furnished = v; rd(); }),
     chips([['all', t('all')], ...GRADES.map((g) => [g, t('g_' + g)])], P.grade, (v) => { P.grade = v; rd(); }, 'scroll'),
     h('section', { class: 'card rates' },
@@ -731,9 +732,9 @@ function viewPrices() {
     h('div', { class: 'grid2' },
       h('button', { class: 'btn green', onclick: () => pricePointForm({ area_id: a.id, ptype: P.ptype, unit }) }, icon('plus', 18), t('add_price')),
       h('button', { class: 'btn', onclick: () => pasteMessage(a.id, P.ptype) }, t('paste_msg'))),
-    h('section', { class: 'card' }, h('h2', {}, t('all_quotes'), ' (', quotes.length + mk.old.length, ')'),
+    h('section', { class: 'card' }, h('h2', {}, t('all_quotes'), ' (', quotes.length + mk.old.length + (mk.bad || []).length, ')'),
       h('div', { class: 'xs muted' }, t('quotes_note')),
-      quotes.length + mk.old.length ? h('div', { class: 'list tight' }, quotes.map((p) => quote(p)), mk.old.map((p) => quote(p, true))) : h('div', { class: 'muted small' }, t('no_price'))),
+      quotes.length + mk.old.length + (mk.bad || []).length ? h('div', { class: 'list tight' }, quotes.map((p) => quote(p)), mk.old.map((p) => quote(p, true)), (mk.bad || []).map((p) => quote(p, 'bad'))) : h('div', { class: 'muted small' }, t('no_price'))),
     insightCard(a, mk, unit),
   ];
 }
@@ -774,7 +775,7 @@ async function shareArea(a, mk, unit) {
   x.fillStyle = '#0E3B2E'; x.fillRect(0, 0, W, 300);
   x.fillStyle = '#E3B341'; font(700, 34); x.fillText('AREA SNAPSHOT · ' + a.district.toUpperCase(), 64, 110);
   x.fillStyle = '#FFFFFF'; font(700, 84); x.fillText(a.en, 64, 210, W - 128);
-  const U = { sqft: 'sq ft', sqm: 'sq m', var: 'sq yd', vigha: 'vigha', hectare: 'hectare' }[unit], r = (v) => Math.round(rateFromSqft(v, unit, vigha())).toLocaleString('en-IN');
+  const U = { sqft: 'sq ft', sqm: 'sq m', var: 'sq yd', vigha: 'vigha', acre: 'acre', hectare: 'hectare' }[unit], r = (v) => Math.round(rateFromSqft(v, unit, vigha())).toLocaleString('en-IN');
   x.fillStyle = '#14201B'; font(700, 54);
   x.fillText(mk.median == null ? 'Price on request' : (mk.used > 1 && mk.min !== mk.max ? `Rs ${r(mk.min)} - ${r(mk.max)} per ${U}` : `Rs ${r(mk.median)} per ${U}`), 64, 400, W - 128);
   x.fillStyle = '#4A5650'; font(400, 32); x.fillText(`${EN[S.price.ptype] || ''}${mk.median != null && mk.used > 1 ? ' · median Rs ' + r(mk.median) + ' · ' + mk.used + ' recent quotes' : ''}`, 64, 452, W - 128);

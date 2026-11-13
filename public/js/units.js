@@ -1,10 +1,20 @@
 // All prices are stored per square foot and all sizes in square feet. Other units are converted for display.
 export const DEFAULT_VIGHA_SQFT = 17424; // changeable in Settings; local vigha sizes differ across Gujarat
 
-export const UNITS = ['sqft', 'sqm', 'var', 'vigha', 'hectare'];
+export const UNITS = ['sqft', 'sqm', 'var', 'vigha', 'acre', 'hectare'];
+// Which units make sense per property type. A flat or a small plot is never priced per vigha or hectare,
+// and farm land is never priced per sq ft, so the screen only offers the units a broker would quote in.
+export const UNITS_BY_TYPE = {
+  flat: ['sqft', 'sqm'], office: ['sqft', 'sqm'], shop: ['sqft', 'sqm'], bungalow: ['sqft', 'sqm', 'var'],
+  plot: ['var', 'sqft', 'sqm'], industrial: ['sqm', 'sqft', 'var'], land: ['vigha', 'acre', 'hectare'],
+};
+export const unitsFor = (ptype) => UNITS_BY_TYPE[ptype] || UNITS;
+// Sane band in rupees per sq ft; anything outside is kept out of the averages and shown as "check".
+export const BOUNDS = { flat: [500, 30000], bungalow: [500, 40000], shop: [800, 60000], office: [800, 40000], plot: [100, 50000], industrial: [100, 15000], land: [10, 1500] };
+export const inBounds = (p) => { const b = BOUNDS[p.ptype]; const v = Number(p.price_sqft); return !b || (v >= b[0] && v <= b[1]); };
 
 export function sqftPer(unit, vighaSqft = DEFAULT_VIGHA_SQFT) {
-  return { sqft: 1, sqm: 10.7639, var: 9, vigha: vighaSqft, hectare: 107639 }[unit] || 1;
+  return { sqft: 1, sqm: 10.7639, var: 9, vigha: vighaSqft, acre: 43560, hectare: 107639 }[unit] || 1;
 }
 export const toSqft = (size, unit, v) => Number(size) * sqftPer(unit, v);
 export const rateToSqft = (rate, unit, v) => Number(rate) / sqftPer(unit, v);
