@@ -1,0 +1,101 @@
+// Area master list. Coordinates are approximate centre points; correct any pin in Supabase `areas` or here.
+// [id, English, Gujarati, district, lat, lng, extra search aliases]
+const A = [
+  ['piplod', 'Piplod', 'પીપલોદ', 'Surat', 21.158, 72.770, 'piplodh pipload svnit'],
+  ['vesu', 'Vesu', 'વેસુ', 'Surat', 21.141, 72.771, 'vesoo'],
+  ['adajan', 'Adajan', 'અડાજણ', 'Surat', 21.196, 72.793, 'adajn adajan patiya'],
+  ['pal', 'Pal', 'પાલ', 'Surat', 21.196, 72.776, 'pal gam'],
+  ['katargam', 'Katargam', 'કતારગામ', 'Surat', 21.229, 72.831, 'katargaam'],
+  ['varachha', 'Varachha', 'વરાછા', 'Surat', 21.210, 72.857, 'varacha varachha road'],
+  ['mota-varachha', 'Mota Varachha', 'મોટા વરાછા', 'Surat', 21.238, 72.884, 'mota varacha'],
+  ['sarthana', 'Sarthana', 'સરથાણા', 'Surat', 21.230, 72.905, 'sarthana jakatnaka'],
+  ['city-light', 'City Light', 'સિટી લાઇટ', 'Surat', 21.170, 72.790, 'citylight સિટીલાઇટ'],
+  ['athwalines', 'Athwalines', 'અઠવાલાઇન્સ', 'Surat', 21.177, 72.803, 'athwa athwa lines અઠવા'],
+  ['ghod-dod-road', 'Ghod Dod Road', 'ઘોડ દોડ રોડ', 'Surat', 21.176, 72.808, 'ghoddod ghod dod'],
+  ['althan', 'Althan', 'અલથાણ', 'Surat', 21.149, 72.797, 'althaan'],
+  ['bhatar', 'Bhatar', 'ભટાર', 'Surat', 21.165, 72.812, 'bhatar road'],
+  ['udhna', 'Udhna', 'ઉધના', 'Surat', 21.170, 72.842, 'udhana'],
+  ['pandesara', 'Pandesara', 'પાંડેસરા', 'Surat', 21.146, 72.838, 'pandesra'],
+  ['dindoli', 'Dindoli', 'ડીંડોલી', 'Surat', 21.143, 72.874, 'dindoli ડિંડોલી'],
+  ['sachin', 'Sachin', 'સચિન', 'Surat', 21.086, 72.881, 'sachin gidc'],
+  ['rander', 'Rander', 'રાંદેર', 'Surat', 21.218, 72.795, 'rander road'],
+  ['jahangirpura', 'Jahangirpura', 'જહાંગીરપુરા', 'Surat', 21.228, 72.783, 'jahangirpura'],
+  ['chowk-bazaar', 'Chowk Bazaar', 'ચોક બજાર', 'Surat', 21.196, 72.819, 'chowk chok bazar ચોક'],
+  ['magdalla', 'Magdalla', 'મગદલ્લા', 'Surat', 21.140, 72.745, 'magdala'],
+  ['dumas', 'Dumas', 'ડુમસ', 'Surat', 21.085, 72.715, 'dumas road dummas'],
+  ['khajod', 'Khajod (DREAM City)', 'ખજોદ (ડ્રીમ સિટી)', 'Surat', 21.118, 72.790, 'dream city diamond bourse ખજોદ ડ્રીમ સિટી'],
+  ['hazira', 'Hazira', 'હજીરા', 'Surat', 21.113, 72.648, 'hajira'],
+  ['olpad', 'Olpad', 'ઓલપાડ', 'Surat', 21.337, 72.752, 'olpaad'],
+  ['kamrej', 'Kamrej', 'કામરેજ', 'Surat', 21.268, 72.958, 'kamrej char rasta'],
+  ['kim', 'Kim', 'કીમ', 'Surat', 21.401, 72.928, 'keem'],
+  ['kosamba', 'Kosamba', 'કોસંબા', 'Surat', 21.462, 72.958, ''],
+  ['palsana', 'Palsana', 'પલસાણા', 'Surat', 21.085, 72.985, ''],
+  ['bardoli', 'Bardoli', 'બારડોલી', 'Surat', 21.122, 73.112, 'bardoli'],
+  ['mandvi-surat', 'Mandvi', 'માંડવી', 'Surat', 21.255, 73.305, 'mandavi'],
+  ['ubhrat', 'Ubhrat', 'ઉભરાટ', 'Navsari', 21.010, 72.740, 'ubhrat beach ubharat ઉભરાટ'],
+  ['navsari', 'Navsari', 'નવસારી', 'Navsari', 20.947, 72.952, ''],
+  ['gandevi', 'Gandevi', 'ગણદેવી', 'Navsari', 20.812, 72.997, ''],
+  ['bilimora', 'Bilimora', 'બીલીમોરા', 'Navsari', 20.769, 72.962, 'billimora'],
+  ['chikhli', 'Chikhli', 'ચીખલી', 'Navsari', 20.757, 73.064, 'chikhali'],
+  ['valsad', 'Valsad', 'વલસાડ', 'Valsad', 20.599, 72.934, 'bulsar'],
+  ['vapi', 'Vapi', 'વાપી', 'Valsad', 20.372, 72.905, ''],
+  ['vyara', 'Vyara', 'વ્યારા', 'Tapi', 21.110, 73.394, ''],
+  ['ankleshwar', 'Ankleshwar', 'અંકલેશ્વર', 'Bharuch', 21.626, 73.015, 'ankleshvar'],
+  ['bharuch', 'Bharuch', 'ભરૂચ', 'Bharuch', 21.705, 72.996, 'bharuch broach'],
+];
+
+export const SURAT = { lat: 21.1702, lng: 72.8311 };
+
+export const AREAS = A.map(([id, en, gu, district, lat, lng, alias]) => ({
+  id, en, gu, district, lat, lng,
+  keys: [en.toLowerCase(), gu, ...aliasList(alias)].filter(Boolean),
+}));
+
+function aliasList(s) {
+  // aliases are space separated single words, except known multi-word ones we keep whole
+  const multi = ['adajan patiya', 'pal gam', 'varachha road', 'mota varacha', 'sarthana jakatnaka', 'athwa lines', 'ghod dod', 'bhatar road', 'sachin gidc', 'rander road', 'chok bazar', 'dumas road', 'dream city', 'diamond bourse', 'ડ્રીમ સિટી', 'kamrej char rasta', 'ubhrat beach'];
+  const out = [];
+  let rest = s;
+  for (const m of multi) if (rest.includes(m)) { out.push(m); rest = rest.replace(m, ' '); }
+  return out.concat(rest.split(/\s+/).filter(Boolean));
+}
+
+export const areaById = (id) => AREAS.find((a) => a.id === id);
+export const areaName = (a, lang) => (a ? (lang === 'en' ? a.en : a.gu) : '');
+
+export function km(aLat, aLng, bLat, bLng) {
+  const R = 6371, d = Math.PI / 180;
+  const x = Math.sin(((bLat - aLat) * d) / 2) ** 2 + Math.cos(aLat * d) * Math.cos(bLat * d) * Math.sin(((bLng - aLng) * d) / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+
+// Search in English or Gujarati. Returns best matches first.
+export function searchAreas(q) {
+  q = (q || '').trim().toLowerCase();
+  if (!q) return AREAS.slice();
+  const scored = [];
+  for (const a of AREAS) {
+    let best = 0;
+    for (const k of a.keys) {
+      if (k === q) best = Math.max(best, 3);
+      else if (k.startsWith(q)) best = Math.max(best, 2);
+      else if (k.includes(q)) best = Math.max(best, 1);
+    }
+    if (a.district.toLowerCase() === q) best = Math.max(best, 1);
+    if (best) scored.push([best, a]);
+  }
+  return scored.sort((x, y) => y[0] - x[0]).map((x) => x[1]);
+}
+
+// Longest area key found inside free text (voice / WhatsApp message).
+export function findAreaInText(text) {
+  const t = ' ' + (text || '').toLowerCase() + ' ';
+  let hit = null, len = 0;
+  for (const a of AREAS) for (const k of a.keys) {
+    if (k.length < 3) continue;
+    const latin = /^[a-z ]+$/.test(k);
+    const found = latin ? new RegExp('[^a-z]' + k.replace(/ /g, '\\s*') + '[^a-z]').test(t) : t.includes(k);
+    if (found && k.length > len) { hit = a; len = k.length; }
+  }
+  return hit;
+}

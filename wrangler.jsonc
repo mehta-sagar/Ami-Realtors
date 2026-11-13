@@ -1,0 +1,6 @@
+{
+  // Static site on Cloudflare Workers. Everything in ./public is served as is.
+  "name": "ami-realtors",
+  "compatibility_date": "2026-11-13",
+  "assets": { "directory": "./public" }
+}
