@@ -692,8 +692,9 @@ function stats(areaId, ptype, kind, furnished, grade) {
   if (kind === 'market' && furnished != null) all = all.filter((p) => (furnished ? p.furnished === true : p.furnished !== true));
   if (grade && grade !== 'all') all = all.filter((p) => p.grade === grade);
   if (kind === 'jantri') {
-    const last = all.slice().sort((a, b) => String(b.observed_on).localeCompare(String(a.observed_on)))[0];
-    return { n: all.length, used: last ? 1 : 0, dropped: 0, median: last ? Number(last.price_sqft) : null, mean: null, min: null, max: null, lo: -Infinity, hi: Infinity, points: all, old: [] };
+    // Jantri differs by survey / TP-FP number inside one area, so show its range too. Official rates stay valid until revised.
+    const sm = summarize(all);
+    return { ...sm, points: all, old: [], lo: -Infinity, hi: Infinity };
   }
   const pts = all.filter((p) => String(p.observed_on) >= cut);
   return { ...summarize(pts), points: pts, old: all.filter((p) => String(p.observed_on) < cut) };
@@ -726,7 +727,7 @@ function viewPrices() {
       line(t('market_rate'), mk.median == null ? t('no_price') : [P.stat === 'range' && `${t('median')} ${rate(mk.median, unit)}`, pct(mk.median, j.median) && `${t('vs_jantri')} ${pct(mk.median, j.median)}`, `${mk.used} ${t('prices_found')}`, mk.dropped ? `${mk.dropped} ${t('dropped')}` : null].filter(Boolean).join(' · '), mk.median == null ? '—' : head, true),
       h('div', { class: 'statseg' }, seg([['range', t('range')], ['median', t('median')], ['mean', t('mean')], ['low', t('low')], ['high', t('high')]], P.stat, (v) => { P.stat = v; rd(); })),
       line(t('dastavej'), pct(d.median, j.median) && `${t('vs_jantri')} ${pct(d.median, j.median)}`, rate(d.median, unit)),
-      line(t('jantri'), t('jantri_sub') + ' · ' + t('src_garvi'), rate(j.median, unit))),
+      line(t('jantri'), [t('jantri_sub') + ' · ' + t('src_garvi'), j.used > 1 && `${t('median')} ${rate(j.median, unit)} · ${j.used} TP/FP`].filter(Boolean).join(' · '), j.used > 1 && j.min !== j.max ? `₹ ${bare(j.min)} – ${bare(j.max)}` : rate(j.median, unit))),
     h('div', { class: 'grid2' },
       h('button', { class: 'btn green', onclick: () => pricePointForm({ area_id: a.id, ptype: P.ptype, unit }) }, icon('plus', 18), t('add_price')),
       h('button', { class: 'btn', onclick: () => pasteMessage(a.id, P.ptype) }, t('paste_msg'))),
