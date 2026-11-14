@@ -15,8 +15,9 @@
    "paper": "Sandesh",
    "edition": "Surat City",
    "classifieds_page": 13,
-   "where": "public notices (જાહેર નોટીસ) incl. land title notices",
-   "checked": "2026-11-14"
+   "where": "tenders and government notices (SMC, Vapi municipality, GIDC, Torrent Power); on 14 Nov 2026 no land-title notices. Title notices (જાહેર નોટીસ / ટાઈટલ ક્લીયરન્સ) can appear on this or other inner pages.",
+   "checked": "2026-11-14",
+   "use": "title notices → leads (owner name + survey/block number + village + advocate phone, as printed)"
   },
   {
    "paper": "Gujarat Samachar",

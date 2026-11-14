@@ -102,6 +102,12 @@ const T = {
   conf_floor: ['ઓછામાં ઓછું = જંત્રી; બજાર ભાવ હજુ મળ્યો નથી', 'At least the jantri; no market quote yet'],
   f_jobs_near: ['ઉદ્યોગ-રોજગાર નજીક, પણ દૂર એટલે પ્રદૂષણ ઓછું', 'Industry jobs within reach, far enough from pollution'], proj_offline: ['પ્રોજેક્ટ લોડ ન થયા (ઇન્ટરનેટ તપાસો)', 'Could not load projects (check internet)'], retry: ['ફરી પ્રયાસ', 'Try again'],
   proj_near: ['નજીકના નવા પ્રોજેક્ટ (RERA)', 'New projects nearby (RERA)'],
+  bulk_paste: ['વોટ્સએપ ગ્રુપ ચેટ પેસ્ટ કરો (બધા એક સાથે)', 'Paste a whole WhatsApp group chat'], bulk_help: ['ગ્રુપના મેસેજ સિલેક્ટ કરી કોપી કરો, અથવા ગ્રુપ › Export chat › Without media ની ફાઇલનું લખાણ અહીં પેસ્ટ કરો.', 'Select and copy group messages, or paste the text of Group › Export chat › Without media.'],
+  bulk_read: ['વાંચો', 'Read messages'], bulk_found: ['મળ્યા', 'found'], bulk_prices: ['ભાવ', 'prices'], bulk_leads: ['સંપર્ક', 'contacts'], bulk_lead_only: ['સંપર્ક / મિલકત (ભાવ નથી)', 'Contact / property (no rate)'], bulk_none: ['કોઈ ભાવ કે નંબર ન મળ્યો', 'No prices or numbers found'], back: ['પાછા', 'Back'],
+  save_place: ['આ જગ્યા વિસ્તાર તરીકે સાચવો', 'Save this spot as an area'], residential_area: ['રહેણાંક / બજાર', 'Residential / market'],
+  push_title: ['સવારે 7 વાગ્યે સૂચના', '7 AM alert'], push_help: ['iPhone: Safari માં Share › Add to Home Screen કરી હોમ સ્ક્રીનથી એપ ખોલો, પછી આ બટન દબાવો.', 'iPhone: in Safari tap Share › Add to Home Screen, open the app from there, then tap this.'],
+  push_enable: ['સવારે 7 વાગ્યે સૂચના ચાલુ કરો', 'Turn on the 7 AM alert'], push_on: ['સવારની સૂચના ચાલુ છે', 'Morning alert is on'], push_denied: ['સૂચનાની પરવાનગી મળી નહીં (Settings › Notifications)', 'Notifications not allowed (Settings › Notifications)'],
+  push_homescreen: ['પહેલાં Share › Add to Home Screen કરો, પછી હોમ સ્ક્રીનથી ખોલો', 'First Share › Add to Home Screen, then open it from there'], push_unsupported: ['આ ફોનમાં સૂચના નથી ચાલતી (iOS 16.4+ જોઈએ)', 'Push not supported here (needs iOS 16.4+)'],
   conf_low: ['ઓછો ભરોસો', 'Low confidence'], conf_mid: ['મધ્યમ ભરોસો', 'Medium confidence'], model_price: ['મોડેલ ભાવ', 'Model price'],
   type: ['મિલકતનો પ્રકાર', 'Property type'], more: ['વધુ', 'More'], approx: ['આશરે', 'approx.'],
 };

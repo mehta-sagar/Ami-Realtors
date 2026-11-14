@@ -98,7 +98,7 @@ async function load() {
   const [news, market, prices, insights, tags, leads, pprices] = await Promise.all([pub('news'), pub('market'), pub('prices'), pub('insights'), pub('tags'), pub('leads'), pub('project_prices')]);
   S.leads = Array.isArray(leads) ? leads : []; S.projPrices = pprices && !Array.isArray(pprices) ? pprices : {};
   loadProjects().then(() => { if (S.tab === 'prices' || S.tab === 'properties') render(); });
-  S.villagesLoaded = false; loadVillages(); loadRiver();
+  addMyAreas(); S.villagesLoaded = false; loadVillages(); loadRiver();
   S.insights = Array.isArray(insights) ? insights : []; S.tags = tags && !Array.isArray(tags) ? tags : {};
   if (news.length) S.data.news = news.sort((a, b) => String(b.published_on).localeCompare(String(a.published_on)));
   if (market.length) S.data.market = market.sort((a, b) => String(b.day).localeCompare(String(a.day)));
@@ -401,6 +401,7 @@ function drawMapCard() {
       h('div', { class: 'between' }, h('span', { class: 'gold xs b' }, pa && pa.own ? t('market_rate') : t('nearby_estimate')), h('span', { class: 'title big' }, pa ? (pa.own ? '' : pa.conf === 'floor' ? '≥ ' : '≈ ') + rate(pa.value, pu) : t('no_price'))),
       pa ? h('div', { class: 'xs muted' }, srcLine(pa, pu)) : h('div', { class: 'xs muted' }, t('no_nearby')),
       allRows,
+      h('button', { class: 'linkbtn', onclick: () => savePlace(sp) }, '＋ ', t('save_place')),
       nProj ? h('button', { class: 'btn', onclick: () => { S.propView = 'projects'; S.projQ = { year: 'all', type: 'all', q: '', areas: projNear, n: 40 }; go('properties'); } }, `🏗 ${t('proj_near')}: ${nProj}`) : null,
       near && near.d <= 8 && h('button', { class: 'btn gold', onclick: () => { S.spotAt = null; S.price.area = near.a.id; S.price.ptype = S.mapType; S.price.unit = null; S.price.grade = 'all'; S.tab = 'prices'; render(); } }, `${t('full_detail')}: ${areaName(near.a, getLang())}`)));
   }
@@ -490,6 +491,97 @@ function pasteMessage(areaId, ptype) {
       sh.close(); pricePointForm(init);
     } }, t('fill_form')),
   ]);
+}
+
+// ---------- 7:00 AM phone alert (Web Push; iPhone needs the app added to the Home Screen) ----------
+const VAPID_PUBLIC = 'BNtoml6LfhC9dHDsMsYPALscCz34LQj_wHTCm_HtndA91y0i61XcjXFx9u56uszoGCijrPMtVQZt-CjZML52-kA';
+const pushOn = () => cfg.get('push.on', false);
+async function enablePush() {
+  try {
+    const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return toast(standalone ? t('push_unsupported') : t('push_homescreen'), true);
+    if ((await Notification.requestPermission()) !== 'granted') return toast(t('push_denied'), true);
+    const reg = await navigator.serviceWorker.ready;
+    const key = Uint8Array.from(atob(VAPID_PUBLIC.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - (VAPID_PUBLIC.length % 4)) % 4)), (c) => c.charCodeAt(0));
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    const r = await fetch((cfg.get('sbUrl') || DEFAULT_SB_URL) + '/rest/v1/rpc/save_push_sub', { method: 'POST', headers: { apikey: SB_PUBLIC_KEY, Authorization: 'Bearer ' + SB_PUBLIC_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ sub: sub.toJSON() }) });
+    if (!r.ok) throw new Error(await r.text());
+    cfg.set('push.on', true); toast(t('push_on'));
+  } catch (e) { fail(e); }
+}
+
+// ---------- Dad's own places (an estate or society the map doesn't know, e.g. a new industrial park) ----------
+const MYAREAS_KEY = 'myareas';
+function addMyAreas() {
+  for (const m of cfg.get(MYAREAS_KEY, [])) if (!areaById(m.id)) AREAS.push({ ...m, keys: [m.en.toLowerCase()], own: true });
+}
+function savePlace(sp) {
+  const f = { name: sp.label && !/^\d/.test(sp.label) ? sp.label.split(',')[0] : '', ind: !!estateAt(sp.lat, sp.lng) };
+  const sh = openSheet(t('save_place'), (api) => [
+    field(t('name'), inp(f, 'name', { placeholder: 'Hasmukh Industrial Estate' })),
+    seg([[false, t('residential_area')], [true, t('ind_estate')]], f.ind, (v) => { f.ind = v; api.redraw(); }),
+    h('button', { class: 'btn gold', onclick: () => {
+      const name = f.name.trim(); if (!name) return;
+      const a = { id: 'my-' + Date.now(), en: name, gu: name, district: 'Surat', lat: +sp.lat.toFixed(5), lng: +sp.lng.toFixed(5), ind: f.ind ? 0.8 : 0 };
+      cfg.set(MYAREAS_KEY, [...cfg.get(MYAREAS_KEY, []), a]); addMyAreas(); S.fits = null; sh.close();
+      S.spotAt = null; S.mapSel = a.id; render(); toast(t('saved'));
+    } }, t('save'))]);
+}
+
+// ---------- WhatsApp group: paste a whole chat, pull out every price, property and phone ----------
+function splitChat(text) {
+  const re = /^\u200e?\[?(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4}),?\s+\d{1,2}[:.]\d{2}(?::\d{2})?\s*(?:[ap]\.?\s?m\.?)?\]?\s*(?:-\s*)?([^:]{1,40}?):\s(.*)$/i;
+  const out = [];
+  for (const line of String(text).split(/\r?\n/)) {
+    const m = line.match(re);
+    if (m) { const y = m[3].length === 2 ? '20' + m[3] : m[3]; out.push({ date: `${y}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`, who: m[4].replace(/^\u200e/, '').trim(), text: m[5] }); }
+    else if (out.length && line.trim()) out[out.length - 1].text += '\n' + line;
+    else if (!out.length && line.trim()) out.push({ date: null, who: '', text: line });
+  }
+  if (out.length <= 1 && !re.test(String(text).split(/\n/)[0] || '')) return String(text).split(/\n\s*\n/).map((t2) => ({ date: null, who: '', text: t2.trim() })).filter((x) => x.text);
+  return out.filter((x) => !/<media omitted>|deleted this message|message was deleted|joined using|added|left$/i.test(x.text));
+}
+function bulkItems(text) {
+  const today = new Date().toISOString().slice(0, 10);
+  return splitChat(text).map((m, i) => {
+    const p = parseEntry(m.text), ptype = p.ptype || 'flat';
+    let sqft = null;
+    if (p.rate) sqft = rateToSqft(p.rate, p.rate_unit || defaultUnit(ptype), vigha());
+    else if (p.price && p.size) sqft = p.price / toSqft(p.size, p.size_unit || defaultUnit(ptype), vigha());
+    const quote = p.area_id && sqft && inBounds({ ptype, price_sqft: sqft }) ? { area_id: p.area_id, ptype, price_sqft: sqft } : null;
+    const date = m.date && !isNaN(new Date(m.date)) && m.date <= today ? m.date : today;
+    return { i, ...m, date, p, quote, lead: !!p.phone || (!!p.area_id && !!(p.price || p.rate)), on: !!(quote || p.phone) };
+  }).filter((x) => x.quote || x.lead);
+}
+function bulkPaste() {
+  const f = { text: '', items: null };
+  const sh = openSheet(t('bulk_paste'), (api) => {
+    if (!f.items) return [
+      h('div', { class: 'small muted' }, t('bulk_help')),
+      h('textarea', { class: 'input area', rows: 10, placeholder: '[12/11/26, 10:42:15] Ramesh Broker: Vesu 3BHK 1650 sqft 1.25 cr 98250xxxxx', oninput: (e) => { f.text = e.target.value; } }),
+      h('button', { class: 'btn gold', onclick: () => { f.items = bulkItems(f.text); api.redraw(); } }, t('bulk_read'))];
+    const nq = f.items.filter((x) => x.on && x.quote).length, nl = f.items.filter((x) => x.on && !x.quote && x.p.phone).length;
+    return [
+      h('div', { class: 'small b' }, `${f.items.length} ${t('bulk_found')} · ${nq} ${t('bulk_prices')} · ${nl} ${t('bulk_leads')}`),
+      f.items.length ? f.items.map((x) => h('label', { class: 'pt row' + (x.on ? '' : ' out') },
+        h('input', { type: 'checkbox', checked: x.on, onchange: (e) => { x.on = e.target.checked; api.redraw(); } }),
+        h('div', { class: 'grow' },
+          h('div', { class: 'small b' }, [x.quote ? `${areaName(areaById(x.quote.area_id), getLang())} · ${t(x.quote.ptype)} · ${rate(x.quote.price_sqft, defaultUnit(x.quote.ptype))}/${unitLabel(defaultUnit(x.quote.ptype))}` : t('bulk_lead_only'), x.p.phone && '📞 ' + x.p.phone].filter(Boolean).join(' · ')),
+          h('div', { class: 'xs muted' }, [x.who, x.date].filter(Boolean).join(' · ')),
+          h('div', { class: 'xs' }, x.text.slice(0, 160))))) : h('div', { class: 'muted' }, t('bulk_none')),
+      h('div', { class: 'grid2' },
+        h('button', { class: 'btn', onclick: () => { f.items = null; api.redraw(); } }, t('back')),
+        h('button', { class: 'btn gold', onclick: async () => {
+          let q = 0, l = 0;
+          const leads = cfg.get(LEADS_KEY, []);
+          for (const x of f.items.filter((y) => y.on)) {
+            const br = S.data.brokers.find((b) => (x.p.phone && tel(b.phone) === tel(x.p.phone)) || (x.who && b.name && b.name.toLowerCase() === x.who.toLowerCase()));
+            if (x.quote) { try { await saveRec('price_points', { ...x.quote, kind: 'market', furnished: x.p.furnished ?? null, source: 'whatsapp', broker_id: br ? br.id : null, note: `${x.who ? x.who + ': ' : ''}${x.text.slice(0, 140)}`, observed_on: x.date }); q++; } catch (e) { fail(e); } }
+            if (x.p.phone && !leads.some((o) => o.phone === x.p.phone && o.text === x.text)) { leads.unshift({ id: 'w' + Date.now() + x.i, date: x.date, text: x.text.slice(0, 300), phone: x.p.phone, area_id: x.p.area_id, ptype: x.p.ptype, name: x.p.name, source: 'WhatsApp' + (x.who ? ': ' + x.who : '') }); l++; }
+          }
+          cfg.set(LEADS_KEY, leads.slice(0, 1000)); S.fits = null; sh.close(); toast(`${q} ${t('bulk_prices')} · ${l} ${t('bulk_leads')} ✓`); render();
+        } }, t('save')))];
+  });
 }
 
 // ---------- Inquiries ----------
@@ -670,6 +762,8 @@ function settings() {
       h('h3', {}, t('language')), seg([['gu', 'ગુજરાતી'], ['en', 'English']], getLang(), (v) => { setLang(v); sh.close(); render(); settings(); }),
       field(t('vigha_size'), numInp(f, 'vigha', { onchange: () => { cfg.set('vigha', N(f.vigha) || DEFAULT_VIGHA_SQFT); render(); } })),
       field(t('biz_phone'), inp(f, 'bizPhone', { inputmode: 'tel', onchange: () => cfg.set('bizPhone', f.bizPhone) })),
+      h('h3', {}, t('push_title')), h('div', { class: 'xs muted' }, t('push_help')),
+      h('button', { class: 'btn ' + (pushOn() ? '' : 'gold'), onclick: async () => { await enablePush(); api.redraw(); } }, pushOn() ? '✓ ' + t('push_on') : t('push_enable')),
       h('h3', {}, t('lock')),
       lock.hasPin ? [h('button', { class: 'btn', onclick: () => { lock.clear(); api.redraw(); } }, t('remove_pin')),
         lock.hasFace ? h('div', { class: 'small goldtext b' }, t('faceid_on')) : (window.PublicKeyCredential && h('button', { class: 'btn green', onclick: async () => { try { await lock.enableFace(); api.redraw(); } catch (e) { fail(e); } } }, t('enable_faceid')))]
@@ -754,6 +848,7 @@ function viewToday() {
       h('button', { class: 'iconbtn', 'aria-label': t('settings'), onclick: settings }, icon('gear'))),
     m && h('div', { class: 'grid4' }, [['gold', m.gold_10g, moneyShort], ['silver', m.silver_kg, moneyShort], ['sensex', m.sensex, (x) => Number(x).toLocaleString('en-IN')], ['home_loan', m.home_loan_rate, (x) => x + '%']]
       .map(([k, v, f]) => h('div', { class: 'tile' }, h('div', { class: 'muted xs' }, t(k)), h('div', { class: 'b' }, v == null ? '—' : f(v))))),
+    !pushOn() && h('button', { class: 'btn gold', onclick: async () => { await enablePush(); render(); } }, '🔔 ', t('push_enable')),
     h('section', { class: 'card' },
       h('div', { class: 'between' }, h('h2', {}, t('todo_today')), h('button', { class: 'linkbtn', onclick: () => taskForm({}, render) }, '+ ', t('task'))),
       due.length ? due.map((d) => dueRow(d, render)) : h('div', { class: 'muted small' }, t('no_followups'))),
@@ -985,6 +1080,7 @@ function viewPrices() {
     h('div', { class: 'grid2' },
       h('button', { class: 'btn green', onclick: () => pricePointForm({ area_id: a.id, ptype: P.ptype, unit }) }, icon('plus', 18), t('add_price')),
       h('button', { class: 'btn', onclick: () => pasteMessage(a.id, P.ptype) }, t('paste_msg'))),
+    h('button', { class: 'btn', onclick: bulkPaste }, '📋 ', t('bulk_paste')),
     h('section', { class: 'card' }, h('h2', {}, t('all_quotes'), ' (', quotes.length + mk.old.length + (mk.bad || []).length, ')'),
       h('div', { class: 'xs muted' }, t('quotes_note')),
       quotes.length + mk.old.length + (mk.bad || []).length ? h('div', { class: 'list tight' }, quotes.map((p) => quote(p)), mk.old.map((p) => quote(p, true)), (mk.bad || []).map((p) => quote(p, 'bad'))) : h('div', { class: 'muted small' }, t('no_price'))),
@@ -1140,7 +1236,7 @@ function cgCalc() {
 function viewMore() {
   const row = (k, fn) => h('button', { class: 'row big', onclick: fn }, h('span', {}, t(k)), icon('chev', 18));
   return [h('header', { class: 'hdr' }, h('h1', { class: 'grow' }, t('more'))),
-    h('section', { class: 'card' }, row('prices', () => go('prices')), row('brokers', () => brokersSheet()), row('commission', commission)),
+    h('section', { class: 'card' }, row('prices', () => go('prices')), row('bulk_paste', bulkPaste), row('brokers', () => brokersSheet()), row('commission', commission)),
     h('section', { class: 'card' }, row('emi_calc', emiCalc), row('stamp_calc', stampCalc), row('cg_calc', cgCalc)),
     h('section', { class: 'card' }, row('reports', reportsSheet), row('settings', settings))];
 }
@@ -1273,6 +1369,7 @@ function viewLeads() {
   const all = [...cfg.get(LEADS_KEY, []), ...(S.leads || [])].sort((x, y) => String(y.date).localeCompare(String(x.date)));
   return [
     h('div', { class: 'small muted' }, t('leads_note')),
+    h('button', { class: 'btn', onclick: bulkPaste }, '📋 ', t('bulk_paste')),
     h('button', { class: 'btn gold', onclick: () => voiceBox(t('add_lead'), (text) => { const p = parseEntry(text); const l = { id: 'l' + Date.now(), date: new Date().toISOString().slice(0, 10), text, phone: p.phone, area_id: p.area_id, ptype: p.ptype, name: p.name, source: t('src_own') }; cfg.set(LEADS_KEY, [l, ...cfg.get(LEADS_KEY, [])]); render(); }) }, icon('plus', 18), t('add_lead')),
     all.length ? all.map((l) => { const ph = tel(l.phone); return h('article', { class: 'card' },
       h('div', { class: 'tag' }, [l.source, l.date && fmtDate(l.date, { day: 'numeric', month: 'short' }), areaById(l.area_id) && areaName(areaById(l.area_id), getLang())].filter(Boolean).join(' · ')),

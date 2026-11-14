@@ -1,6 +1,8 @@
 {
-  // Static site on Cloudflare Workers. Everything in ./public is served as is.
+  // Ami Realtors on Cloudflare Workers: ./public is the app; src/worker.js adds the 7:00 IST morning alert.
   "name": "ami-realtors",
   "compatibility_date": "2026-11-13",
-  "assets": { "directory": "./public" }
+  "main": "src/worker.js",
+  "assets": { "directory": "./public", "binding": "ASSETS" },
+  "triggers": { "crons": ["30 1 * * *"] }
 }
