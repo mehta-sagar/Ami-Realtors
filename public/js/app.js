@@ -401,7 +401,7 @@ function drawMapCard() {
       h('div', { class: 'between' }, h('span', { class: 'gold xs b' }, pa && pa.own ? t('market_rate') : t('nearby_estimate')), h('span', { class: 'title big' }, pa ? (pa.own ? '' : pa.conf === 'floor' ? '≥ ' : '≈ ') + rate(pa.value, pu) : t('no_price'))),
       pa ? h('div', { class: 'xs muted' }, srcLine(pa, pu)) : h('div', { class: 'xs muted' }, t('no_nearby')),
       allRows,
-      h('button', { class: 'linkbtn', onclick: () => savePlace(sp) }, '＋ ', t('save_place')),
+      h('div', { class: 'grid2' }, gmapsBtn(sp.lat, sp.lng), h('button', { class: 'btn', onclick: () => savePlace(sp) }, '＋ ', t('save_place'))),
       nProj ? h('button', { class: 'btn', onclick: () => { S.propView = 'projects'; S.projQ = { year: 'all', type: 'all', q: '', areas: projNear, n: 40 }; go('properties'); } }, `🏗 ${t('proj_near')}: ${nProj}`) : null,
       near && near.d <= 8 && h('button', { class: 'btn gold', onclick: () => { S.spotAt = null; S.price.area = near.a.id; S.price.ptype = S.mapType; S.price.unit = null; S.price.grade = 'all'; S.tab = 'prices'; render(); } }, `${t('full_detail')}: ${areaName(near.a, getLang())}`)));
   }
@@ -417,6 +417,7 @@ function drawMapCard() {
       h('div', { class: 'tile' }, h('div', { class: 'muted xs' }, t('dastavej')), h('div', { class: 'b' }, rate(d.median, unit))),
       h('div', { class: 'tile dark' }, h('div', { class: 'gold xs' }, est ? t('nearby_estimate') : t('market_rate')), h('div', { class: 'b' }, est ? '≈ ' + rate(est.value, unit) : rate(mk.median, unit)))),
     est && h('div', { class: 'xs muted' }, t('based_on'), ': ', knnLine(est, unit)),
+    gmapsBtn(null, null, `${a.en.replace(/\s*\(.*\)/, '')}, ${a.district}, Gujarat`),
     S.projects && S.projects.some((p) => p.area_id === a.id) && h('button', { class: 'btn', onclick: () => { S.propView = 'projects'; S.projQ = { year: 'all', type: 'all', q: '', area: a.id, n: 40 }; go('properties'); } }, `🏗 ${t('proj_near')}: ${S.projects.filter((p) => p.area_id === a.id).length}`),
     h('button', { class: 'btn gold', onclick: () => { S.price.area = a.id; S.price.ptype = S.mapType; S.price.unit = null; S.price.grade = 'all'; S.tab = 'prices'; render(); } }, t('full_detail'))));
 }
@@ -508,6 +509,34 @@ async function enablePush() {
     if (!r.ok) throw new Error(await r.text());
     cfg.set('push.on', true); toast(t('push_on'));
   } catch (e) { fail(e); }
+}
+
+// ---------- Google Maps and dropping a pin ----------
+const gmaps = (lat, lng, q) => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(lat != null ? `${(+lat).toFixed(6)},${(+lng).toFixed(6)}` : q);
+const gmapsBtn = (lat, lng, q, cls = 'btn') => h('a', { class: cls, href: gmaps(lat, lng, q), target: '_blank', rel: 'noopener' }, '🗺 ', t('google_maps'));
+// A sheet with a map: tap to drop the pin, drag to fine-tune, then save.
+function pinPicker(title, at, onSave) {
+  const L = window.L; let m = null, pos = at.exact ? { lat: at.lat, lng: at.lng } : null;
+  const sh = openSheet(title, () => [
+    h('div', { class: 'xs muted' }, t('pin_help')),
+    h('div', { id: 'pinmap', style: 'height:360px;flex:none;border-radius:16px;overflow:hidden' }),
+    h('button', { class: 'btn gold', onclick: () => { if (!pos) return toast(t('pin_help'), true); onSave(pos); sh.close(); } }, t('save'))]);
+  setTimeout(() => {
+    const map = L.map('pinmap').setView([at.lat, at.lng], at.exact ? 17 : 15);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+    const put = (ll) => { pos = { lat: ll.lat, lng: ll.lng }; if (m) m.setLatLng(ll); else { m = L.marker(ll, { draggable: true }).addTo(map); m.on('dragend', () => { const q = m.getLatLng(); pos = { lat: q.lat, lng: q.lng }; }); } };
+    if (pos) put(pos);
+    map.on('click', (e) => put(e.latlng));
+  }, 50);
+}
+const PROJPIN_KEY = 'projpins';
+const projPin = (p) => cfg.get(PROJPIN_KEY, {})[p.rera] || null;
+// Where to draw a project: Dad's own pin if he set one, otherwise spread around its area's centre (approximate).
+function projPos(p, i) {
+  const own = projPin(p); if (own) return { ...own, exact: true };
+  const a = areaById(p.area_id); if (!a) return null;
+  const ang = i * 2.39996, r = 0.0018 * Math.sqrt(i + 1);
+  return { lat: a.lat + r * Math.cos(ang), lng: a.lng + r * Math.sin(ang) * 1.07, exact: false };
 }
 
 // ---------- Dad's own places (an estate or society the map doesn't know, e.g. a new industrial park) ----------
@@ -626,7 +655,7 @@ function propCard(p) {
       h('div', { class: 'small muted' }, [p.owner_name, p.furnished === true ? t('furnished') : p.furnished === false ? t('unfurnished') : null, p.floor && `${t('floor')} ${p.floor}`, p.facing].filter(Boolean).join(' · ')))),
     h('div', { class: 'grid3' },
       ph ? h('a', { class: 'btn green', href: 'tel:+91' + ph }, t('call')) : h('span', {}),
-      h('button', { class: 'btn', onclick: () => shareCard(p).catch(fail) }, t('share_card')),
+      a ? gmapsBtn(null, null, [p.address, a.en.replace(/\s*\(.*\)/, ''), a.district, 'Gujarat'].filter(Boolean).join(', ')) : h('button', { class: 'btn', onclick: () => shareCard(p).catch(fail) }, t('share_card')),
       h('button', { class: 'btn', onclick: () => propertyForm(p) }, t('edit'))));
 }
 function viewProps() {
@@ -1319,7 +1348,10 @@ function projCard(p) {
     h('div', { class: 'grid3' },
       ph ? h('a', { class: 'btn green', href: 'tel:+91' + ph }, t('call')) : h('span', {}),
       ph ? h('a', { class: 'btn', href: 'https://wa.me/91' + ph, target: '_blank', rel: 'noopener' }, 'WhatsApp') : h('span', {}),
-      reportBtn('project', `${p.name} · ${p.rera}`)));
+      reportBtn('project', `${p.name} · ${p.rera}`)),
+    h('div', { class: 'grid2' },
+      (() => { const pin = projPin(p); return pin ? gmapsBtn(pin.lat, pin.lng) : gmapsBtn(null, null, `${p.name}, ${(areaById(p.area_id) || {}).en || projArea(p)}, ${p.district || 'Surat'}, Gujarat`); })(),
+      h('button', { class: 'btn', onclick: () => { const a = areaById(p.area_id) || SURAT, pin = projPin(p); pinPicker(p.name, pin ? { ...pin, exact: true } : { lat: a.lat, lng: a.lng }, (pos) => { const all = cfg.get(PROJPIN_KEY, {}); all[p.rera] = { lat: +pos.lat.toFixed(6), lng: +pos.lng.toFixed(6) }; cfg.set(PROJPIN_KEY, all); toast(t('saved')); render(); }); } }, projPin(p) ? '📌 ' + t('pin_move') : '📍 ' + t('pin_set'))));
 }
 function viewProjects() {
   if (!S.projects) { loadProjects().then(render); return [h('div', { class: 'empty' }, t('loading'))]; }
@@ -1337,7 +1369,7 @@ function viewProjects() {
     chips(['all', 'residential', 'plotted', 'mixed', 'commercial'].map((k) => [k, k === 'all' ? t('all') : t('p_' + k)]), Q.type, (v) => { Q.type = v; Q.n = 40; render(); }, 'scroll'),
     h('div', { class: 'between' }, h('div', { class: 'xs muted' }, `${list.length} ${t('proj_count')} · ${t('proj_src')}`),
       h('button', { class: 'chip' + (Q.mapOn ? ' on' : ''), onclick: () => { Q.mapOn = !Q.mapOn; render(); } }, '🗺 ', t('map'))),
-    Q.mapOn ? h('div', { id: 'pmap', class: 'pmap' }) : null,
+    Q.mapOn ? h('div', { id: 'pmap', class: 'pmap', style: 'height:380px;flex:none;border-radius:18px;overflow:hidden;margin:6px 0 10px' }) : null,
     list.slice(0, Q.n).map(projCard),
     list.length > Q.n && h('button', { class: 'btn', onclick: () => { Q.n += 60; render(); } }, '+ ', list.length - Q.n),
   ];
@@ -1355,7 +1387,25 @@ function initProjMap() {
     const html = `<div class="pin${sel ? ' sel' : ''}"><span>${areaName(a, getLang())}</span><b>🏗 ${ps.length}</b></div>`;
     L.marker([a.lat, a.lng], { icon: L.divIcon({ className: 'pinwrap', html, iconSize: null }) }).on('click', () => { Q.area = id; Q.areas = null; Q.n = 40; render(); }).addTo(S.pmap);
   }
-  const sel = Q.area && areaById(Q.area); if (sel) S.pmap.setView([sel.lat, sel.lng], 13);
+  const pinLayer = L.layerGroup().addTo(S.pmap), bubbleLayer = L.layerGroup();
+  // area bubbles go in bubbleLayer; individual project pins appear from zoom 14
+  S.pmap.eachLayer((l) => { if (l instanceof L.Marker) { S.pmap.removeLayer(l); bubbleLayer.addLayer(l); } });
+  const esc = (x) => String(x || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const drawProj = () => {
+    pinLayer.clearLayers();
+    const z = S.pmap.getZoom(), b = S.pmap.getBounds();
+    if (z < 14) { if (!S.pmap.hasLayer(bubbleLayer)) bubbleLayer.addTo(S.pmap); return; }
+    S.pmap.removeLayer(bubbleLayer);
+    for (const ps of Object.values(by)) ps.forEach((p, i) => {
+      const pos = projPos(p, i); if (!pos || !b.contains([pos.lat, pos.lng])) return;
+      const html = `<div class="pin small${pos.exact ? ' sel' : ' est'}"><span>🏗 ${esc(p.name).slice(0, 22)}</span><b>${fmtDate(p.end_month + '-01', { month: 'short', year: '2-digit' })}</b></div>`;
+      L.marker([pos.lat, pos.lng], { icon: L.divIcon({ className: 'pinwrap', html, iconSize: null }) })
+        .bindPopup(`<b>${esc(p.name)}</b><br>${esc(p.promoter)}<br>${t('possession')}: ${esc(p.end_month)}<br>${pos.exact ? '' : '<i>' + t('pin_approx') + '</i><br>'}<a href="${gmaps(pos.exact ? pos.lat : null, pos.lng, `${p.name}, ${(areaById(p.area_id) || {}).en || projArea(p)}, Surat, Gujarat`)}" target="_blank" rel="noopener">${t('google_maps')}</a>${p.phone ? ` · <a href="tel:+91${tel(p.phone)}">${t('call')}</a>` : ''}`)
+        .addTo(pinLayer);
+    });
+  };
+  S.pmap.on('zoomend moveend', drawProj); drawProj();
+  const sel = Q.area && areaById(Q.area); if (sel) S.pmap.setView([sel.lat, sel.lng], 15);
 }
 function projectsHere(a) {
   if (!S.projects) return null;

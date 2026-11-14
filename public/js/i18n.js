@@ -108,6 +108,7 @@ const T = {
   push_title: ['સવારે 7 વાગ્યે સૂચના', '7 AM alert'], push_help: ['iPhone: Safari માં Share › Add to Home Screen કરી હોમ સ્ક્રીનથી એપ ખોલો, પછી આ બટન દબાવો.', 'iPhone: in Safari tap Share › Add to Home Screen, open the app from there, then tap this.'],
   push_enable: ['સવારે 7 વાગ્યે સૂચના ચાલુ કરો', 'Turn on the 7 AM alert'], push_on: ['સવારની સૂચના ચાલુ છે', 'Morning alert is on'], push_denied: ['સૂચનાની પરવાનગી મળી નહીં (Settings › Notifications)', 'Notifications not allowed (Settings › Notifications)'],
   push_homescreen: ['પહેલાં Share › Add to Home Screen કરો, પછી હોમ સ્ક્રીનથી ખોલો', 'First Share › Add to Home Screen, then open it from there'], push_unsupported: ['આ ફોનમાં સૂચના નથી ચાલતી (iOS 16.4+ જોઈએ)', 'Push not supported here (needs iOS 16.4+)'],
+  google_maps: ['Google Maps માં ખોલો', 'Open in Google Maps'], pin_set: ['નકશા પર પિન મૂકો', 'Drop pin on map'], pin_move: ['પિન બદલો', 'Move pin'], pin_help: ['નકશા પર જગ્યા દબાવો; પિન ખેંચીને સરખી કરો', 'Tap the spot on the map; drag the pin to adjust'], pin_approx: ['અંદાજિત જગ્યા (વિસ્તારનું કેન્દ્ર). સાચી જગ્યા માટે પિન મૂકો.', 'Approximate (area centre). Drop a pin for the exact spot.'],
   conf_low: ['ઓછો ભરોસો', 'Low confidence'], conf_mid: ['મધ્યમ ભરોસો', 'Medium confidence'], model_price: ['મોડેલ ભાવ', 'Model price'],
   type: ['મિલકતનો પ્રકાર', 'Property type'], more: ['વધુ', 'More'], approx: ['આશરે', 'approx.'],
 };
