@@ -1425,12 +1425,11 @@ function viewProjects() {
   if (!S.projects) { loadProjects().then(render); return [h('div', { class: 'empty' }, t('loading'))]; }
   if (!S.projects.length) return [h('div', { class: 'empty' }, t('proj_offline')), h('button', { class: 'btn', onclick: () => { S.projects = null; loadProjects(true).then(render); } }, t('retry'))];
   const Q = S.projQ ||= { year: 'all', type: 'all', q: '', area: null, n: 40 };
-  const q = Q.q.trim().toLowerCase();
-  const list = S.projects.filter((p) => (Q.year === 'all' || p.end_month.startsWith(Q.year)) && (Q.type === 'all' || p.ptype === Q.type) && (!Q.area || p.area_id === Q.area) && (!Q.areas || Q.areas.includes(p.area_id))
-    && (!q || [p.name, p.promoter, projArea(p), p.locality, p.taluka, p.end_month, areaName(areaById(p.area_id) || {}, 'gu')].join(' ').toLowerCase().includes(q)));
+  const list = S.projOnly ? S.projects.filter((p) => S.projOnly.includes(p.rera)) : projFilter(Q);
   const years = ['all', '2025', '2026', '2027', '2028', '2029', '2030'];
   return [
     h('label', { class: 'searchbox flat' }, icon('search', 18), h('input', { placeholder: t('search_proj'), value: Q.q, oninput: (e) => { Q.q = e.target.value; Q.n = 40; clearTimeout(S.pqT); S.pqT = setTimeout(render, 250); } })),
+    S.projOnly && h('button', { class: 'chip on', onclick: () => { S.projOnly = null; render(); } }, `🏗 ${S.projOnly.length} ${t('proj_count')}`, ' ✕'),
     Q.area && h('button', { class: 'chip on', onclick: () => { Q.area = null; render(); } }, areaName(areaById(Q.area), getLang()), ' ✕'),
     Q.areas && h('button', { class: 'chip on', onclick: () => { Q.areas = null; render(); } }, Q.areas.map((id) => areaName(areaById(id), getLang())).filter(Boolean).slice(0, 4).join(', '), ' ✕'),
     chips(years.map((y) => [y, y === 'all' ? t('all') : y]), Q.year, (v) => { Q.year = v; Q.n = 40; render(); }, 'scroll'),
@@ -1444,37 +1443,50 @@ function viewProjects() {
     list.length > Q.n && h('button', { class: 'btn', onclick: () => { Q.n += 60; render(); } }, '+ ', list.length - Q.n),
   ];
 }
-// Projects map: one bubble per area, sized by how many RERA projects are due there (filters above apply).
+// Projects map: clustered like Google Maps. Nearby projects merge into one "+N" bubble; tap it to zoom in.
+// Only what is on screen is drawn, and the grid is rebuilt on every pan/zoom, so 1,500+ projects stay light.
+function projFilter(Q) {
+  const q = Q.q.trim().toLowerCase();
+  return S.projects.filter((p) => (Q.year === 'all' || p.end_month.startsWith(Q.year)) && (Q.type === 'all' || p.ptype === Q.type) && (!Q.area || p.area_id === Q.area) && (!Q.areas || Q.areas.includes(p.area_id))
+    && (!q || [p.name, p.promoter, projArea(p), p.locality, p.taluka, p.end_month, p.address].join(' ').toLowerCase().includes(q)));
+}
 function initProjMap() {
   const L = window.L, Q = S.projQ, el = document.getElementById('pmap'); if (!el) return;
-  const q = Q.q.trim().toLowerCase();
-  const list = S.projects.filter((p) => (Q.year === 'all' || p.end_month.startsWith(Q.year)) && (Q.type === 'all' || p.ptype === Q.type) && (!q || [p.name, p.promoter, projArea(p), p.locality, p.taluka, p.end_month].join(' ').toLowerCase().includes(q)));
-  const by = {}; for (const p of list) if (areaById(p.area_id)) (by[p.area_id] ||= []).push(p);
-  S.pmap = L.map(el, { zoomControl: false }).setView([SURAT.lat, SURAT.lng], 11);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap' }).addTo(S.pmap);
-  for (const [id, ps] of Object.entries(by)) {
-    const a = areaById(id), sel = (Q.areas || []).includes(id) || Q.area === id;
-    const html = `<div class="pin${sel ? ' sel' : ''}"><span>${areaName(a, getLang())}</span><b>🏗 ${ps.length}</b></div>`;
-    L.marker([a.lat, a.lng], { icon: L.divIcon({ className: 'pinwrap', html, iconSize: null }) }).on('click', () => { Q.area = id; Q.areas = null; Q.n = 40; render(); }).addTo(S.pmap);
-  }
-  const pinLayer = L.layerGroup().addTo(S.pmap), bubbleLayer = L.layerGroup();
-  // area bubbles go in bubbleLayer; individual project pins appear from zoom 14
-  S.pmap.eachLayer((l) => { if (l instanceof L.Marker) { S.pmap.removeLayer(l); bubbleLayer.addLayer(l); } });
+  const pts = projFilter(Q).map((p) => ({ p, pos: projPos(p) })).filter((x) => x.pos);
+  const sel = Q.area && areaById(Q.area);
+  S.pmap = L.map(el, { zoomControl: false, preferCanvas: true });
+  if (Q.view) S.pmap.setView(Q.view.c, Q.view.z); else if (sel) S.pmap.setView([sel.lat, sel.lng], 14); else S.pmap.setView([SURAT.lat, SURAT.lng], 11);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(S.pmap);
+  const layer = L.layerGroup().addTo(S.pmap);
   const esc = (x) => String(x || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const drawProj = () => {
-    pinLayer.clearLayers();
-    const z = S.pmap.getZoom(), b = S.pmap.getBounds();
-    if (!S.pmap.hasLayer(bubbleLayer)) bubbleLayer.addTo(S.pmap);
-    for (const ps of Object.values(by)) ps.forEach((p) => {
-      const pos = projPos(p); if (!pos || !b.contains([pos.lat, pos.lng])) return;
-      const html = `<div class="pin small${pos.exact ? ' sel' : ' est'}"><span>🏗 ${esc(p.name).slice(0, 22)}</span><b>${fmtDate(p.end_month + '-01', { month: 'short', year: '2-digit' })}</b></div>`;
-      L.marker([pos.lat, pos.lng], { icon: L.divIcon({ className: 'pinwrap', html, iconSize: null }) })
-        .bindPopup(`<b>${esc(p.name)}</b><br>${esc(p.promoter)}<br>${t('possession')}: ${esc(p.end_month)}<br><a href="${gmaps(pos.exact ? pos.lat : null, pos.lng, `${p.name}, ${(areaById(p.area_id) || {}).en || projArea(p)}, Surat, Gujarat`)}" target="_blank" rel="noopener">${t('google_maps')}</a>${p.phone ? ` · <a href="tel:+91${tel(p.phone)}">${t('call')}</a>` : ''}`)
-        .addTo(pinLayer);
-    });
+  const popup = (p, pos) => `<b>${esc(p.name)}</b><br>${esc(p.promoter)}<br>${t('possession')}: ${esc(p.end_month)}${p.address ? '<br><small>' + esc(p.address) + '</small>' : ''}<br><a href="${gmaps(pos.lat, pos.lng)}" target="_blank" rel="noopener">${t('google_maps')}</a>${p.phone ? ` · <a href="tel:+91${tel(p.phone)}">${t('call')}</a>` : ''}`;
+  const draw = () => {
+    layer.clearLayers();
+    const z = S.pmap.getZoom(), b = S.pmap.getBounds().pad(0.2), cell = z >= 17 ? 40 : 64, cells = new Map();
+    for (const x of pts) {
+      if (!b.contains([x.pos.lat, x.pos.lng])) continue;
+      const pt = S.pmap.latLngToLayerPoint([x.pos.lat, x.pos.lng]), k = Math.floor(pt.x / cell) + ':' + Math.floor(pt.y / cell);
+      const c = cells.get(k); if (c) { c.m.push(x); c.lat += x.pos.lat; c.lng += x.pos.lng; } else cells.set(k, { m: [x], lat: x.pos.lat, lng: x.pos.lng });
+    }
+    for (const c of cells.values()) {
+      if (c.m.length === 1) {
+        const { p, pos } = c.m[0];
+        const html = `<div class="pin small sel"><span>🏗 ${esc(p.name).slice(0, 20)}</span><b>${fmtDate(p.end_month + '-01', { month: 'short', year: '2-digit' })}</b></div>`;
+        L.marker([pos.lat, pos.lng], { icon: L.divIcon({ className: 'pinwrap', html, iconSize: null }) }).bindPopup(popup(p, pos)).addTo(layer);
+        continue;
+      }
+      const n = c.m.length, at = [c.lat / n, c.lng / n], sz = n >= 100 ? 54 : n >= 20 ? 46 : 38;
+      L.marker(at, { icon: L.divIcon({ className: 'pinwrap', html: `<div class="clus" style="width:${sz}px;height:${sz}px">+${n}</div>`, iconSize: [sz, sz], iconAnchor: [sz / 2, sz / 2] }) })
+        .on('click', () => {
+          const bb = L.latLngBounds(c.m.map((x) => [x.pos.lat, x.pos.lng]));
+          // same building (can't split by zooming) → show them in the list below instead
+          if (z >= 18 || bb.getNorthEast().distanceTo(bb.getSouthWest()) < 25) { Q.areas = null; Q.area = null; Q.q = ''; S.projOnly = c.m.map((x) => x.p.rera); Q.view = { c: at, z }; render(); return; }
+          S.pmap.fitBounds(bb.pad(0.3), { maxZoom: 18 });
+        }).addTo(layer);
+    }
   };
-  S.pmap.on('zoomend moveend', drawProj); drawProj();
-  const sel = Q.area && areaById(Q.area); if (sel) S.pmap.setView([sel.lat, sel.lng], 15);
+  let tm; S.pmap.on('moveend zoomend', () => { clearTimeout(tm); tm = setTimeout(() => { Q.view = { c: S.pmap.getCenter(), z: S.pmap.getZoom() }; draw(); }, 60); });
+  draw();
 }
 function projectsHere(a) {
   if (!S.projects) return null;
