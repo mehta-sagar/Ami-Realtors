@@ -1,5 +1,14 @@
 [
  {
+  "day": "2026-11-14",
+  "gold_10g": 137340,
+  "silver_kg": 194900,
+  "sensex": 81592,
+  "nifty": 25144,
+  "home_loan_rate": 7.5,
+  "source": "Goodreturns (gold, silver, 14 Nov); Business Standard (Sensex/Nifty Friday 13 Nov close, market shut on Saturday); SBI website (home loan from 7.50%)"
+ },
+ {
   "day": "2026-11-13",
   "gold_10g": 138490,
   "silver_kg": 199900,

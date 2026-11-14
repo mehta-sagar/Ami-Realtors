@@ -1,5 +1,85 @@
 [
  {
+  "area_id": "variyav",
+  "kind": "pro",
+  "topic": "road",
+  "title_gu": "વરિયાવ વાય-જંક્શનને આઉટર રિંગ રોડ સાથે જોડતા ચાર-લેન ખાડી બ્રિજ (અંદાજે રૂ. 13.78 કરોડ) ને વહીવટી મંજૂરી મળી છે, જેથી વરિયાવની કનેક્ટિવિટી સુધરશે.",
+  "title_en": "A four-lane creek bridge (about Rs 13.78 crore) linking Variyav Y-junction to the Outer Ring Road has administrative approval, which will improve access to Variyav.",
+  "source": "DeshGujarat",
+  "url": "https://deshgujarat.com/2026/03/02/surat-to-get-another-bridge-to-boost-outer-ring-road-connectivity/",
+  "date": "2026-03-02"
+ },
+ {
+  "area_id": "sachin",
+  "kind": "pro",
+  "topic": "road",
+  "title_gu": "સુરત-સચિન-નવસારી 14.3 કિમી રોડને છ-લેન કરવા રૂ. 945.92 કરોડ મંજૂર થયા છે અને સચિન પાસે અંડરપાસ બનશે, જેથી સચિનથી શહેર અને નવસારીની મુસાફરી ઝડપી થશે.",
+  "title_en": "Rs 945.92 crore is approved to six-lane the 14.3 km Surat-Sachin-Navsari road with an underpass near Sachin, making travel from Sachin to the city and Navsari faster.",
+  "source": "DeshGujarat",
+  "url": "https://deshgujarat.com/2026/03/31/rs-945-crore-6-lane-high-speed-corridor-approved-between-surat-navsari/",
+  "date": "2026-03-31"
+ },
+ {
+  "area_id": "maroli",
+  "kind": "pro",
+  "topic": "road",
+  "title_gu": "છ-લેન સુરત-સચિન-નવસારી કોરિડોરમાં મરોલી જંક્શન પર ફ્લાયઓવર અને મીંઢોળા નદી પર બ્રિજ બનશે, જેથી મરોલીનો ટ્રાફિક હળવો થશે.",
+  "title_en": "The six-lane Surat-Sachin-Navsari corridor includes a flyover and a Mindhola river bridge at Maroli junction, which should ease traffic at Maroli.",
+  "source": "DeshGujarat",
+  "url": "https://deshgujarat.com/2026/03/31/rs-945-crore-6-lane-high-speed-corridor-approved-between-surat-navsari/",
+  "date": "2026-03-31"
+ },
+ {
+  "area_id": "saroli",
+  "kind": "pro",
+  "topic": "metro",
+  "title_gu": "સરોલીથી બુલેટ ટ્રેન સ્ટેશન સુધી 4.4 કિમી મેટ્રો લંબાવવાની દરખાસ્ત (3 નવા સ્ટેશન, રૂ. 1,400 કરોડથી વધુ) કેન્દ્રની મંજૂરીની રાહમાં છે; મંજૂર થાય તો સરોલી મહત્વનું જોડાણ બિંદુ બનશે.",
+  "title_en": "A 4.4 km metro extension from Saroli to the bullet train station (3 new stations, over Rs 1,400 crore) awaits Union Cabinet approval; if cleared, Saroli becomes a key link point.",
+  "source": "Metro Rail News",
+  "url": "https://metrorailnews.in/surat-metro-integration-with-bullet-train-station/",
+  "date": "2026-05-29"
+ },
+ {
+  "area_id": "utran",
+  "kind": "pro",
+  "topic": "road",
+  "title_gu": "અશ્વિનીકુમાર અને ઉત્રાણને જોડતો તાપી બ્રિજ પ્રસ્તાવિત છે, પણ ફીજીબિલિટી રિપોર્ટ અને નિર્ણય બાકી છે; બને તો ઉત્રાણથી શહેર તરફનો રસ્તો ટૂંકો થશે.",
+  "title_en": "A Tapi bridge linking Ashwinikumar and Utran is proposed but the feasibility report and decision are pending; if built it would shorten the route from Utran to the city.",
+  "source": "Gujarat Samachar",
+  "url": "https://www.gujaratsamachar.com/news/surat/surat-bjp-in-turmoil-over-bridge-even-before-feasibility-report-77579003480",
+  "date": "2026-08-30"
+ },
+ {
+  "area_id": "kosamba",
+  "kind": "pro",
+  "topic": "road",
+  "title_gu": "સુરત ઇકોનોમિક રિજનમાં રૂ. 1,185 કરોડના 24 રોડ કામો (383 કિમી) મંજૂર થયા છે, જે કોસંબા સહિતના GIDC વિસ્તારોને જોડશે અને ઉદ્યોગોની અવરજવર સરળ કરશે.",
+  "title_en": "The state approved 24 road works (383 km, Rs 1,185 crore) in the Surat Economic Region that will connect GIDC areas including Kosamba, easing industrial movement.",
+  "source": "DeshGujarat",
+  "url": "https://deshgujarat.com/2026/03/08/gujarat-govt-okays-rs-1185-crore-road-projects-for-surat-economic-region/",
+  "date": "2026-03-08"
+ },
+ {
+  "area_id": "katargam",
+  "kind": "con",
+  "topic": "demolition",
+  "title_gu": "જૂન 2026 માં કતારગામની નાસીરનગર ઝૂંપડપટ્ટીમાં લગભગ 100 ઘર તોડી પડાયાં અને કોઈ તંત્રએ જવાબદારી સ્વીકારી નથી; આવી જગ્યાએ ખરીદી પહેલાં માલિકી અને રોડ લાઇન તપાસો.",
+  "title_en": "About 100 homes in the Nasirnagar slum in Katargam were demolished in June 2026 with no agency owning the action; check title and road lines before buying in such pockets.",
+  "source": "The Blunt Times",
+  "url": "https://theblunttimes.in/surat-nasirnagar-demolition-sparks-political-storm-questions-over-unknown-action/65389/",
+  "date": "2026-06-06"
+ },
+ {
+  "area_id": "chowk-bazaar",
+  "kind": "con",
+  "topic": "road",
+  "title_gu": "મેટ્રો સ્ટેશનના કામને કારણે ચોક બજારમાં ક્રાઇમ બ્રાન્ચ ઓફિસથી ગાંધીબાગ સર્કલ સુધીનો રસ્તો 30 નવેમ્બર 2026 સુધી બંધ છે, જેથી દુકાનો સુધી પહોંચવું મુશ્કેલ છે.",
+  "title_en": "Because of metro station work, the Chowk Bazaar road from the Crime Branch office to Gandhibaug circle is closed until 30 November 2026, making access to shops difficult.",
+  "source": "Trishul News",
+  "url": "https://trishulnews.com/surat-metro-project-traffic-restrictions-extended-till-november-2026-diversion-routes/",
+  "date": "2026-06-03"
+ },
+ {
   "area_id": "adajan",
   "kind": "pro",
   "topic": "metro",
@@ -48,116 +128,6 @@
   "source": "Wikipedia: Surat Metro",
   "url": "https://en.wikipedia.org/wiki/Surat_Metro",
   "date": "2026-03-29"
- },
- {
-  "area_id": "bhesan",
-  "kind": "pro",
-  "topic": "metro",
-  "title_gu": "મેટ્રો લાઇન 2 (ભેસાણ–સરોલી) નું ભેસાણ સ્ટેશન બની રહ્યું છે; ચાલુ થયા પછી અવરજવર સરળ થશે",
-  "title_en": "Metro Line 2 (Bhesan to Saroli) is building a station at Bhesan; it will make commuting easier once open",
-  "source": "The Metro Rail Guy",
-  "url": "https://themetrorailguy.com/?p=54894",
-  "date": "2023-10-20"
- },
- {
-  "area_id": "ugat",
-  "kind": "pro",
-  "topic": "metro",
-  "title_gu": "મેટ્રો લાઇન 2 (ભેસાણ–સરોલી) નું ઉગત વારીગૃહ સ્ટેશન બની રહ્યું છે; ચાલુ થયા પછી અવરજવર સરળ થશે",
-  "title_en": "Metro Line 2 (Bhesan to Saroli) is building a station at Ugat Varigruh; it will make commuting easier once open",
-  "source": "The Metro Rail Guy",
-  "url": "https://themetrorailguy.com/?p=54894",
-  "date": "2023-10-20"
- },
- {
-  "area_id": "palanpur",
-  "kind": "pro",
-  "topic": "metro",
-  "title_gu": "મેટ્રો લાઇન 2 (ભેસાણ–સરોલી) નું પાલનપુર રોડ સ્ટેશન બની રહ્યું છે; ચાલુ થયા પછી અવરજવર સરળ થશે",
-  "title_en": "Metro Line 2 (Bhesan to Saroli) is building a station at Palanpur Road; it will make commuting easier once open",
-  "source": "The Metro Rail Guy",
-  "url": "https://themetrorailguy.com/?p=54894",
-  "date": "2023-10-20"
- },
- {
-  "area_id": "adajan",
-  "kind": "pro",
-  "topic": "metro",
-  "title_gu": "મેટ્રો લાઇન 2 (ભેસાણ–સરોલી) નું અડાજણ ગામ સ્ટેશન બની રહ્યું છે; ચાલુ થયા પછી અવરજવર સરળ થશે",
-  "title_en": "Metro Line 2 (Bhesan to Saroli) is building a station at Adajan Gam; it will make commuting easier once open",
-  "source": "The Metro Rail Guy",
-  "url": "https://themetrorailguy.com/?p=54894",
-  "date": "2023-10-20"
- },
- {
-  "area_id": "athwalines",
-  "kind": "pro",
-  "topic": "metro",
-  "title_gu": "મેટ્રો લાઇન 2 (ભેસાણ–સરોલી) નું અઠવા ચોપાટી સ્ટેશન બની રહ્યું છે; ચાલુ થયા પછી અવરજવર સરળ થશે",
-  "title_en": "Metro Line 2 (Bhesan to Saroli) is building a station at Athwa Chopati; it will make commuting easier once open",
-  "source": "The Metro Rail Guy",
-  "url": "https://themetrorailguy.com/?p=54894",
-  "date": "2023-10-20"
- },
- {
-  "area_id": "majura",
-  "kind": "pro",
-  "topic": "metro",
-  "title_gu": "મેટ્રો લાઇન 2 (ભેસાણ–સરોલી) નું મજુરા ગેટ (ઇન્ટરચેન્જ) સ્ટેશન બની રહ્યું છે; ચાલુ થયા પછી અવરજવર સરળ થશે",
-  "title_en": "Metro Line 2 (Bhesan to Saroli) is building a station at Majura Gate (interchange); it will make commuting easier once open",
-  "source": "The Metro Rail Guy",
-  "url": "https://themetrorailguy.com/?p=54894",
-  "date": "2023-10-20"
- },
- {
-  "area_id": "udhna",
-  "kind": "pro",
-  "topic": "metro",
-  "title_gu": "મેટ્રો લાઇન 2 (ભેસાણ–સરોલી) નું ઉધના દરવાજા સ્ટેશન બની રહ્યું છે; ચાલુ થયા પછી અવરજવર સરળ થશે",
-  "title_en": "Metro Line 2 (Bhesan to Saroli) is building a station at Udhna Darwaja; it will make commuting easier once open",
-  "source": "The Metro Rail Guy",
-  "url": "https://themetrorailguy.com/?p=54894",
-  "date": "2023-10-20"
- },
- {
-  "area_id": "anjana",
-  "kind": "pro",
-  "topic": "metro",
-  "title_gu": "મેટ્રો લાઇન 2 (ભેસાણ–સરોલી) નું અંજના ફાર્મ સ્ટેશન બની રહ્યું છે; ચાલુ થયા પછી અવરજવર સરળ થશે",
-  "title_en": "Metro Line 2 (Bhesan to Saroli) is building a station at Anjana Farm; it will make commuting easier once open",
-  "source": "The Metro Rail Guy",
-  "url": "https://themetrorailguy.com/?p=54894",
-  "date": "2023-10-20"
- },
- {
-  "area_id": "magob",
-  "kind": "pro",
-  "topic": "metro",
-  "title_gu": "મેટ્રો લાઇન 2 (ભેસાણ–સરોલી) નું મગોબ સ્ટેશન બની રહ્યું છે; ચાલુ થયા પછી અવરજવર સરળ થશે",
-  "title_en": "Metro Line 2 (Bhesan to Saroli) is building a station at Magob; it will make commuting easier once open",
-  "source": "The Metro Rail Guy",
-  "url": "https://themetrorailguy.com/?p=54894",
-  "date": "2023-10-20"
- },
- {
-  "area_id": "saroli",
-  "kind": "pro",
-  "topic": "metro",
-  "title_gu": "મેટ્રો લાઇન 2 (ભેસાણ–સરોલી) નું સરોલી સ્ટેશન બની રહ્યું છે; ચાલુ થયા પછી અવરજવર સરળ થશે",
-  "title_en": "Metro Line 2 (Bhesan to Saroli) is building a station at Saroli; it will make commuting easier once open",
-  "source": "The Metro Rail Guy",
-  "url": "https://themetrorailguy.com/?p=54894",
-  "date": "2023-10-20"
- },
- {
-  "area_id": "bhesan",
-  "kind": "pro",
-  "topic": "metro",
-  "title_gu": "ભેસાણમાં મેટ્રો લાઇન 2 નો ડેપો બનશે",
-  "title_en": "Bhesan will host the Metro Line 2 depot",
-  "source": "The Metro Rail Guy",
-  "url": "https://themetrorailguy.com/surat-metro-information-route-maps-fares-tenders-updates/",
-  "date": "2023-10-20"
  },
  {
   "area_id": "khajod",
@@ -248,46 +218,6 @@
   "source": "SMC",
   "url": "https://www.suratmunicipal.gov.in/Departments/TownPlanningDraftSchemes",
   "date": "2026-04-08"
- },
- {
-  "area_id": "mota-varachha",
-  "kind": "pro",
-  "topic": "road",
-  "title_gu": "આઉટર રિંગ રોડ ફેઝ-1 ગઢપુર રોડ અને કામરેજ રોડને મોટા વરાછા, ભરથાણા, કોસાડ સાથે જોડશે; આશરે 10 કિમી અંતર ઘટશે",
-  "title_en": "Outer Ring Road phase 1 links Gadhpur Road and Kamrej Road with Mota Varachha, Bharthana and Kosad, cutting about 10 km of travel",
-  "source": "DeshGujarat",
-  "url": "https://deshgujarat.com/?p=254315",
-  "date": "2025-04-26"
- },
- {
-  "area_id": "kosad",
-  "kind": "pro",
-  "topic": "road",
-  "title_gu": "આઉટર રિંગ રોડ ફેઝ-1 ગઢપુર રોડ અને કામરેજ રોડને મોટા વરાછા, ભરથાણા, કોસાડ સાથે જોડશે; આશરે 10 કિમી અંતર ઘટશે",
-  "title_en": "Outer Ring Road phase 1 links Gadhpur Road and Kamrej Road with Mota Varachha, Bharthana and Kosad, cutting about 10 km of travel",
-  "source": "DeshGujarat",
-  "url": "https://deshgujarat.com/?p=254315",
-  "date": "2025-04-26"
- },
- {
-  "area_id": "abrama",
-  "kind": "pro",
-  "topic": "road",
-  "title_gu": "આઉટર રિંગ રોડ ફેઝ-1 ગઢપુર રોડ અને કામરેજ રોડને મોટા વરાછા, ભરથાણા, કોસાડ સાથે જોડશે; આશરે 10 કિમી અંતર ઘટશે",
-  "title_en": "Outer Ring Road phase 1 links Gadhpur Road and Kamrej Road with Mota Varachha, Bharthana and Kosad, cutting about 10 km of travel",
-  "source": "DeshGujarat",
-  "url": "https://deshgujarat.com/?p=254315",
-  "date": "2025-04-26"
- },
- {
-  "area_id": "valak",
-  "kind": "pro",
-  "topic": "road",
-  "title_gu": "આઉટર રિંગ રોડ ફેઝ-1 ગઢપુર રોડ અને કામરેજ રોડને મોટા વરાછા, ભરથાણા, કોસાડ સાથે જોડશે; આશરે 10 કિમી અંતર ઘટશે",
-  "title_en": "Outer Ring Road phase 1 links Gadhpur Road and Kamrej Road with Mota Varachha, Bharthana and Kosad, cutting about 10 km of travel",
-  "source": "DeshGujarat",
-  "url": "https://deshgujarat.com/?p=254315",
-  "date": "2025-04-26"
  },
  {
   "area_id": "sachin",
