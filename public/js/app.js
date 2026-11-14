@@ -157,7 +157,7 @@ async function drawBorder(a) {
   }
   if (S.mapSel !== a.id || !S.map) return;
   if (S.border) S.border.remove();
-  const style = { color: '#0E3B2E', weight: 2.5, fillColor: '#E3B341', fillOpacity: 0.12, interactive: false };
+  const style = { color: '#4A3220', weight: 2.5, fillColor: '#C9A24A', fillOpacity: 0.12, interactive: false };
   S.border = g ? L.geoJSON(g, { style }).addTo(S.map) : L.circle([a.lat, a.lng], { radius: 900, dashArray: '6 6', ...style }).addTo(S.map);
 }
 // ---------- nearby estimate (k nearest areas with prices) ----------
@@ -723,23 +723,32 @@ function propertyForm(init) {
 }
 
 // WhatsApp card, always in English.
+const BRAND = { name: 'Ami Realtors', person: 'Dharmesh Mehta', phones: '78200 27373 / 97270 68111', phone1: '7820027373', tag_gu: 'સોદા નહીં, સંબંધોમાં પણ', motto_gu: 'તમે અમારું શુભ વિચારજો, અમે તમારો લાભ વિચારીશું.', line: 'PROPERTY · TRUST · VALUE' };
+const bizPhone = () => cfg.get('bizPhone', '') || BRAND.phones;
+const loadImg = (src) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
+// Branded footer used on every shared image: logo tile, name, Dharmesh Mehta, both numbers, motto.
+async function brandFooter(x, W, y, H) {
+  x.fillStyle = '#4A3220'; x.fillRect(0, y, W, H);
+  x.fillStyle = '#C9A24A'; x.fillRect(0, y, W, 6);
+  try { const im = await loadImg('img/emblem.jpg'), s = H - 60; x.save(); x.beginPath(); x.roundRect(48, y + 30, s, s, 22); x.clip(); x.drawImage(im, 48, y + 30, s, s); x.restore(); } catch { /* offline */ }
+  const tx = 48 + H - 60 + 32, f = (w, sz, fam) => { x.font = `${w} ${sz}px ${fam || 'Georgia, "Times New Roman", serif'}`; };
+  x.textAlign = 'left'; x.fillStyle = '#E8C979'; f(700, 52); x.fillText('AMI REALTORS', tx, y + 92);
+  x.fillStyle = '#F3ECE1'; f(600, 32, '-apple-system, Arial, sans-serif'); x.fillText(`${BRAND.person} · ${bizPhone()}`, tx, y + 144, W - tx - 40);
+  x.fillStyle = '#D9C49A'; f(400, 28, '"Noto Sans Gujarati", "Gujarati Sangam MN", sans-serif'); x.fillText(BRAND.motto_gu, tx, y + 190, W - tx - 40);
+}
 async function shareCard(p) {
   const W = 1080, H = 1350, c = h('canvas', { width: W, height: H }), x = c.getContext('2d'), a = areaById(p.area_id);
   x.fillStyle = '#FFFFFF'; x.fillRect(0, 0, W, H);
-  x.fillStyle = '#DCE4D8'; x.fillRect(0, 0, W, 640);
+  x.fillStyle = '#EFE6D6'; x.fillRect(0, 0, W, 640);
   const blob = p.photos?.[0] && await store.fileBlob(p.photos[0]).catch(() => null);
   if (blob) { const b = await createImageBitmap(blob), k = Math.max(W / b.width, 640 / b.height), w = b.width * k, hh = b.height * k; x.save(); x.beginPath(); x.rect(0, 0, W, 640); x.clip(); x.drawImage(b, (W - w) / 2, (640 - hh) / 2, w, hh); x.restore(); }
   const font = (w, s) => { x.font = `${w} ${s}px -apple-system, "Helvetica Neue", Arial, sans-serif`; };
   x.textBaseline = 'alphabetic';
   x.fillStyle = '#7A5A12'; font(700, 34); x.fillText(`FOR ${p.deal === 'rent' ? 'RENT' : 'SALE'}${a ? ' · ' + a.en.toUpperCase() + ', ' + a.district.toUpperCase() : ''}`, 64, 730);
-  x.fillStyle = '#0E3B2E'; font(700, 68); x.fillText(propTitle(p, 'en-card'), 64, 820, W - 128);
+  x.fillStyle = '#4A3220'; font(700, 68); x.fillText(propTitle(p, 'en-card'), 64, 820, W - 128);
   const cells = [['Price', p.price ? 'Rs ' + (p.price >= 1e7 ? +(p.price / 1e7).toFixed(2) + ' Cr' : p.price >= 1e5 ? +(p.price / 1e5).toFixed(2) + ' L' : Number(p.price).toLocaleString('en-IN')) : 'On request'], ['Floor', p.floor || '-'], ['Furnishing', p.furnished === true ? 'Furnished' : p.furnished === false ? 'Unfurnished' : '-']];
-  cells.forEach(([k, v], i) => { const cx = 64 + i * 324; x.fillStyle = '#F6F4EE'; x.beginPath(); x.roundRect(cx, 880, 304, 150, 24); x.fill(); x.fillStyle = '#4A5650'; font(400, 30); x.fillText(k, cx + 24, 932); x.fillStyle = '#14201B'; font(700, 42); x.fillText(v, cx + 24, 992, 256); });
-  x.fillStyle = '#0E3B2E'; x.fillRect(0, 1130, W, 220);
-  x.save(); x.translate(64, 1160); x.scale(1.6, 1.6); x.strokeStyle = '#E3B341'; x.lineWidth = 6; x.lineJoin = 'round';
-  ['M78.6 24.3 A40 40 0 1 0 70 83.4 L70 49.2', 'M26 56 L52 34 L78 56', 'M34 49.2 V87.5', 'M34 67 H70'].forEach((d) => x.stroke(new Path2D(d))); x.restore();
-  x.fillStyle = '#E3B341'; font(700, 60); x.fillText('AMI', 250, 1235); x.fillStyle = '#FFFFFF'; font(600, 28); x.fillText('R E A L T O R S', 250, 1280);
-  x.textAlign = 'right'; font(700, 38); x.fillText(cfg.get('bizPhone', '') || '', W - 64, 1228); font(400, 32); x.fillText('Chowk Bazaar, Surat', W - 64, 1278); x.textAlign = 'left';
+  cells.forEach(([k, v], i) => { const cx = 64 + i * 324; x.fillStyle = '#F3ECE1'; x.beginPath(); x.roundRect(cx, 880, 304, 150, 24); x.fill(); x.fillStyle = '#6E5F50'; font(400, 30); x.fillText(k, cx + 24, 932); x.fillStyle = '#2B1F15'; font(700, 42); x.fillText(v, cx + 24, 992, 256); });
+  await brandFooter(x, W, 1110, 240);
   const out = await new Promise((r) => c.toBlob(r, 'image/png')), file = new File([out], 'ami-realtors-property.png', { type: 'image/png' });
   if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file] }).catch(() => {});
   else h('a', { href: URL.createObjectURL(out), download: file.name }).click();
@@ -875,8 +884,8 @@ function viewToday() {
   const news = S.data.news.filter((n) => S.newsCat === 'all' || n.category === S.newsCat);
   const en = getLang() === 'en';
   return [
-    h('header', { class: 'hdr' }, h('div', { class: 'logo' }, mark(30, 8)),
-      h('div', { class: 'grow' }, h('h1', {}, t('greeting')), h('div', { class: 'muted small' }, fmtDate(now))),
+    h('header', { class: 'hdr' }, h('div', { class: 'logo' }, h('img', { src: 'img/emblem.jpg', alt: 'Ami Realtors' })),
+      h('div', { class: 'grow' }, h('h1', {}, t('greeting')), h('div', { class: 'brandline' }, 'Ami Realtors – ', BRAND.tag_gu), h('div', { class: 'muted small' }, fmtDate(now))),
       h('button', { class: 'iconbtn', 'aria-label': t('settings'), onclick: settings }, icon('gear'))),
     m && h('div', { class: 'grid4' }, [['gold', m.gold_10g, moneyShort], ['silver', m.silver_kg, moneyShort], ['sensex', m.sensex, (x) => Number(x).toLocaleString('en-IN')], ['home_loan', m.home_loan_rate, (x) => x + '%']]
       .map(([k, v, f]) => h('div', { class: 'tile' }, h('div', { class: 'muted xs' }, t(k)), h('div', { class: 'b' }, v == null ? '—' : f(v))))),
@@ -1005,17 +1014,17 @@ function inquiryForm(init, after) {
 function waTemplates(c, log) {
   const en = getLang() === 'en', nm = c.name || '';
   const built = en ? [
-    ['Introduction', 'Namaste {name}, this is Ami Realtors, Chowk Bazaar, Surat. Thank you for your inquiry. Please tell me your preferred area and budget and I will share suitable options.'],
+    ['Introduction', 'Namaste {name}, this is Dharmesh Mehta from Ami Realtors, Chowk Bazaar, Surat (78200 27373). Thank you for your inquiry. Please tell me your preferred area and budget and I will share suitable options.'],
     ['Property details', 'Namaste {name}, as discussed I am sending the property details. Please have a look and tell me a convenient time for a site visit.'],
-    ['Visit confirmation', 'Namaste {name}, confirming our site visit. Please share a time that suits you. - Ami Realtors'],
-    ['Follow-up', 'Namaste {name}, did you get a chance to think about the property we discussed? Happy to answer any question. - Ami Realtors'],
-    ['Festival greeting', 'Namaste {name}, warm festival wishes to you and your family from Ami Realtors.'],
+    ['Visit confirmation', 'Namaste {name}, confirming our site visit. Please share a time that suits you. - Dharmesh Mehta, Ami Realtors (78200 27373)'],
+    ['Follow-up', 'Namaste {name}, did you get a chance to think about the property we discussed? Happy to answer any question. - Dharmesh Mehta, Ami Realtors (78200 27373)'],
+    ['Festival greeting', 'Namaste {name}, warm festival wishes to you and your family from Dharmesh Mehta, Ami Realtors. તમે અમારું શુભ વિચારજો, અમે તમારો લાભ વિચારીશું.'],
   ] : [
-    ['ઓળખાણ', 'નમસ્તે {name}, અમી રિયલ્ટર્સ, ચોક બજાર, સુરતથી. તમારી ઇન્ક્વાયરી બદલ આભાર. તમને કયો વિસ્તાર અને કેટલું બજેટ અનુકૂળ છે તે જણાવશો તો યોગ્ય મિલકત બતાવીશ.'],
+    ['ઓળખાણ', 'નમસ્તે {name}, અમી રિયલ્ટર્સ, ચોક બજાર, સુરતથી. તમારી ઇન્ક્વાયરી બદલ આભાર. તમને કયો વિસ્તાર અને કેટલું બજેટ અનુકૂળ છે તે જણાવશો તો યોગ્ય મિલકત બતાવીશ. – ધર્મેશ મહેતા, અમી રિયલ્ટર્સ (78200 27373)'],
     ['મિલકતની વિગત', 'નમસ્તે {name}, આપણી વાત મુજબ મિલકતની વિગત મોકલું છું. જોઈને સાઇટ વિઝિટ માટે અનુકૂળ સમય જણાવશો.'],
-    ['વિઝિટ કન્ફર્મ', 'નમસ્તે {name}, આપણી સાઇટ વિઝિટ કન્ફર્મ કરવા માટે મેસેજ કરું છું. તમને અનુકૂળ સમય જણાવશો. - અમી રિયલ્ટર્સ'],
-    ['ફોલો-અપ', 'નમસ્તે {name}, આપણે જોયેલી મિલકત વિશે વિચાર્યું? કોઈ પ્રશ્ન હોય તો જણાવશો. - અમી રિયલ્ટર્સ'],
-    ['તહેવારની શુભેચ્છા', 'નમસ્તે {name}, અમી રિયલ્ટર્સ તરફથી તમને અને તમારા પરિવારને તહેવારની હાર્દિક શુભેચ્છા.'],
+    ['વિઝિટ કન્ફર્મ', 'નમસ્તે {name}, આપણી સાઇટ વિઝિટ કન્ફર્મ કરવા માટે મેસેજ કરું છું. તમને અનુકૂળ સમય જણાવશો. - અમી રિયલ્ટર્સ – ધર્મેશ મહેતા, અમી રિયલ્ટર્સ (78200 27373)'],
+    ['ફોલો-અપ', 'નમસ્તે {name}, આપણે જોયેલી મિલકત વિશે વિચાર્યું? કોઈ પ્રશ્ન હોય તો જણાવશો. - અમી રિયલ્ટર્સ – ધર્મેશ મહેતા, અમી રિયલ્ટર્સ (78200 27373)'],
+    ['તહેવારની શુભેચ્છા', 'નમસ્તે {name}, અમી રિયલ્ટર્સ તરફથી તમને અને તમારા પરિવારને તહેવારની હાર્દિક શુભેચ્છા. – ધર્મેશ મહેતા, અમી રિયલ્ટર્સ (78200 27373)'],
   ];
   const f = { v: '' };
   const sh = openSheet(t('templates'), (api) => {
@@ -1226,25 +1235,23 @@ async function shareArea(a, mk, unit) {
   const W = 1080, H = 1350, c = h('canvas', { width: W, height: H }), x = c.getContext('2d');
   const font = (w, s) => { x.font = `${w} ${s}px -apple-system, "Helvetica Neue", Arial, sans-serif`; };
   const wrap = (text, px, py, maxW, lh, maxLines) => { const words = String(text).split(/\s+/); let ln = '', n = 0; for (const w of words) { if (x.measureText(ln + w).width > maxW && ln) { x.fillText(ln.trim(), px, py + n * lh); n++; ln = ''; if (n >= maxLines) return n; } ln += w + ' '; } if (ln.trim() && n < maxLines) { x.fillText(ln.trim(), px, py + n * lh); n++; } return n; };
-  x.fillStyle = '#F6F4EE'; x.fillRect(0, 0, W, H);
-  x.fillStyle = '#0E3B2E'; x.fillRect(0, 0, W, 300);
-  x.fillStyle = '#E3B341'; font(700, 34); x.fillText('AREA SNAPSHOT · ' + a.district.toUpperCase(), 64, 110);
+  x.fillStyle = '#F3ECE1'; x.fillRect(0, 0, W, H);
+  x.fillStyle = '#4A3220'; x.fillRect(0, 0, W, 300);
+  x.fillStyle = '#C9A24A'; font(700, 34); x.fillText('AREA SNAPSHOT · ' + a.district.toUpperCase(), 64, 110);
   x.fillStyle = '#FFFFFF'; font(700, 84); x.fillText(a.en, 64, 210, W - 128);
   const U = { sqft: 'sq ft', sqm: 'sq m', var: 'sq yd', vigha: 'vigha', acre: 'acre', hectare: 'hectare' }[unit], r = (v) => Math.round(rateFromSqft(v, unit, vigha())).toLocaleString('en-IN');
-  x.fillStyle = '#14201B'; font(700, 54);
+  x.fillStyle = '#2B1F15'; font(700, 54);
   x.fillText(mk.median == null ? 'Price on request' : (mk.used > 1 && mk.min !== mk.max ? `Rs ${r(mk.min)} - ${r(mk.max)} per ${U}` : `Rs ${r(mk.median)} per ${U}`), 64, 400, W - 128);
-  x.fillStyle = '#4A5650'; font(400, 32); x.fillText(`${EN[S.price.ptype] || ''}${mk.median != null && mk.used > 1 ? ' · median Rs ' + r(mk.median) + ' · ' + mk.used + ' recent quotes' : ''}`, 64, 452, W - 128);
+  x.fillStyle = '#6E5F50'; font(400, 32); x.fillText(`${EN[S.price.ptype] || ''}${mk.median != null && mk.used > 1 ? ' · median Rs ' + r(mk.median) + ' · ' + mk.used + ' recent quotes' : ''}`, 64, 452, W - 128);
   let y = 540; const pts = areaPoints(a);
-  for (const [kind, label, col] of [['pro', 'Advantages', '#0E3B2E'], ['con', 'Points to check', '#7A5A12']]) {
+  for (const [kind, label, col] of [['pro', 'Advantages', '#4A3220'], ['con', 'Points to check', '#7A5A12']]) {
     const xs = pts.filter((p) => p.kind === kind).slice(0, 4); if (!xs.length) continue;
     x.fillStyle = col; font(700, 40); x.fillText(label, 64, y); y += 56;
-    x.fillStyle = '#14201B'; font(400, 34);
+    x.fillStyle = '#2B1F15'; font(400, 34);
     for (const p of xs) { x.fillText('•', 64, y); y += wrap(p.en, 100, y, W - 170, 46, 3) * 46 + 14; }
     y += 24;
   }
-  x.fillStyle = '#0E3B2E'; x.fillRect(0, 1190, W, 160);
-  x.fillStyle = '#E3B341'; font(700, 52); x.fillText('AMI REALTORS', 64, 1285);
-  x.fillStyle = '#FFFFFF'; x.textAlign = 'right'; font(600, 34); x.fillText(cfg.get('bizPhone', '') || 'Chowk Bazaar, Surat', W - 64, 1283); x.textAlign = 'left';
+  await brandFooter(x, W, 1110, 240);
   const out = await new Promise((res) => c.toBlob(res, 'image/png')), file = new File([out], `ami-${a.id}.png`, { type: 'image/png' });
   if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file] }).catch(() => {});
   else h('a', { href: URL.createObjectURL(out), download: file.name }).click();
@@ -1308,10 +1315,21 @@ function cgCalc() {
   calc();
 }
 
+// ---------- visiting card ----------
+async function shareBizCard() {
+  try {
+    const b = await fetch('img/card.jpg').then((r) => r.blob()), file = new File([b], 'ami-realtors-dharmesh-mehta.jpg', { type: 'image/jpeg' });
+    const text = `Ami Realtors – ${BRAND.tag_gu}\n${BRAND.person} · ${BRAND.phones}\nChowk Bazaar, Surat`;
+    if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], text }).catch(() => {});
+    else window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+  } catch (e) { fail(e); }
+}
 // ---------- More ----------
 function viewMore() {
   const row = (k, fn) => h('button', { class: 'row big', onclick: fn }, h('span', {}, t(k)), icon('chev', 18));
   return [h('header', { class: 'hdr' }, h('h1', { class: 'grow' }, t('more'))),
+    h('section', { class: 'card bizcard' }, h('img', { src: 'img/card.jpg', alt: 'Ami Realtors – Dharmesh Mehta' }),
+      h('div', { class: 'grid2' }, h('button', { class: 'btn gold', onclick: shareBizCard }, '📤 ', t('share_bizcard')), h('a', { class: 'btn green', href: 'tel:+91' + BRAND.phone1 }, t('call'), ' ', BRAND.phones.split(' / ')[0]))),
     h('section', { class: 'card' }, row('prices', () => go('prices')), row('bulk_paste', bulkPaste), row('brokers', () => brokersSheet()), row('commission', commission)),
     h('section', { class: 'card' }, row('emi_calc', emiCalc), row('stamp_calc', stampCalc), row('cg_calc', cgCalc)),
     h('section', { class: 'card' }, row('reports', reportsSheet), row('settings', settings))];
@@ -1519,8 +1537,8 @@ function showLock() {
     const pin = h('input', { class: 'input pin', type: 'password', inputmode: 'numeric', maxlength: 4, 'aria-label': t('enter_pin'), autocomplete: 'off',
       oninput: async (e) => { if (e.target.value.length === 4) { if (await lock.checkPin(e.target.value)) finish(); else { e.target.value = ''; toast(t('wrong_pin'), true); } } } });
     const face = async () => { if (await lock.checkFace()) finish(); };
-    const el = h('div', { class: 'lockscreen' }, mark(96, 5), h('div', { class: 'lock-name' }, 'AMI REALTORS'), h('div', { class: 'gold small' }, t('enter_pin')), pin,
-      lock.hasFace && h('button', { class: 'btn gold', onclick: face }, t('unlock_faceid')));
+    const el = h('div', { class: 'lockscreen' }, h('div', { class: 'lockbox' }, h('img', { src: 'img/logo.jpg', alt: 'Ami Realtors' }), h('div', { class: 'brandline' }, BRAND.tag_gu), h('div', { class: 'goldtext small b' }, t('enter_pin')), pin,
+      lock.hasFace && h('button', { class: 'btn gold', onclick: face }, t('unlock_faceid'))));
     function finish() { el.remove(); done(); }
     document.body.append(el);
     if (lock.hasFace) face(); else setTimeout(() => pin.focus(), 100);

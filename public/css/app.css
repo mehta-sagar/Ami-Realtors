@@ -1,4 +1,4 @@
-:root { --green: #0E3B2E; --green2: #1B5E48; --gold: #E3B341; --goldtext: #7A5A12; --ground: #F6F4EE; --ink: #14201B; --muted: #4A5650; --line: #D5D1C3; --card: #FFFFFF; }
+:root { --green: #4A3220; --green2: #7A5530; --gold: #C9A24A; --goldtext: #8A6420; --ground: #F3ECE1; --ink: #2B1F15; --muted: #6E5F50; --line: #DFD3C0; --card: #FFFDF9; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; background: var(--ground); color: var(--ink); font-family: 'Hind Vadodara', 'Noto Sans Gujarati', -apple-system, system-ui, sans-serif; font-size: 16px; line-height: 1.4; overscroll-behavior: none; }
 h1, h2, h3, .title, .hero-t, .num { font-family: 'Anek Gujarati', 'Hind Vadodara', system-ui, sans-serif; margin: 0; }
@@ -17,7 +17,9 @@ button { cursor: pointer; }
 .screen.map { padding: 0; overflow: hidden; position: relative; }
 .screen > * { flex-shrink: 0; }
 .hdr { display: flex; align-items: center; gap: 12px; }
-.logo { width: 46px; height: 46px; border-radius: 13px; background: var(--green); display: flex; align-items: center; justify-content: center; }
+.logo { width: 50px; height: 50px; border-radius: 14px; overflow: hidden; flex: none; box-shadow: 0 2px 8px rgba(74, 50, 32, .18); } .logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.brandline { font-size: 12px; color: var(--goldtext); font-weight: 600; letter-spacing: .02em; }
+.bizcard img { width: 100%; border-radius: 16px; display: block; }
 .iconbtn { border: 0; background: transparent; width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--ink); }
 .rowhd { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
 
@@ -27,7 +29,7 @@ button { cursor: pointer; }
 
 .card { background: var(--card); border-radius: 20px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; border: 0; text-align: left; width: 100%; }
 .card.inset { background: var(--ground); border-radius: 14px; }
-.card.float { box-shadow: 0 8px 28px rgba(14, 59, 46, .2); }
+.card.float { box-shadow: 0 8px 28px rgba(74, 50, 32, .2); }
 .tag { font-size: 12px; font-weight: 600; color: var(--goldtext); }
 .title { font-size: 17px; font-weight: 600; line-height: 1.3; } .title.big { font-size: 22px; font-weight: 700; color: var(--green); }
 .empty { text-align: center; color: var(--muted); padding: 28px 16px; background: #fff; border-radius: 20px; }
@@ -45,7 +47,7 @@ button { cursor: pointer; }
 .chip { border: 1px solid var(--line); background: #fff; min-height: 40px; padding: 0 14px; border-radius: 20px; font-size: 14px; white-space: nowrap; }
 .chip.on { background: var(--green); color: #fff; border-color: var(--green); font-weight: 600; }
 .chip.sq { border-radius: 12px; padding: 0 2px; min-height: 44px; font-size: 13px; }
-.chips.onmap .chip { border: 0; box-shadow: 0 2px 8px rgba(14, 59, 46, .16); }
+.chips.onmap .chip { border: 0; box-shadow: 0 2px 8px rgba(74, 50, 32, .16); }
 .seg { display: grid; gap: 4px; background: #E9E6DB; border-radius: 14px; padding: 4px; }
 .seg button { border: 0; background: transparent; min-height: 42px; border-radius: 11px; color: var(--muted); font-size: 14px; }
 .seg button.on { background: #fff; color: var(--ink); font-weight: 600; }
@@ -76,12 +78,12 @@ button { cursor: pointer; }
 
 #map { position: absolute; inset: 0 0 0 0; z-index: 1; background: #E7ECDF; }
 .map-top { position: absolute; z-index: 450; left: 14px; right: 14px; top: calc(env(safe-area-inset-top) + 12px); display: flex; flex-direction: column; gap: 8px; }
-.searchbox { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 16px; padding: 0 14px; min-height: 50px; box-shadow: 0 4px 16px rgba(14, 59, 46, .16); color: var(--muted); }
+.searchbox { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 16px; padding: 0 14px; min-height: 50px; box-shadow: 0 4px 16px rgba(74, 50, 32, .16); color: var(--muted); }
 .searchbox input { border: 0; outline: 0; flex: 1; min-width: 0; font-size: 16px; background: transparent; color: var(--ink); }
-.sug { background: #fff; border-radius: 14px; padding: 0 12px; box-shadow: 0 4px 16px rgba(14, 59, 46, .16); } .sug:empty { display: none; } .sug .row:last-child { border: 0; }
+.sug { background: #fff; border-radius: 14px; padding: 0 12px; box-shadow: 0 4px 16px rgba(74, 50, 32, .16); } .sug:empty { display: none; } .sug .row:last-child { border: 0; }
 #mapcard { position: absolute; z-index: 450; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 76px); }
 .pinwrap { width: auto !important; height: auto !important; }
-.pin { transform: translate(-50%, -50%); display: inline-flex; flex-direction: column; background: #fff; border-radius: 16px; padding: 5px 11px; font: 500 12px/1.25 'Hind Vadodara', system-ui, sans-serif; color: var(--ink); box-shadow: 0 3px 10px rgba(14, 59, 46, .22); white-space: nowrap; }
+.pin { transform: translate(-50%, -50%); display: inline-flex; flex-direction: column; background: #fff; border-radius: 16px; padding: 5px 11px; font: 500 12px/1.25 'Hind Vadodara', system-ui, sans-serif; color: var(--ink); box-shadow: 0 3px 10px rgba(74, 50, 32, .22); white-space: nowrap; }
 .pin b { font-weight: 600; } .pin.sel { background: var(--green); color: #fff; outline: 2px solid var(--gold); } .pin.sel b { color: var(--gold); }
 .leaflet-container { font: inherit; } .leaflet-control-attribution { font-size: 10px; margin-bottom: calc(env(safe-area-inset-bottom) + 64px) !important; }
 
@@ -91,12 +93,14 @@ button { cursor: pointer; }
 .sheet-body { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 6px 18px calc(env(safe-area-inset-bottom) + 20px); display: flex; flex-direction: column; gap: 10px; }
 .sheet-body .card { background: var(--ground); }
 .toast { position: fixed; z-index: 1200; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom) + 96px); background: var(--green); color: #fff; padding: 10px 16px; border-radius: 14px; font-size: 14px; max-width: 88%; text-align: center; box-shadow: 0 6px 20px rgba(0, 0, 0, .25); } .toast.bad { background: #9B2C1F; }
-.lockscreen { position: fixed; inset: 0; z-index: 2000; background: var(--green); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; }
-.lock-name { color: #fff; font: 600 20px 'Anek Gujarati', system-ui, sans-serif; letter-spacing: .3em; margin-bottom: 14px; }
+.lockscreen { position: fixed; inset: 0; z-index: 2000; background: #EFE5D4 url(../img/card.jpg) center top / cover; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; }
+.lockscreen .lockbox { background: rgba(243, 236, 225, .92); border-radius: 22px; padding: 22px; display: flex; flex-direction: column; align-items: center; gap: 12px; box-shadow: 0 8px 30px rgba(74, 50, 32, .25); }
+.lockscreen .lockbox img { width: 180px; border-radius: 14px; }
+.lock-name { color: var(--green); font: 600 20px 'Anek Gujarati', system-ui, sans-serif; letter-spacing: .3em; margin-bottom: 14px; }
 .input.pin { width: 180px; text-align: center; font-size: 28px; letter-spacing: .4em; border: 0; }
 @media (min-width: 560px) { #app, .tabbar, .sheet { max-width: 480px; margin: 0 auto; } .sheet-wrap { justify-content: center; } }
 
-.spot { transform: translate(-50%, -130%); display: inline-block; background: var(--gold); color: var(--ink); font: 600 12px/1.2 'Hind Vadodara', system-ui, sans-serif; padding: 5px 10px; border-radius: 12px; white-space: nowrap; box-shadow: 0 3px 10px rgba(14, 59, 46, .25); }
+.spot { transform: translate(-50%, -130%); display: inline-block; background: var(--gold); color: var(--ink); font: 600 12px/1.2 'Hind Vadodara', system-ui, sans-serif; padding: 5px 10px; border-radius: 12px; white-space: nowrap; box-shadow: 0 3px 10px rgba(74, 50, 32, .25); }
 
 .stack { display: flex; flex-direction: column; gap: 10px; }
 .card.white, .rowcard.white { background: #fff; }
@@ -116,11 +120,11 @@ button { cursor: pointer; }
 .pin.est { background: #FBF7EA; border: 1px dashed #B79A4A; } .pin.est b { font-style: italic; } .pin.small { font-size: 11px; padding: 3px 8px; }
 
 /* live location, industrial pins, report flag, project search */
-.locbtn { align-self: flex-end; display: inline-flex; align-items: center; gap: 6px; background: var(--green); color: #fff; border: 0; border-radius: 999px; padding: 9px 14px; font: 600 14px/1 'Hind Vadodara', system-ui, sans-serif; box-shadow: 0 4px 14px rgba(14, 59, 46, .25); }
+.locbtn { align-self: flex-end; display: inline-flex; align-items: center; gap: 6px; background: var(--green); color: #fff; border: 0; border-radius: 999px; padding: 9px 14px; font: 600 14px/1 'Hind Vadodara', system-ui, sans-serif; box-shadow: 0 4px 14px rgba(74, 50, 32, .25); }
 .pin.ind { background: #EEF1F4; border: 1.5px solid #5B6B7A; } .pin.ind b { color: #2F3D4A; }
 .linkbtn.flag { color: #9A6B1A; opacity: .85; }
 .searchbox.flat { box-shadow: none; border: 1px solid #E4E0D4; min-height: 44px; }
 .pmap { height: 340px; border-radius: 18px; overflow: hidden; margin: 6px 0 10px; }
 .pmap{flex:none}
 
-.clus { display: grid; place-items: center; border-radius: 50%; background: rgba(14, 59, 46, .88); color: #fff; font-weight: 700; font-size: 14px; border: 3px solid rgba(255, 255, 255, .85); box-shadow: 0 3px 10px rgba(14, 59, 46, .3); }
+.clus { display: grid; place-items: center; border-radius: 50%; background: rgba(74, 50, 32, .88); color: #fff; font-weight: 700; font-size: 14px; border: 3px solid rgba(255, 255, 255, .85); box-shadow: 0 3px 10px rgba(74, 50, 32, .3); }
