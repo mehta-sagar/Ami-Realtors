@@ -791,6 +791,10 @@ function settings() {
       h('h3', {}, t('language')), seg([['gu', 'ગુજરાતી'], ['en', 'English']], getLang(), (v) => { setLang(v); sh.close(); render(); settings(); }),
       field(t('vigha_size'), numInp(f, 'vigha', { onchange: () => { cfg.set('vigha', N(f.vigha) || DEFAULT_VIGHA_SQFT); render(); } })),
       field(t('biz_phone'), inp(f, 'bizPhone', { inputmode: 'tel', onchange: () => cfg.set('bizPhone', f.bizPhone) })),
+      h('h3', {}, t('new_premium_title')), h('div', { class: 'xs muted' }, t('new_premium_help')),
+      h('div', { class: 'grid2' },
+        field(t('prem_in'), h('input', { class: 'input', inputmode: 'decimal', value: premIn(), onchange: (e) => { cfg.set('np.premIn', N(e.target.value) ?? 20); render(); } })),
+        field(t('prem_out'), h('input', { class: 'input', inputmode: 'decimal', value: premOut(), onchange: (e) => { cfg.set('np.premOut', N(e.target.value) ?? 6); render(); } }))),
       h('h3', {}, t('push_title')), h('div', { class: 'xs muted' }, t('push_help')),
       h('button', { class: 'btn ' + (pushOn() ? '' : 'gold'), onclick: async () => { await enablePush(); api.redraw(); } }, pushOn() ? '✓ ' + t('push_on') : t('push_enable')),
       h('h3', {}, t('lock')),
@@ -1336,15 +1340,30 @@ async function loadVillages() {
   if (S.tab === 'map' && S.map) drawPins();
 }
 const projArea = (p) => (areaById(p.area_id) ? areaName(areaById(p.area_id), getLang()) : (p.locality || p.taluka || '').replace(/\b\w/g, (m) => m.toUpperCase()));
+// Expected launch rate for a new project with no quoted price: today's rate where it stands (own quotes or the model)
+// plus a new-construction premium that is highest in the city and fades outside it. Premiums are editable in Settings.
+const premIn = () => Number(cfg.get('np.premIn', 20)) || 0, premOut = () => Number(cfg.get('np.premOut', 6)) || 0;
+function newPremium(dKm) { const a = premIn(), b = premOut(); if (dKm <= 5) return a; if (dKm >= 20) return b; return a + (b - a) * ((dKm - 5) / 15); }
+function expectedRate(p) {
+  const pos = projPin(p) || areaById(p.area_id); if (!pos) return null;
+  const pt = p.ptype === 'plotted' ? 'plot' : p.ptype === 'commercial' ? 'shop' : 'flat';
+  const base = priceAt(pos.lat, pos.lng, pt, projPin(p) ? null : areaById(p.area_id)); if (!base) return null;
+  const prem = newPremium(coreKm(pos.lat, pos.lng)) / 100, k = 1 + prem;
+  const lo = (base.lo ?? base.value * 0.9) * k, hi = (base.hi ?? base.value * 1.1) * k;
+  return { pt, value: base.value * k, lo, hi, prem: Math.round(prem * 100), base: base.value, own: !!base.own };
+}
 function projCard(p) {
-  const ph = tel(p.phone), pp = (S.projPrices || {})[p.rera] || {};
-  const from = p.price_from || pp.from, to = p.price_to || pp.to;
+  const ph = tel(p.phone), PP = S.projPrices || {}, pp = PP[p.rera] || PP['name:' + String(p.name).toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()] || {};
+  const from = p.price_from || pp.from, to = p.price_to || pp.to, rsq = pp.rate_sqft;
   return h('article', { class: 'card' },
     h('div', { class: 'tag' }, [t('p_' + (p.ptype || 'residential')), projArea(p)].filter(Boolean).join(' · ')),
     h('div', { class: 'title' }, p.name),
     h('div', { class: 'small' }, `${t('builder')}: ${p.promoter}`),
     h('div', { class: 'between small' }, h('span', { class: 'b' }, `${t('possession')}: ${fmtDate(p.end_month + '-01', { month: 'short', year: 'numeric' })}`), h('span', { class: 'xs muted' }, `${t('rera')} ${(p.rera.match(/[RCMP]AA\d+/) || [p.rera])[0]}`)),
-    h('div', { class: 'small ' + (from ? 'b' : 'muted') }, from ? `${moneyShort(from)}${to && to !== from ? ' – ' + moneyShort(to) : ''}${pp.note || p.price_note ? ' · ' + (pp.note || p.price_note) : ''}` : t('price_na')),
+    rsq && !from ? h('div', { class: 'small b' }, `${t('quoted')}: ${rate(rsq, 'sqft')} / ${unitLabel('sqft')} · ${pp.note || ''}`, pp.url && h('a', { class: 'xs', href: pp.url, target: '_blank', rel: 'noopener' }, ' ', t('link'))) : from ? h('div', { class: 'small b' }, `${t('quoted')}: ${moneyShort(from)}${to && to !== from ? ' – ' + moneyShort(to) : ''}${pp.note || p.price_note ? ' · ' + (pp.note || p.price_note) : ''}`, (pp.url || p.price_url) && h('a', { class: 'xs', href: pp.url || p.price_url, target: '_blank', rel: 'noopener' }, ' ', t('link')))
+      : (() => { const e = expectedRate(p); if (!e) return h('div', { class: 'small muted' }, t('price_na')); const u = defaultUnit(e.pt);
+        return h('div', {}, h('div', { class: 'small b' }, `${t('expected')}: ₹ ${Math.round(rateFromSqft(e.lo, u, vigha())).toLocaleString('en-IN')} – ${Math.round(rateFromSqft(e.hi, u, vigha())).toLocaleString('en-IN')} / ${unitLabel(u)}`),
+          h('div', { class: 'xs muted' }, `${e.own ? t('area_rate') : t('model_price')} ${rate(e.base, u)} + ${t('new_premium')} ${e.prem}% · ${t('ask_builder')}`)); })(),
     h('div', { class: 'grid3' },
       ph ? h('a', { class: 'btn green', href: 'tel:+91' + ph }, t('call')) : h('span', {}),
       ph ? h('a', { class: 'btn', href: 'https://wa.me/91' + ph, target: '_blank', rel: 'noopener' }, 'WhatsApp') : h('span', {}),
@@ -1359,7 +1378,7 @@ function viewProjects() {
   const Q = S.projQ ||= { year: 'all', type: 'all', q: '', area: null, n: 40 };
   const q = Q.q.trim().toLowerCase();
   const list = S.projects.filter((p) => (Q.year === 'all' || p.end_month.startsWith(Q.year)) && (Q.type === 'all' || p.ptype === Q.type) && (!Q.area || p.area_id === Q.area) && (!Q.areas || Q.areas.includes(p.area_id))
-    && (!q || [p.name, p.promoter, projArea(p), p.locality, p.taluka].join(' ').toLowerCase().includes(q)));
+    && (!q || [p.name, p.promoter, projArea(p), p.locality, p.taluka, p.end_month, areaName(areaById(p.area_id) || {}, 'gu')].join(' ').toLowerCase().includes(q)));
   const years = ['all', '2025', '2026', '2027', '2028', '2029', '2030'];
   return [
     h('label', { class: 'searchbox flat' }, icon('search', 18), h('input', { placeholder: t('search_proj'), value: Q.q, oninput: (e) => { Q.q = e.target.value; Q.n = 40; clearTimeout(S.pqT); S.pqT = setTimeout(render, 250); } })),
@@ -1370,6 +1389,7 @@ function viewProjects() {
     h('div', { class: 'between' }, h('div', { class: 'xs muted' }, `${list.length} ${t('proj_count')} · ${t('proj_src')}`),
       h('button', { class: 'chip' + (Q.mapOn ? ' on' : ''), onclick: () => { Q.mapOn = !Q.mapOn; render(); } }, '🗺 ', t('map'))),
     Q.mapOn ? h('div', { id: 'pmap', class: 'pmap', style: 'height:380px;flex:none;border-radius:18px;overflow:hidden;margin:6px 0 10px' }) : null,
+    !list.length && h('button', { class: 'btn gold', onclick: () => { S.projQ = { year: 'all', type: 'all', q: '', area: null, n: 40, mapOn: Q.mapOn }; render(); } }, '✕ ', t('clear_filters')),
     list.slice(0, Q.n).map(projCard),
     list.length > Q.n && h('button', { class: 'btn', onclick: () => { Q.n += 60; render(); } }, '+ ', list.length - Q.n),
   ];
@@ -1378,7 +1398,7 @@ function viewProjects() {
 function initProjMap() {
   const L = window.L, Q = S.projQ, el = document.getElementById('pmap'); if (!el) return;
   const q = Q.q.trim().toLowerCase();
-  const list = S.projects.filter((p) => (Q.year === 'all' || p.end_month.startsWith(Q.year)) && (Q.type === 'all' || p.ptype === Q.type) && (!q || [p.name, p.promoter, projArea(p)].join(' ').toLowerCase().includes(q)));
+  const list = S.projects.filter((p) => (Q.year === 'all' || p.end_month.startsWith(Q.year)) && (Q.type === 'all' || p.ptype === Q.type) && (!q || [p.name, p.promoter, projArea(p), p.locality, p.taluka, p.end_month].join(' ').toLowerCase().includes(q)));
   const by = {}; for (const p of list) if (areaById(p.area_id)) (by[p.area_id] ||= []).push(p);
   S.pmap = L.map(el, { zoomControl: false }).setView([SURAT.lat, SURAT.lng], 11);
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap' }).addTo(S.pmap);

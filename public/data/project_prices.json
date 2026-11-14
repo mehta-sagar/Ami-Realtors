@@ -1,1 +1,35 @@
-{}
+{
+ "name:sky superia": {
+  "from": 14000000,
+  "note": "₹1.4 Cr onwards · 3 BHK, 1,075–2,323 sq ft carpet · Jun 2026 possession",
+  "url": "https://www.ghar.tv/property/new-projects-in-surat/16-177-0-0.html",
+  "date": "2026-11-14"
+ },
+ "name:shaligram felicity": {
+  "from": 5379000,
+  "note": "₹53.79 L onwards · 712 sq ft carpet · Sep 2027 possession",
+  "url": "https://www.ghar.tv/property/new-projects-in-surat/3-177-0-0.html",
+  "date": "2026-11-14"
+ },
+ "name:prayosha impress": {
+  "from": 2774000,
+  "to": 3774000,
+  "note": "₹27.74–37.74 L · 527 sq ft and up",
+  "url": "https://housing.com/buy-new-projects-in-surat-srpid-AB0P20drlq24mltepds2",
+  "date": "2026-11-14"
+ },
+ "name:vaidehi hills": {
+  "from": 2851000,
+  "to": 4000000,
+  "note": "₹28.51–40 L · 528 sq ft and up",
+  "url": "https://housing.com/buy-new-projects-in-surat-srpid-AB0P20drlq24mltepds2",
+  "date": "2026-11-14"
+ },
+ "name:pramukh central park": {
+  "from": null,
+  "rate_sqft": 6050,
+  "note": "Listing rate about ₹6,050 per sq ft (Mar 2026)",
+  "url": "https://www.squareyards.com/property-rates/surat-west",
+  "date": "2026-11-14"
+ }
+}

@@ -15,6 +15,7 @@ button { cursor: pointer; }
 #app { height: 100%; }
 .screen { height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 96px); display: flex; flex-direction: column; gap: 12px; }
 .screen.map { padding: 0; overflow: hidden; position: relative; }
+.screen > * { flex-shrink: 0; }
 .hdr { display: flex; align-items: center; gap: 12px; }
 .logo { width: 46px; height: 46px; border-radius: 13px; background: var(--green); display: flex; align-items: center; justify-content: center; }
 .iconbtn { border: 0; background: transparent; width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--ink); }
