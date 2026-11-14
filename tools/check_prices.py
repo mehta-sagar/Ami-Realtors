@@ -13,7 +13,7 @@ from pathlib import Path
 PATH = Path(__file__).resolve().parent.parent / "public/data/prices.json"
 # Rupees per square foot. Land is agricultural / raw land, so its band is low.
 BOUNDS = {"flat": (500, 30000), "bungalow": (500, 40000), "shop": (800, 60000), "office": (800, 40000),
-          "plot": (100, 50000), "industrial": (100, 15000), "land": (10, 1500)}
+          "plot": (100, 50000), "industrial": (10, 15000), "land": (10, 1500)}
 LIST_PAGE = [
     re.compile(r"99acres\.com/(?!.*spid-)(?!property-rates-and-price-trends).*-ffid"),  # 99acres search results
     re.compile(r"realestateindia\.com/[^/]+-property/[^_]*\.htm$"),                   # realestateindia list pages

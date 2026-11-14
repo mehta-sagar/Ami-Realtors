@@ -23,7 +23,7 @@ async function kvDel(k) {
   return new Promise((res, rej) => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').delete(k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
 }
 
-export const PRIVATE = ['customers', 'brokers', 'properties', 'inquiries', 'deals', 'price_points', 'activities', 'tasks', 'area_notes'];
+export const PRIVATE = ['customers', 'brokers', 'properties', 'inquiries', 'deals', 'price_points', 'activities', 'tasks', 'area_notes', 'reports'];
 export const PUBLIC = ['news', 'market'];
 export const DEFAULT_SB_URL = 'https://qzcpydazbhcehjzuvhni.supabase.co';
 

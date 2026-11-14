@@ -262,3 +262,28 @@ create policy "own tasks" on tasks for all to authenticated using (owner = auth.
 drop policy if exists "own area notes" on area_notes;
 create policy "own area notes" on area_notes for all to authenticated using (owner = auth.uid()) with check (owner = auth.uid());
 alter table price_points add column if not exists broker_id uuid references brokers(id) on delete set null;
+
+-- ---------- added Nov 2026: GujRERA projects, villages with rural jantri, reports ----------
+-- Public data is loaded by key-checked functions (the key lives only in loader_keys, never in the app).
+create table if not exists loader_keys (k text primary key);
+alter table loader_keys enable row level security;
+create table if not exists projects (
+  rera text primary key, name text, promoter text, ptype text, area_id text, locality text,
+  taluka text, district text, end_month text, status text, cost numeric, phone text,
+  price_from numeric, price_to numeric, price_note text, price_url text, updated_at timestamptz default now()
+);
+alter table projects enable row level security;
+drop policy if exists "read projects" on projects; create policy "read projects" on projects for select using (true);
+create table if not exists villages (
+  id text primary key, name text not null, taluka text, district text default 'Surat', lat double precision, lng double precision,
+  agri_sqm numeric, na_res_sqm numeric, na_com_sqm numeric, gamtal_sqm numeric, survey text, observed_on date default current_date
+);
+alter table villages enable row level security;
+drop policy if exists "read villages" on villages; create policy "read villages" on villages for select using (true);
+create table if not exists reports (
+  id uuid primary key default gen_random_uuid(), owner uuid references auth.users default auth.uid(),
+  kind text, ref text, reason text, note text, created_at timestamptz default now(), updated_at timestamptz default now()
+);
+alter table reports enable row level security;
+drop policy if exists "own reports" on reports; create policy "own reports" on reports for all to authenticated using (owner = auth.uid()) with check (owner = auth.uid());
+-- load_projects(rows jsonb, key text) and load_villages(rows jsonb, key text): security definer upserts, see the SQL editor history.

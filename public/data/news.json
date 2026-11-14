@@ -1,5 +1,25 @@
 [
  {
+  "published_on": "2026-11-14",
+  "category": "govt",
+  "title_gu": "GIDC ફાળવણી દર 2026-27: સચિન-પાંડેસરા ₹8,940, કતારગામ ₹11,150, ખટોદરા ₹11,950 પ્રતિ ચો.મી.",
+  "title_en": "GIDC allotment rates 2026-27: Sachin & Pandesara Rs 8,940, Katargam Rs 11,150, Khatodara Rs 11,950 per sq m",
+  "summary_gu": "વાપી ₹8,400, અંકલેશ્વર ₹4,740, ઓલપાડ ₹1,060. એપમાં દરેક GIDC માં દેખાશે.",
+  "summary_en": "Vapi Rs 8,400, Ankleshwar Rs 4,740, Olpad Rs 1,060. Shown in the app for each GIDC.",
+  "source": "GIDC",
+  "url": "https://gidc.gujarat.gov.in/allotmentprice"
+ },
+ {
+  "published_on": "2026-11-13",
+  "category": "market",
+  "title_gu": "સોનું સતત ચોથા દિવસે ઘટ્યું: 24 કેરેટ ₹13,849 પ્રતિ ગ્રામ",
+  "title_en": "Gold falls for a fourth day: 24K at Rs 13,849 per gram",
+  "summary_gu": "22 કેરેટ સોનું ₹12,695 પ્રતિ ગ્રામ. ચાંદીના ભાવ જુદા જુદા સ્ત્રોતમાં અલગ છે.",
+  "summary_en": "22K gold is at Rs 12,695 per gram. Silver quotes differ widely between sources.",
+  "source": "Goodreturns",
+  "url": "https://www.goodreturns.in/gold/crash-in-gold-continues-on-13-november-24k-falls-rs-61100-in-4days-citywise-gold-rates-today-chennai-1546753.html"
+ },
+ {
   "published_on": "2026-11-12",
   "category": "infra",
   "title_gu": "તાપી નદી પર સુરતનો પહેલો મેટ્રો બ્રિજ તૈયાર, અડાજણથી અઠવા ચોપાટી જોડાશે",
@@ -40,23 +60,173 @@
   "url": "https://realtypromoo.com/cities/surat"
  },
  {
-  "published_on": "2026-10-28",
-  "category": "infra",
-  "title_gu": "સુરત મહાનગરપાલિકાને 7 ઇન્ફ્રાસ્ટ્રક્ચર પ્રોજેક્ટ માટે કેન્દ્રની ₹566 કરોડની ગ્રાન્ટ મંજૂર",
-  "title_en": "SMC gets approval for Rs 566 crore in central grants for seven infrastructure projects",
-  "summary_gu": "સ્ક્વેર યાર્ડ્સ મુજબ સુરતમાં સરેરાશ માંગેલો ભાવ સપ્ટેમ્બરમાં ₹4,650 પ્રતિ ચો.ફૂટ હતો.",
-  "summary_en": "Square Yards puts Surat's average asking price at Rs 4,650 per sq ft in September.",
-  "source": "Square Yards",
-  "url": "https://www.squareyards.com/blog/surat-secures-rs-566-crore-for-infrastructure-projects-real-estate-markets-in-focus"
+  "published_on": "2026-10-22",
+  "category": "smc",
+  "title_gu": "મીઠી ખાડીમાં 13 કિમી ડ્રેજિંગ માટે પાલિકા ₹30 કરોડનું ટેન્ડર લાવશે",
+  "title_en": "SMC to tender about Rs 30 crore to dredge 13 km of Meethi Khadi",
+  "summary_gu": "વારંવાર ખાડી પૂર ઘટાડવા કામ; પૂર નિવારણ DPR ચકાસવા ખાસ સમિતિ બની.",
+  "summary_en": "Aimed at recurring creek flooding; a special committee will cross-check the flood-mitigation DPR.",
+  "source": "DeshGujarat",
+  "url": "https://deshgujarat.com/2026/10/22/surat-civic-body-to-spend-%e2%82%b930-crore-on-meethi-creek-desilting-to-tackle-flooding/"
  },
  {
-  "published_on": "2026-11-13",
+  "published_on": "2026-10-21",
+  "category": "smc",
+  "title_gu": "પાલિકાને 7 પ્રોજેક્ટ માટે ₹566 કરોડની કેન્દ્રીય ગ્રાન્ટ: મજુરા-ખટોદરામાં ₹350 કરોડનું બહુમાળી ઓફિસ બિલ્ડિંગ",
+  "title_en": "Rs 566 crore central grant for 7 SMC projects; Rs 350 crore multi-storey office in Majura-Khatodara",
+  "summary_gu": "TP-6 ના FP 234-235 પર ઓફિસ; રત્નમાળા અને ગજેરા જંક્શને BRTS બાજુ ફ્લાયઓવર માટે ₹16 કરોડ.",
+  "summary_en": "Office on Final Plots 234-235 of TP-6; Rs 16 crore for flyovers beside BRTS at Ratnamala and Gajera junctions.",
+  "source": "DeshGujarat",
+  "url": "https://deshgujarat.com/2026/10/21/surat-gets-%E2%82%B9566-crore-grant-for-seven-key-infrastructure-projects/"
+ },
+ {
+  "published_on": "2026-09-16",
+  "category": "rules",
+  "title_gu": "ગુજરેરા: નોટિફાઇડ પ્લાનિંગ વિસ્તારની બહારના પ્રોજેક્ટ પણ નિયંત્રણમાં લેવા સત્તા માગી",
+  "title_en": "GujRERA seeks powers over projects outside notified planning areas",
+  "summary_gu": "મહારાષ્ટ્ર અને તમિલનાડુની જેમ આખા રાજ્યમાં RERA લાગુ કરવા દરખાસ્ત.",
+  "summary_en": "Cites Maharashtra and Tamil Nadu, where RERA covers the whole state.",
+  "source": "DeshGujarat",
+  "url": "https://deshgujarat.com/2026/09/16/gujrera-seeks-powers-to-regulate-projects-beyond-notified-planning-areas/"
+ },
+ {
+  "published_on": "2026-09-04",
+  "category": "govt",
+  "title_gu": "રાજ્ય સરકારે સુરત, અમદાવાદ, નવસારીની 5 TP સ્કીમમાં ફેરફાર મંજૂર કર્યા",
+  "title_en": "State approves changes to 5 TP schemes in Ahmedabad, Surat and Navsari",
+  "summary_gu": "કેટલાક પ્લોટ શહેરી જંગલ, પાર્કિંગ અને સામાજિક સુવિધા માટે અનામત.",
+  "summary_en": "Several plots earmarked for urban forests, parking and social infrastructure.",
+  "source": "DeshGujarat",
+  "url": "https://deshgujarat.com/2026/09/04/gujarat-govt-approves-changes-to-5-tp-schemes-in-ahmedabad-surat-navsari/"
+ },
+ {
+  "published_on": "2026-08-26",
+  "category": "realestate",
+  "title_gu": "પાલ RTO પાસે 142.99 મીટરના 40 માળના કોમર્શિયલ ટાવરને મંજૂરી – સુરતની સૌથી ઊંચી ઇમારત",
+  "title_en": "40-storey, 142.99 m commercial tower near Pal RTO approved – Surat's tallest",
+  "summary_gu": "TP-14 (પાલ) FP-144; FSI 5.40; પાલિકાને ₹30.56 કરોડ વધારાનો ઇન્ફ્રા ચાર્જ.",
+  "summary_en": "TP-14 (Pal) FP-144; FSI 5.40; SMC gets Rs 30.56 crore additional infrastructure charge.",
+  "source": "DeshGujarat",
+  "url": "https://deshgujarat.com/2026/08/26/surat-set-for-tallest-building-as-40-storey-tower-gets-govt-approval/"
+ },
+ {
+  "published_on": "2026-06-16",
+  "category": "infra",
+  "title_gu": "મેટ્રો કામ: રિંગ રોડ ફ્લાયઓવર પર 62 દિવસ ભારે વાહનો માટે ડાયવર્ઝન",
+  "title_en": "Metro work: 62-day heavy-vehicle diversion on the Ring Road flyover",
+  "summary_gu": "ભેસ્તાન-સરોલી રૂટ પર પિયર કેપ કામ; માનદરવાજા-સહારા દરવાજા તરફ ભારે વાહન બંધ.",
+  "summary_en": "Pier-cap work on the Bhesan-Saroli route; heavy vehicles barred between Mandarwaja and Sahara Darwaja.",
+  "source": "DeshGujarat",
+  "url": "https://deshgujarat.com/2026/06/16/traffic-diversions-on-ring-road-flyover-for-2-months-due-to-surat-metro-work/"
+ },
+ {
+  "published_on": "2026-05-30",
+  "category": "govt",
+  "title_gu": "સરકારે SUDA ની TP સ્કીમ 47 (ખોલવડ-ભરાડ) અંગે સુધારા જાહેરનામું બહાર પાડ્યું",
+  "title_en": "Govt issues corrigendum for SUDA TP Scheme 47 (Kholvad-Bharad)",
+  "summary_gu": "અમદાવાદ અને રાજકોટની TP સ્કીમો સાથે નિર્ણય.",
+  "summary_en": "Issued alongside TP approvals for Ahmedabad and Rajkot.",
+  "source": "DeshGujarat",
+  "url": "https://deshgujarat.com/2026/05/30/gujarat-govt-approves-key-tp-schemes-in-ahmedabad-surat-and-rajkot/"
+ },
+ {
+  "published_on": "2026-04-20",
+  "category": "rules",
+  "title_gu": "ગુજરેરા: સુરતના બંધ પડેલા તુલસી પત્ર રેસિડેન્સીમાં દુકાન ખરીદનારને વ્યાજ સાથે રિફંડ",
+  "title_en": "GujRERA orders refund with interest to shop buyers of stalled Tulsi Patra Residency, Surat",
+  "summary_gu": "પ્રોજેક્ટ અટકી ગયા બાદ ફાળવણીદારોએ ફરિયાદ કરી હતી.",
+  "summary_en": "Allottees complained after the project was discontinued.",
+  "source": "DeshGujarat",
+  "url": "https://deshgujarat.com/2026/04/20/gujrera-directs-refund-with-interest-to-buyers-in-de-registered-surat-project/"
+ },
+ {
+  "published_on": "2026-04-10",
+  "category": "rules",
+  "title_gu": "ગુજરેરાએ 8 કેસમાં બિલ્ડરોને ₹3.5 કરોડ દંડ; સુરતના પ્રમોટરને ફંડ નિયમ ભંગ બદલ ₹2 કરોડ",
+  "title_en": "GujRERA fines builders Rs 3.5 crore in 8 cases; Rs 2 crore on a Surat promoter",
+  "summary_gu": "ફરજિયાત ફંડ જમા નિયમ ન પાળવા બદલ સૌથી મોટો દંડ.",
+  "summary_en": "Highest penalty was for not following mandatory fund-deposit rules.",
+  "source": "DeshGujarat",
+  "url": "https://deshgujarat.com/?p=278600"
+ },
+ {
+  "published_on": "2026-04-09",
   "category": "market",
-  "title_gu": "સોનું સતત ચોથા દિવસે ઘટ્યું: 24 કેરેટ ₹13,849 પ્રતિ ગ્રામ",
-  "title_en": "Gold falls for a fourth day: 24K at Rs 13,849 per gram",
-  "summary_gu": "22 કેરેટ સોનું ₹12,695 પ્રતિ ગ્રામ. ચાંદીના ભાવ જુદા જુદા સ્ત્રોતમાં અલગ છે.",
-  "summary_en": "22K gold is at Rs 12,695 per gram. Silver quotes differ widely between sources.",
-  "source": "Goodreturns",
-  "url": "https://www.goodreturns.in/gold/crash-in-gold-continues-on-13-november-24k-falls-rs-61100-in-4days-citywise-gold-rates-today-chennai-1546753.html"
+  "title_gu": "ગુજરાતમાં 2025-26 માં સ્ટેમ્પ ડ્યુટી-નોંધણી આવક 30% વધી ₹19,103 કરોડ",
+  "title_en": "Gujarat stamp duty and registration revenue up 30% to Rs 19,103 crore in 2025-26",
+  "summary_gu": "મિલકત નોંધણીનું વર્ષ મજબૂત રહ્યું.",
+  "summary_en": "A strong year for property registrations.",
+  "source": "Vibes of India",
+  "url": "https://www.vibesofindia.com/?p=377210"
+ },
+ {
+  "published_on": "2026-04-05",
+  "category": "realestate",
+  "title_gu": "ડાયમંડ બુર્સમાં 2 વર્ષમાં 250 ઓફિસ શરૂ, આવતા વર્ષે 1,000 નો લક્ષ્ય: હર્ષ સંઘવી",
+  "title_en": "Diamond Bourse: 250 offices running in 2 years, 1,000 targeted next year",
+  "summary_gu": "ખજોદ/ડ્રીમ સિટી વિસ્તાર માટે મહત્વનું.",
+  "summary_en": "Matters for the Khajod / Dream City belt.",
+  "source": "DeshGujarat",
+  "url": "https://deshgujarat.com/2026/04/05/250-offices-in-2-years-1000-next-year-sanghvi-hails-surat-diamond-bourse-growth/"
+ },
+ {
+  "published_on": "2026-03-27",
+  "category": "govt",
+  "title_gu": "ખેતીની જમીનના વારસા-વહેંચણીમાં સ્ટેમ્પ ડ્યુટી રાહત: માત્ર ₹300",
+  "title_en": "Stamp duty relief: Rs 300 for inheritance and partition of agricultural land",
+  "summary_gu": "પરિવારમાં વારસદારો વચ્ચે જમીન ટ્રાન્સફર સસ્તું.",
+  "summary_en": "Makes transfers among heirs within a family cheaper.",
+  "source": "DeshGujarat",
+  "url": "https://deshgujarat.com/?p=277458"
+ },
+ {
+  "published_on": "2026-03-09",
+  "category": "govt",
+  "title_gu": "બુલેટ ટ્રેન સ્ટેશન પાસે 460 હેક્ટરની 3 નવી TP સ્કીમ સરકારમાં મોકલાઈ; કનાડ ગામની TP-102 પણ",
+  "title_en": "SUDA sends 3 draft TP schemes (460 ha) near the bullet train station, plus TP-102 Kanad, to the state",
+  "summary_gu": "SUDA નું 2026-27 બજેટ ₹1,149.78 કરોડ મંજૂર.",
+  "summary_en": "SUDA also approved its Rs 1,149.78 crore budget for 2026-27.",
+  "source": "DeshGujarat",
+  "url": "https://deshgujarat.com/2026/03/09/suda-plans-3-tp-schemes-covering-460-hectares-near-bullet-train-station-in-surat/"
+ },
+ {
+  "published_on": "2026-03-02",
+  "category": "smc",
+  "title_gu": "વરિયાવ TP-37 થી આઉટર રિંગ રોડને જોડતો નવો બ્રિજ બનશે",
+  "title_en": "New bridge to link TP-37 (Variav) with the Outer Ring Road",
+  "summary_gu": "વરિયાવ Y જંક્શનથી 30 મીટર TP રોડ પર ખાડી ઉપર બ્રિજ; વહીવટી મંજૂરી મળી.",
+  "summary_en": "Over the creek on the 30 m TP road from Variav Y-junction; administrative approval granted.",
+  "source": "DeshGujarat",
+  "url": "https://deshgujarat.com/2026/03/02/surat-to-get-another-bridge-to-boost-outer-ring-road-connectivity/"
+ },
+ {
+  "published_on": "2026-02-07",
+  "category": "smc",
+  "title_gu": "સ્ટેન્ડિંગ કમિટીએ પાલિકાનું ₹11,301 કરોડનું બજેટ મંજૂર કર્યું",
+  "title_en": "SMC Standing Committee clears Rs 11,301 crore budget for 2026-27",
+  "summary_gu": "ફ્લાયઓવર, રોડ અને ડ્રેનેજ માટે ₹656 કરોડ વધારાના.",
+  "summary_en": "Extra Rs 656 crore for flyovers, roads and drainage.",
+  "source": "DeshGujarat",
+  "url": "https://deshgujarat.com/2026/02/07/%e2%82%b911301-crore-smc-budget-cleared-by-standing-committee/"
+ },
+ {
+  "published_on": "2026-01-21",
+  "category": "smc",
+  "title_gu": "ઉધના રેલ્વે યાર્ડ પાસે ₹66 કરોડનો 4-લેન ઓવરબ્રિજ: લિંબાયત, ગોડાદરા, પરવત પાટિયાને રાહત",
+  "title_en": "Rs 66 crore four-lane overbridge near Udhna railway yard; relief for Limbayat, Godadara, Parvat Patiya",
+  "summary_gu": "45 મીટર TP રોડ પર EPC મોડેલથી; કામ જાન્યુઆરી 2026 માં શરૂ.",
+  "summary_en": "On the 45 m TP road, EPC model; work started January 2026.",
+  "source": "DeshGujarat",
+  "url": "https://deshgujarat.com/2026/01/21/smc-plans-%e2%82%b966-crore-four-lane-overbridge-near-udhna-railway-yard"
+ },
+ {
+  "published_on": "2025-12-13",
+  "category": "infra",
+  "title_gu": "આઉટર રિંગ રોડ ફેઝ-2: સચિન-પલસાણાથી સચિન-કડોદરા જંક્શન સુધી ₹184 કરોડનું કામ શરૂ",
+  "title_en": "Outer Ring Road Phase 2: Rs 184 crore Sachin-Palsana to Sachin-Kadodara stretch launched",
+  "summary_gu": "કડોદરા રોડ પર ₹57.65 કરોડનો ફ્લાયઓવર પણ; સંપૂર્ણ લાભ 2028 સુધીમાં.",
+  "summary_en": "Plus a Rs 57.65 crore flyover on Kadodara Road; full benefit expected by 2028.",
+  "source": "India Sea Trade News",
+  "url": "https://indiaseatradenews.com/?p=134326"
  }
 ]

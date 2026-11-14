@@ -18,7 +18,7 @@ const A = [
   ['pandesara', 'Pandesara', 'પાંડેસરા', 'Surat', 21.146, 72.838, 'pandesra'],
   ['dindoli', 'Dindoli', 'ડીંડોલી', 'Surat', 21.143, 72.874, 'dindoli ડિંડોલી'],
   ['sachin', 'Sachin', 'સચિન', 'Surat', 21.086, 72.881, 'sachin gidc'],
-  ['hojiwala', 'Hojiwala (Sachin)', 'હોજીવાલા (સચિન)', 'Surat', 21.073, 72.905, 'hojiwala hoziwala hojiwala industrial estate હોજીવાલા'],
+  ['hojiwala', 'Hojiwala (Sachin)', 'હોજીવાલા (સચિન)', 'Surat', 21.073, 72.905, 'hojiwala hoziwala hojiwala industrial estate હોજીવાલા', 1.2],
   ['vip-road-vesu', 'VIP Road (Vesu)', 'વીઆઈપી રોડ (વેસુ)', 'Surat', 21.148, 72.786, 'vip road vip વીઆઈપી'],
   ['maroli', 'Maroli', 'મરોલી', 'Navsari', 21.025, 72.895, 'maroli arasan'],
   ['zadeshwar', 'Zadeshwar (Bharuch)', 'ઝાડેશ્વર (ભરૂચ)', 'Bharuch', 21.722, 73.020, 'zadeshwar jhadeshwar ઝાડેશ્વર'],
@@ -80,7 +80,7 @@ const A = [
   ['magdalla', 'Magdalla', 'મગદલ્લા', 'Surat', 21.140, 72.745, 'magdala'],
   ['dumas', 'Dumas', 'ડુમસ', 'Surat', 21.085, 72.715, 'dumas road dummas'],
   ['khajod', 'Khajod (DREAM City)', 'ખજોદ (ડ્રીમ સિટી)', 'Surat', 21.118, 72.790, 'dream city diamond bourse ખજોદ ડ્રીમ સિટી'],
-  ['hazira', 'Hazira', 'હજીરા', 'Surat', 21.113, 72.648, 'hajira'],
+  ['hazira', 'Hazira (industrial zone)', 'હજીરા (ઔદ્યોગિક)', 'Surat', 21.113, 72.648, 'hajira', 3],
   ['olpad', 'Olpad', 'ઓલપાડ', 'Surat', 21.337, 72.752, 'olpaad'],
   ['kamrej', 'Kamrej', 'કામરેજ', 'Surat', 21.268, 72.958, 'kamrej char rasta'],
   ['kim', 'Kim', 'કીમ', 'Surat', 21.401, 72.928, 'keem'],
@@ -98,18 +98,41 @@ const A = [
   ['vyara', 'Vyara', 'વ્યારા', 'Tapi', 21.110, 73.394, ''],
   ['ankleshwar', 'Ankleshwar', 'અંકલેશ્વર', 'Bharuch', 21.626, 73.015, 'ankleshvar'],
   ['bharuch', 'Bharuch', 'ભરૂચ', 'Bharuch', 21.705, 72.996, 'bharuch broach'],
+  // Industrial estates: [id, en, gu, district, lat, lng, aliases, radius km]. They keep their own prices and never mix with homes nearby.
+  ['sachin-gidc', 'Sachin GIDC', 'સચિન જીઆઈડીસી', 'Surat', 21.0835, 72.8735, 'sachin gidc sachingidc lajpore gidc', 2.2],
+  ['pandesara-gidc', 'Pandesara GIDC', 'પાંડેસરા જીઆઈડીસી', 'Surat', 21.1435, 72.8395, 'pandesara gidc pandesra gidc', 1.2],
+  ['udhna-udyognagar', 'Udhna Udyog Nagar', 'ઉધના ઉદ્યોગનગર', 'Surat', 21.1705, 72.8395, 'udyog nagar udyognagar udhna gidc', 0.8],
+  ['katargam-gidc', 'Katargam GIDC', 'કતારગામ જીઆઈડીસી', 'Surat', 21.2265, 72.8265, 'katargam gidc', 0.6],
+  ['khatodara-gidc', 'Khatodara GIDC', 'ખટોદરા જીઆઈડીસી', 'Surat', 21.1765, 72.8185, 'khatodara gidc khatodra', 0.5],
+  ['ichhapore-gidc', 'Ichhapore–Bhatpore GIDC', 'ઇચ્છાપોર-ભાટપોર જીઆઈડીસી', 'Surat', 21.1555, 72.6555, 'ichhapore gidc ichchhapor gidc bhatpore gidc bhatpor', 1.8],
+  ['apparel-park-sez', 'Sachin Apparel Park (SEZ)', 'સચિન એપેરલ પાર્ક (SEZ)', 'Surat', 21.0755, 72.8905, 'apparel park sez surat sez', 0.8],
+  ['palsana-industrial', 'Palsana Industrial Belt', 'પલસાણા ઔદ્યોગિક પટ્ટો', 'Surat', 21.0855, 72.9755, 'palsana industrial makhinga jolva jolwa', 2.5],
+  ['kadodara-industrial', 'Kadodara Industrial', 'કડોદરા ઔદ્યોગિક', 'Surat', 21.1655, 72.9605, 'kadodara industrial', 1.5],
+  ['kim-pipodara', 'Kim–Pipodara Industrial', 'કીમ-પીપોદરા ઔદ્યોગિક', 'Surat', 21.3555, 72.9255, 'pipodara palod kim industrial', 2.5],
+  ['olpad-gidc', 'Olpad GIDC', 'ઓલપાડ જીઆઈડીસી', 'Surat', 21.3355, 72.7555, 'olpad gidc', 0.8],
+  ['bardoli-gidc', 'Bardoli GIDC', 'બારડોલી જીઆઈડીસી', 'Surat', 21.1155, 73.1055, 'bardoli gidc', 0.8],
+  ['vapi-gidc', 'Vapi GIDC', 'વાપી જીઆઈડીસી', 'Valsad', 20.3755, 72.9255, 'vapi gidc', 3],
+  ['sarigam-gidc', 'Sarigam GIDC', 'સરીગામ જીઆઈડીસી', 'Valsad', 20.2655, 72.7855, 'sarigam gidc', 1.5],
+  ['umbergaon-gidc', 'Umbergaon GIDC', 'ઉમરગામ જીઆઈડીસી', 'Valsad', 20.1855, 72.7655, 'umargam gidc umbergaon gidc', 1.5],
+  ['valsad-gidc', 'Valsad GIDC', 'વલસાડ જીઆઈડીસી', 'Valsad', 20.6155, 72.9455, 'valsad gidc', 1],
+  ['navsari-gidc', 'Navsari GIDC', 'નવસારી જીઆઈડીસી', 'Navsari', 20.9555, 72.9355, 'navsari gidc vijalpore gidc', 1],
+  ['bilimora-gidc', 'Bilimora GIDC', 'બીલીમોરા જીઆઈડીસી', 'Navsari', 20.7755, 72.9655, 'bilimora gidc', 0.8],
+  ['ankleshwar-gidc', 'Ankleshwar GIDC', 'અંકલેશ્વર જીઆઈડીસી', 'Bharuch', 21.6155, 73.0155, 'ankleshwar gidc', 3],
+  ['panoli-gidc', 'Panoli GIDC', 'પાનોલી જીઆઈડીસી', 'Bharuch', 21.5555, 73.0455, 'panoli gidc', 1.5],
+  ['jhagadia-gidc', 'Jhagadia GIDC', 'ઝઘડિયા જીઆઈડીસી', 'Bharuch', 21.7055, 73.1355, 'jhagadia gidc', 3],
+  ['dahej-pcpir', 'Dahej (GIDC / PCPIR)', 'દહેજ (જીઆઈડીસી)', 'Bharuch', 21.7055, 72.5855, 'dahej gidc dahej sez pcpir', 5],
 ];
 
 export const SURAT = { lat: 21.1702, lng: 72.8311 };
 
-export const AREAS = A.map(([id, en, gu, district, lat, lng, alias]) => ({
-  id, en, gu, district, lat, lng,
+export const AREAS = A.map(([id, en, gu, district, lat, lng, alias, r]) => ({
+  id, en, gu, district, lat, lng, ind: r ? r : 0,
   keys: [en.toLowerCase(), gu, ...aliasList(alias)].filter(Boolean),
 }));
 
 function aliasList(s) {
   // aliases are space separated single words, except known multi-word ones we keep whole
-  const multi = ['hojiwala industrial estate', 'vip road', 'adajan patiya', 'pal gam', 'varachha road', 'mota varacha', 'sarthana jakatnaka', 'athwa lines', 'ghod dod', 'bhatar road', 'sachin gidc', 'rander road', 'chok bazar', 'dumas road', 'dream city', 'diamond bourse', 'ડ્રીમ સિટી', 'kamrej char rasta', 'ubhrat beach'];
+  const multi = ['hojiwala industrial estate', 'sachin gidc', 'pandesara gidc', 'pandesra gidc', 'udyog nagar', 'udhna gidc', 'katargam gidc', 'khatodara gidc', 'ichhapore gidc', 'ichchhapor gidc', 'bhatpore gidc', 'hazira gidc', 'hazira industrial', 'apparel park', 'surat sez', 'palsana industrial', 'kadodara industrial', 'kim industrial', 'olpad gidc', 'bardoli gidc', 'vapi gidc', 'sarigam gidc', 'umargam gidc', 'umbergaon gidc', 'valsad gidc', 'navsari gidc', 'vijalpore gidc', 'bilimora gidc', 'ankleshwar gidc', 'panoli gidc', 'jhagadia gidc', 'dahej gidc', 'dahej sez', 'lajpore gidc', 'vip road', 'adajan patiya', 'pal gam', 'varachha road', 'mota varacha', 'sarthana jakatnaka', 'athwa lines', 'ghod dod', 'bhatar road', 'sachin gidc', 'rander road', 'chok bazar', 'dumas road', 'dream city', 'diamond bourse', 'ડ્રીમ સિટી', 'kamrej char rasta', 'ubhrat beach'];
   const out = [];
   let rest = s;
   for (const m of multi) if (rest.includes(m)) { out.push(m); rest = rest.replace(m, ' '); }

@@ -10,7 +10,7 @@ export const UNITS_BY_TYPE = {
 };
 export const unitsFor = (ptype) => UNITS_BY_TYPE[ptype] || UNITS;
 // Sane band in rupees per sq ft; anything outside is kept out of the averages and shown as "check".
-export const BOUNDS = { flat: [500, 30000], bungalow: [500, 40000], shop: [800, 60000], office: [800, 40000], plot: [100, 50000], industrial: [100, 15000], land: [10, 1500] };
+export const BOUNDS = { flat: [500, 30000], bungalow: [500, 40000], shop: [800, 60000], office: [800, 40000], plot: [100, 50000], industrial: [10, 15000], land: [10, 1500] };
 export const inBounds = (p) => { const b = BOUNDS[p.ptype]; const v = Number(p.price_sqft); return !b || (v >= b[0] && v <= b[1]); };
 
 export function sqftPer(unit, vighaSqft = DEFAULT_VIGHA_SQFT) {
