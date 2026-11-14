@@ -230,7 +230,7 @@ function jantriAt(lat, lng, ptype) {
 function knn(lat, lng, ptype, skipId) {
   if (ptype === 'industrial') {
     // industrial: only other estates / industrial quotes within 12 km
-    const near = AREAS.filter((a) => a.id !== skipId).map((a) => ({ a, d: km(lat, lng, a.lat, a.lng) })).filter((x) => x.d <= 12).sort((x, y) => x.d - y.d)
+    const near = AREAS.filter((a) => a.id !== skipId).map((a) => ({ a, d: km(lat, lng, a.lat, a.lng) })).filter((x) => x.d <= 12 && sameBank(lat, lng, x.a)).sort((x, y) => x.d - y.d)
       .map((x) => ({ ...x, v: stats(x.a.id, 'industrial', 'market', null).median ?? stats(x.a.id, 'industrial', 'gidc').median })).filter((x) => x.v != null).slice(0, 3);
     if (!near.length) return null;
     let w = 0, s = 0; for (const x of near) { const wi = 1 / Math.max(0.5, x.d) ** 2; w += wi; s += wi * x.v; }
@@ -267,7 +267,7 @@ function knn(lat, lng, ptype, skipId) {
 }
 const KNN_K = 4;
 // Which industrial estate (if any) a point falls inside.
-const estateAt = (lat, lng) => AREAS.filter((a) => a.ind && km(lat, lng, a.lat, a.lng) <= a.ind).sort((x, y) => km(lat, lng, x.lat, x.lng) - km(lat, lng, y.lat, y.lng))[0] || null;
+const estateAt = (lat, lng) => AREAS.filter((a) => a.ind && km(lat, lng, a.lat, a.lng) <= a.ind && sameBank(lat, lng, a)).sort((x, y) => km(lat, lng, x.lat, x.lng) - km(lat, lng, y.lat, y.lng))[0] || null;
 const OWN_KM = 1.2;
 // Best available price for one property type at a point: the estate's own price, the area's own price, or the nearby estimate.
 function priceAt(lat, lng, ptype, hint) {
@@ -378,7 +378,7 @@ async function showSpot(lat, lng, label, all) {
       S.spotAt.label = [ad.road, ad.neighbourhood || ad.suburb || ad.village || ad.town].filter(Boolean).join(', ') || r.name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
       // The area named in the address (e.g. "Adajan") wins over whichever area centre happens to be closest.
       const hit = findAreaInText([ad.neighbourhood, ad.quarter, ad.suburb, ad.city_district, ad.village, ad.town, r.display_name].filter(Boolean).join(' , '));
-      if (S.spotAt) S.spotAt.area = hit && km(lat, lng, hit.lat, hit.lng) < 6 ? hit.id : null;
+      if (S.spotAt) S.spotAt.area = hit && km(lat, lng, hit.lat, hit.lng) < 6 && sameBank(lat, lng, hit) ? hit.id : null;
     } catch { S.spotAt.label = `${lat.toFixed(4)}, ${lng.toFixed(4)}`; }
     if (S.spotAt && S.spotAt.lat === lat) drawMapCard();
   }
@@ -998,7 +998,7 @@ function viewPrices() {
 const LANDMARKS = [['d_station', 21.2049, 72.8411], ['d_airport', 21.1141, 72.7418], ['d_sdb', 21.1297, 72.8159]];
 function factsCard(a, mk, j) {
   const en = getLang() === 'en', tags = S.tags[a.id] || {};
-  const gidc = AREAS.filter((x) => x.ind && x.id !== a.id).map((x) => ({ x, d: km(a.lat, a.lng, x.lat, x.lng) })).sort((p, q) => p.d - q.d)[0];
+  const gidc = AREAS.filter((x) => x.ind && x.id !== a.id && sameBank(a.lat, a.lng, x)).map((x) => ({ x, d: km(a.lat, a.lng, x.lat, x.lng) })).sort((p, q) => p.d - q.d)[0];
   const n = S.projects ? S.projects.filter((p) => p.area_id === a.id).length : null;
   const row = (k, v) => h('div', { class: 'between small' }, h('span', {}, k), h('span', { class: 'b' }, v));
   const kmTxt = (d) => (d < 1 ? '< 1' : Math.round(d)) + (en ? ' km' : ' કિમી');
