@@ -532,11 +532,9 @@ function pinPicker(title, at, onSave) {
 const PROJPIN_KEY = 'projpins';
 const projPin = (p) => cfg.get(PROJPIN_KEY, {})[p.rera] || null;
 // Where to draw a project: Dad's own pin if he set one, otherwise spread around its area's centre (approximate).
-function projPos(p, i) {
-  const own = projPin(p); if (own) return { ...own, exact: true };
-  const a = areaById(p.area_id); if (!a) return null;
-  const ang = i * 2.39996, r = 0.0018 * Math.sqrt(i + 1);
-  return { lat: a.lat + r * Math.cos(ang), lng: a.lng + r * Math.sin(ang) * 1.07, exact: false };
+function projPos(p) {
+  // Only real locations: Dad's own pin. RERA gives no coordinates, so we never invent a spot for a project.
+  const own = projPin(p); return own ? { ...own, exact: true } : null;
 }
 
 // ---------- Dad's own places (an estate or society the map doesn't know, e.g. a new industrial park) ----------
@@ -1064,6 +1062,7 @@ const otherShare = (r) => Math.min(100, (r.brokers || []).reduce((s, x) => s + (
 // ---------- Prices ----------
 const FRESH_DAYS = 183;
 const GRADES = ['premium', 'standard', 'basic'];
+const withBuilding = (p) => /shed|building|factory|godown|rcc|construction/i.test(String(p.note || ''));
 function stats(areaId, ptype, kind, furnished, grade) {
   const cut = new Date(Date.now() - FRESH_DAYS * 864e5).toISOString().slice(0, 10);
   const every = S.data.price_points.filter((p) => p.area_id === areaId && p.ptype === ptype && p.kind === kind);
@@ -1075,13 +1074,55 @@ function stats(areaId, ptype, kind, furnished, grade) {
     const sm = summarize(all);
     return { ...sm, points: all, old: [], lo: -Infinity, hi: Infinity };
   }
-  const pts = all.filter((p) => String(p.observed_on) >= cut);
-  return { ...summarize(pts), points: pts, old: all.filter((p) => String(p.observed_on) < cut), bad: every.filter((p) => !inBounds(p)) };
+  const fresh = all.filter((p) => String(p.observed_on) >= cut), bld = ptype === 'industrial' ? fresh.filter(withBuilding) : [];
+  const pts = fresh.filter((p) => !bld.includes(p));
+  return { ...summarize(pts), points: pts, bld, old: all.filter((p) => String(p.observed_on) < cut), bad: every.filter((p) => !inBounds(p)) };
+}
+// ---------- fact check: reconcile every market price against independent anchors ----------
+// Anchors: other sources for the same area, the government jantri, the GIDC allotment rate (industrial),
+// and the model price built only from OTHER areas. A price is "verified" only when they agree.
+const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
+function reconcile(a, ptype, mk, j, gd) {
+  const C = [], add = (lvl, k, ...v) => C.push([lvl, t(k) + (v.length ? ' ' + v.join(' ') : '')]);
+  const m = mk.median; if (m == null) return null;
+  const pts = mk.points, srcs = new Set(pts.map((p) => host(p.source_url) || p.broker_id || p.source));
+  const agree = pts.filter((p) => Math.abs(p.price_sqft / m - 1) <= 0.25).length;
+  if (srcs.size >= 2 && agree >= 2) add('ok', 'fc_sources_ok', srcs.size);
+  else if (srcs.size === 1) add('warn', 'fc_single', `(${[...srcs][0]})`);
+  else add('bad', 'fc_sources_split', `${Math.round(mk.min)}–${Math.round(mk.max)}`);
+  if (pts.every((p) => p.source === 'listing')) add('warn', 'fc_asking');
+  if (mk.bld && mk.bld.length) add('warn', 'fc_building', mk.bld.length);
+  if (j.median) {
+    const r = m / j.median, max = ptype === 'land' ? 8 : ptype === 'industrial' ? 6 : 4;
+    add(r < 0.9 ? 'bad' : r > max ? 'bad' : 'ok', r < 0.9 ? 'fc_below_jantri' : r > max ? 'fc_far_jantri' : 'fc_jantri_ok', `× ${r.toFixed(1)}`);
+  }
+  if (gd.median) {
+    const r = m / gd.median;
+    add(r < 1 ? 'bad' : r > 6 ? 'warn' : 'ok', r < 1 ? 'fc_below_gidc' : r > 6 ? 'fc_far_gidc' : 'fc_gidc_ok', `× ${r.toFixed(1)}`);
+  }
+  const model = knn(a.lat, a.lng, ptype, a.id);
+  if (model && model.value) {
+    const r = m / model.value, lo = model.conf === 'mid' ? 0.67 : 0.5, hi = 1 / lo;
+    add(r < lo || r > hi ? 'warn' : 'ok', r < lo || r > hi ? 'fc_model_off' : 'fc_model_ok', `${r >= 1 ? '+' : ''}${Math.round((r - 1) * 100)}%`);
+  }
+  const age = Math.max(...pts.map((p) => (Date.now() - new Date(p.observed_on)) / 864e5));
+  if (age > 120) add('warn', 'fc_old', Math.round(age));
+  const bad = C.filter((c) => c[0] === 'bad').length, warn = C.filter((c) => c[0] === 'warn').length;
+  const grade = bad ? 'conflict' : srcs.size >= 2 && agree >= 2 && warn <= 1 ? 'verified' : 'check';
+  return { grade, checks: C };
+}
+const FC_ICON = { verified: '✅', check: '🟡', conflict: '🔴' };
+function factCheckCard(rc) {
+  if (!rc) return null;
+  return h('section', { class: 'card' }, h('h2', {}, '🔎 ', t('fc_title'), ': ', FC_ICON[rc.grade], ' ', t('fc_' + rc.grade)),
+    rc.checks.map(([lvl, txt]) => h('div', { class: 'small' }, (lvl === 'ok' ? '✓ ' : lvl === 'warn' ? '⚠ ' : '✗ ') + txt)),
+    h('div', { class: 'xs muted' }, t('fc_note')));
 }
 function viewPrices() {
   const P = S.price, a = areaById(P.area) || AREAS[0], unit = unitsFor(P.ptype).includes(P.unit) ? P.unit : defaultUnit(P.ptype), rd = () => render();
   const j = stats(a.id, P.ptype, 'jantri'), d = stats(a.id, P.ptype, 'dastavej'), mk = stats(a.id, P.ptype, 'market', P.furnished, P.grade), gd = stats(a.id, P.ptype, 'gidc');
   const estP = mk.median == null ? knn(a.lat, a.lng, P.ptype, a.id) : null;
+  const rc = reconcile(a, P.ptype, mk, j, gd);
   const quotes = [...mk.points, ...d.points, ...j.points, ...gd.points].sort((x, y) => String(y.observed_on).localeCompare(String(x.observed_on)));
   const last = quotes.map((p) => p.observed_on).sort().pop();
   const bare = (v) => rate(v, unit).replace('₹ ', '');
@@ -1090,7 +1131,7 @@ function viewPrices() {
   const quote = (p, old) => {
     const out = p.kind === 'market' && !old && (p.price_sqft < mk.lo || p.price_sqft > mk.hi);
     return h('div', { class: 'pt' + (out || old ? ' out' : '') },
-      h('div', { class: 'between small' }, h('span', { class: 'b' }, rate(p.price_sqft, unit), p.kind !== 'market' ? ` · ${t(p.kind)}` : '', out ? ` (${t('outlier')})` : '', old === 'bad' ? ` (${t('check_quote')})` : old ? ` (${t('old_quote')})` : ''),
+      h('div', { class: 'between small' }, h('span', { class: 'b' }, rate(p.price_sqft, unit), p.kind !== 'market' ? ` · ${t(p.kind)}` : '', out ? ` (${t('outlier')})` : '', old === 'bad' ? ` (${t('check_quote')})` : old === 'bld' ? ` (${t('fc_bld_tag')})` : old ? ` (${t('old_quote')})` : ''),
         h('span', {}, p.grade && h('span', { class: 'gbadge g-' + p.grade }, t('g_' + p.grade)), ' ', h('span', { class: 'muted' }, fmtDate(p.observed_on, { day: 'numeric', month: 'short', year: '2-digit' })))),
       h('div', { class: 'between xs muted' }, h('span', {}, t('src_' + (p.source || 'other')), p.broker_id && brokerOf(p.broker_id) ? ' · ' + brokerOf(p.broker_id).name : '', p.note ? ' · ' + p.note : ''),
         h('span', {}, p.source_url && h('a', { href: p.source_url, target: '_blank', rel: 'noopener' }, t('link')), ' ', reportBtn('price', `${a.en} · ${p.ptype} · ${p.kind} · ₹${Math.round(p.price_sqft)}/sqft · ${p.observed_on} · ${p.source_url || p.note || ''}`), ' ', !p.pub && (p.owner || !cloud.ready) && h('button', { class: 'linkbtn xs', onclick: async () => { if (confirm(t('confirm_del'))) { await delRec('price_points', p.id).catch(fail); rd(); } } }, t('del')))));
@@ -1104,11 +1145,12 @@ function viewPrices() {
     seg([[false, t('unfurnished')], [true, t('furnished')]], P.furnished, (v) => { P.furnished = v; rd(); }),
     chips([['all', t('all')], ...GRADES.map((g) => [g, t('g_' + g)])], P.grade, (v) => { P.grade = v; rd(); }, 'scroll'),
     h('section', { class: 'card rates' },
-      line(t('market_rate'), mk.median == null ? (estP ? `${t('nearby_estimate')}: ${knnLine(estP, unit)}` : t('no_price')) : [P.stat === 'range' && `${t('median')} ${rate(mk.median, unit)}`, pct(mk.median, j.median) && `${t('vs_jantri')} ${pct(mk.median, j.median)}`, `${mk.used} ${t('prices_found')}`, mk.dropped ? `${mk.dropped} ${t('dropped')}` : null].filter(Boolean).join(' · '), mk.median == null ? (estP ? '≈ ' + rate(estP.value, unit) : '—') : head, true),
+      line(t('market_rate'), mk.median == null ? (estP ? `${t('nearby_estimate')}: ${knnLine(estP, unit)}` : t('no_price')) : [P.stat === 'range' && `${t('median')} ${rate(mk.median, unit)}`, pct(mk.median, j.median) && `${t('vs_jantri')} ${pct(mk.median, j.median)}`, `${mk.used} ${t('prices_found')}`, rc && `${FC_ICON[rc.grade]} ${t('fc_' + rc.grade)}`, mk.dropped ? `${mk.dropped} ${t('dropped')}` : null].filter(Boolean).join(' · '), mk.median == null ? (estP ? '≈ ' + rate(estP.value, unit) : '—') : head, true),
       h('div', { class: 'statseg' }, seg([['range', t('range')], ['median', t('median')], ['mean', t('mean')], ['low', t('low')], ['high', t('high')]], P.stat, (v) => { P.stat = v; rd(); })),
       line(t('dastavej'), pct(d.median, j.median) && `${t('vs_jantri')} ${pct(d.median, j.median)}`, rate(d.median, unit)),
       line(t('jantri'), [t('jantri_sub') + ' · ' + t('src_garvi'), j.used > 1 && `${t('median')} ${rate(j.median, unit)} · ${j.used} TP/FP`].filter(Boolean).join(' · '), j.used > 1 && j.min !== j.max ? `₹ ${bare(j.min)} – ${bare(j.max)}` : rate(j.median, unit)),
       gd.median != null && line(t('gidc'), t('gidc_sub') + ' · 2026-27', rate(gd.median, unit))),
+    factCheckCard(rc),
     a.ind ? h('div', { class: 'xs goldtext b' }, '🏭 ', t('ind_estate'), ' — ', t('ind_only')) : null,
     h('div', { class: 'grid2' },
       h('button', { class: 'btn green', onclick: () => pricePointForm({ area_id: a.id, ptype: P.ptype, unit }) }, icon('plus', 18), t('add_price')),
@@ -1116,7 +1158,7 @@ function viewPrices() {
     h('button', { class: 'btn', onclick: bulkPaste }, '📋 ', t('bulk_paste')),
     h('section', { class: 'card' }, h('h2', {}, t('all_quotes'), ' (', quotes.length + mk.old.length + (mk.bad || []).length, ')'),
       h('div', { class: 'xs muted' }, t('quotes_note')),
-      quotes.length + mk.old.length + (mk.bad || []).length ? h('div', { class: 'list tight' }, quotes.map((p) => quote(p)), mk.old.map((p) => quote(p, true)), (mk.bad || []).map((p) => quote(p, 'bad'))) : h('div', { class: 'muted small' }, t('no_price'))),
+      quotes.length + mk.old.length + (mk.bad || []).length ? h('div', { class: 'list tight' }, quotes.map((p) => quote(p)), mk.old.map((p) => quote(p, true)), (mk.bad || []).map((p) => quote(p, 'bad')), (mk.bld || []).map((p) => quote(p, 'bld'))) : h('div', { class: 'muted small' }, t('no_price'))),
     insightCard(a, mk, unit),
     factsCard(a, mk, j),
     projectsHere(a),
@@ -1369,7 +1411,7 @@ function projCard(p) {
       ph ? h('a', { class: 'btn', href: 'https://wa.me/91' + ph, target: '_blank', rel: 'noopener' }, 'WhatsApp') : h('span', {}),
       reportBtn('project', `${p.name} · ${p.rera}`)),
     h('div', { class: 'grid2' },
-      (() => { const pin = projPin(p); return pin ? gmapsBtn(pin.lat, pin.lng) : gmapsBtn(null, null, `${p.name}, ${(areaById(p.area_id) || {}).en || projArea(p)}, ${p.district || 'Surat'}, Gujarat`); })(),
+      (() => { const pin = projPin(p); return pin ? gmapsBtn(pin.lat, pin.lng) : h('a', { class: 'btn', href: gmaps(null, null, [p.name, p.promoter, p.locality || (areaById(p.area_id) || {}).en, p.district || 'Surat'].filter(Boolean).join(', ')), target: '_blank', rel: 'noopener' }, '🔍 ', t('gsearch')); })(),
       h('button', { class: 'btn', onclick: () => { const a = areaById(p.area_id) || SURAT, pin = projPin(p); pinPicker(p.name, pin ? { ...pin, exact: true } : { lat: a.lat, lng: a.lng }, (pos) => { const all = cfg.get(PROJPIN_KEY, {}); all[p.rera] = { lat: +pos.lat.toFixed(6), lng: +pos.lng.toFixed(6) }; cfg.set(PROJPIN_KEY, all); toast(t('saved')); render(); }); } }, projPin(p) ? '📌 ' + t('pin_move') : '📍 ' + t('pin_set'))));
 }
 function viewProjects() {
@@ -1389,6 +1431,7 @@ function viewProjects() {
     h('div', { class: 'between' }, h('div', { class: 'xs muted' }, `${list.length} ${t('proj_count')} · ${t('proj_src')}`),
       h('button', { class: 'chip' + (Q.mapOn ? ' on' : ''), onclick: () => { Q.mapOn = !Q.mapOn; render(); } }, '🗺 ', t('map'))),
     Q.mapOn ? h('div', { id: 'pmap', class: 'pmap', style: 'height:380px;flex:none;border-radius:18px;overflow:hidden;margin:6px 0 10px' }) : null,
+    Q.mapOn ? h('div', { class: 'xs muted' }, t('proj_nopin')) : null,
     !list.length && h('button', { class: 'btn gold', onclick: () => { S.projQ = { year: 'all', type: 'all', q: '', area: null, n: 40, mapOn: Q.mapOn }; render(); } }, '✕ ', t('clear_filters')),
     list.slice(0, Q.n).map(projCard),
     list.length > Q.n && h('button', { class: 'btn', onclick: () => { Q.n += 60; render(); } }, '+ ', list.length - Q.n),
@@ -1414,13 +1457,12 @@ function initProjMap() {
   const drawProj = () => {
     pinLayer.clearLayers();
     const z = S.pmap.getZoom(), b = S.pmap.getBounds();
-    if (z < 14) { if (!S.pmap.hasLayer(bubbleLayer)) bubbleLayer.addTo(S.pmap); return; }
-    S.pmap.removeLayer(bubbleLayer);
-    for (const ps of Object.values(by)) ps.forEach((p, i) => {
-      const pos = projPos(p, i); if (!pos || !b.contains([pos.lat, pos.lng])) return;
+    if (!S.pmap.hasLayer(bubbleLayer)) bubbleLayer.addTo(S.pmap);
+    for (const ps of Object.values(by)) ps.forEach((p) => {
+      const pos = projPos(p); if (!pos || !b.contains([pos.lat, pos.lng])) return;
       const html = `<div class="pin small${pos.exact ? ' sel' : ' est'}"><span>🏗 ${esc(p.name).slice(0, 22)}</span><b>${fmtDate(p.end_month + '-01', { month: 'short', year: '2-digit' })}</b></div>`;
       L.marker([pos.lat, pos.lng], { icon: L.divIcon({ className: 'pinwrap', html, iconSize: null }) })
-        .bindPopup(`<b>${esc(p.name)}</b><br>${esc(p.promoter)}<br>${t('possession')}: ${esc(p.end_month)}<br>${pos.exact ? '' : '<i>' + t('pin_approx') + '</i><br>'}<a href="${gmaps(pos.exact ? pos.lat : null, pos.lng, `${p.name}, ${(areaById(p.area_id) || {}).en || projArea(p)}, Surat, Gujarat`)}" target="_blank" rel="noopener">${t('google_maps')}</a>${p.phone ? ` · <a href="tel:+91${tel(p.phone)}">${t('call')}</a>` : ''}`)
+        .bindPopup(`<b>${esc(p.name)}</b><br>${esc(p.promoter)}<br>${t('possession')}: ${esc(p.end_month)}<br><a href="${gmaps(pos.exact ? pos.lat : null, pos.lng, `${p.name}, ${(areaById(p.area_id) || {}).en || projArea(p)}, Surat, Gujarat`)}" target="_blank" rel="noopener">${t('google_maps')}</a>${p.phone ? ` · <a href="tel:+91${tel(p.phone)}">${t('call')}</a>` : ''}`)
         .addTo(pinLayer);
     });
   };

@@ -37,6 +37,27 @@ def problems(p):
         out.append("link is a search/list page, not the page with this figure")
     return out
 
+def reconcile(pts):
+    """Cross-check: flag area/type prices that rest on one source, disagree, or sit below jantri/GIDC."""
+    from collections import defaultdict
+    from statistics import median
+    from urllib.parse import urlparse
+    g = defaultdict(list)
+    for p in pts: g[(p["area_id"], p["ptype"], p["kind"])].append(p)
+    for (a, t, k), ps in sorted(g.items()):
+        if k != "market": continue
+        ps = [p for p in ps if not (t == "industrial" and re.search(r"shed|building|factory|rcc", p.get("note") or "", re.I))]
+        if not ps: continue
+        m = median(p["price_sqft"] for p in ps)
+        hosts = {urlparse(p["source_url"]).netloc for p in ps}
+        flags = []
+        if len(hosts) < 2: flags.append("SINGLE-SOURCE")
+        if max(p["price_sqft"] for p in ps) > 1.6 * min(p["price_sqft"] for p in ps): flags.append("SPLIT")
+        for kind, lo in (("jantri", 0.9), ("gidc", 1.0)):
+            ref = [p["price_sqft"] for p in g.get((a, t, kind), [])]
+            if ref and m < lo * median(ref): flags.append(f"BELOW-{kind.upper()}")
+        if flags: print(f"CHECK {a} {t} median {m:.0f}/sqft from {len(ps)} pts: {' '.join(flags)}")
+
 def main():
     data = json.loads(PATH.read_text(encoding="utf-8"))
     keep, bad = [], []
@@ -46,6 +67,7 @@ def main():
     for p, pr in bad:
         print(f"DROP {p.get('area_id')} {p.get('ptype')} {p.get('price_sqft')}: {'; '.join(pr)}")
     print(f"{len(keep)} ok, {len(bad)} bad")
+    reconcile([p for p, _ in keep])
     if "--fix" in sys.argv:
         PATH.write_text(json.dumps([p for p, _ in keep], ensure_ascii=False, indent=1), encoding="utf-8")
 
