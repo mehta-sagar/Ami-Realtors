@@ -288,3 +288,4 @@ alter table reports enable row level security;
 drop policy if exists "own reports" on reports; create policy "own reports" on reports for all to authenticated using (owner = auth.uid()) with check (owner = auth.uid());
 -- load_projects(rows jsonb, key text) and load_villages(rows jsonb, key text): security definer upserts, see the SQL editor history.
 -- push_subs + save_push_sub(sub) [anon], list_push_subs(key), delete_push_sub(endpoint,key) for the 7 AM alert (src/worker.js).
+-- projects.lat/lng/address/geo_src: official coordinates from GujRERA /maplocation/public/getProjectLocations/<projectRegId> (polygon centroid); geo_projects(rows jsonb, key text) security-definer update, checked against loader_keys.k.

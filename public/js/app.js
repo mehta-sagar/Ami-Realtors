@@ -534,7 +534,8 @@ const projPin = (p) => cfg.get(PROJPIN_KEY, {})[p.rera] || null;
 // Where to draw a project: Dad's own pin if he set one, otherwise spread around its area's centre (approximate).
 function projPos(p) {
   // Only real locations: Dad's own pin. RERA gives no coordinates, so we never invent a spot for a project.
-  const own = projPin(p); return own ? { ...own, exact: true } : null;
+  const own = projPin(p); if (own) return { ...own, exact: true };
+  return p.lat && p.lng ? { lat: p.lat, lng: p.lng, exact: true, rera: true } : null;
 }
 
 // ---------- Dad's own places (an estate or society the map doesn't know, e.g. a new industrial park) ----------
@@ -1343,11 +1344,11 @@ function reportsSheet() {
 
 // ---------- new projects (GujRERA, all registered projects due 2025-2030) ----------
 const SB_PUBLIC_KEY = 'sb_publishable_LBFkjCG99kfNQBPHuw_xxQ_bBdmIw-u';
-const PROJ_KEY = 'projects.v1';
+const PROJ_KEY = 'projects.v2';
 async function loadProjects(force) {
   const c = cfg.get(PROJ_KEY, null);
   if (!force && c && Date.now() - c.at < 864e5) { S.projects = c.rows; return; }
-  const base = (cfg.get('sbUrl') || DEFAULT_SB_URL) + '/rest/v1/projects?select=rera,name,promoter,ptype,area_id,locality,taluka,district,end_month,phone,price_from,price_to,price_note,price_url&end_month=gte.2025-01&end_month=lte.2030-12&order=end_month';
+  const base = (cfg.get('sbUrl') || DEFAULT_SB_URL) + '/rest/v1/projects?select=rera,name,promoter,ptype,area_id,locality,taluka,district,end_month,phone,price_from,price_to,price_note,price_url,lat,lng,address&end_month=gte.2025-01&end_month=lte.2030-12&order=end_month';
   const key = SB_PUBLIC_KEY;
   try {
     let rows = [];
@@ -1359,6 +1360,11 @@ async function loadProjects(force) {
     if (rows.length) { S.projects = rows; try { cfg.set(PROJ_KEY, { at: Date.now(), rows }); } catch { /* storage full */ } }
   } catch { /* offline */ }
   if (!S.projects) S.projects = c ? c.rows : [];
+  // RERA coordinates are the truth: put each located project in the area it actually sits in (e.g. "Adajan taluka" can be Kosad).
+  for (const p of S.projects) if (p.lat && p.lng) {
+    const n = AREAS.filter((a) => !a.ind && !String(a.id).startsWith('v-')).map((a) => ({ a, d: km(p.lat, p.lng, a.lat, a.lng) })).sort((x, y) => x.d - y.d)[0];
+    if (n && n.d <= 3) p.area_id = n.a.id;
+  }
 }
 // ---------- villages with official rural jantri (Garvi), stored in Supabase ----------
 async function loadVillages() {
@@ -1401,6 +1407,7 @@ function projCard(p) {
     h('div', { class: 'tag' }, [t('p_' + (p.ptype || 'residential')), projArea(p)].filter(Boolean).join(' · ')),
     h('div', { class: 'title' }, p.name),
     h('div', { class: 'small' }, `${t('builder')}: ${p.promoter}`),
+    p.address && h('div', { class: 'xs muted' }, '📍 ', p.address, p.lat ? ' · ' + t('rera_loc') : ''),
     h('div', { class: 'between small' }, h('span', { class: 'b' }, `${t('possession')}: ${fmtDate(p.end_month + '-01', { month: 'short', year: 'numeric' })}`), h('span', { class: 'xs muted' }, `${t('rera')} ${(p.rera.match(/[RCMP]AA\d+/) || [p.rera])[0]}`)),
     rsq && !from ? h('div', { class: 'small b' }, `${t('quoted')}: ${rate(rsq, 'sqft')} / ${unitLabel('sqft')} · ${pp.note || ''}`, pp.url && h('a', { class: 'xs', href: pp.url, target: '_blank', rel: 'noopener' }, ' ', t('link'))) : from ? h('div', { class: 'small b' }, `${t('quoted')}: ${moneyShort(from)}${to && to !== from ? ' – ' + moneyShort(to) : ''}${pp.note || p.price_note ? ' · ' + (pp.note || p.price_note) : ''}`, (pp.url || p.price_url) && h('a', { class: 'xs', href: pp.url || p.price_url, target: '_blank', rel: 'noopener' }, ' ', t('link')))
       : (() => { const e = expectedRate(p); if (!e) return h('div', { class: 'small muted' }, t('price_na')); const u = defaultUnit(e.pt);
@@ -1411,7 +1418,7 @@ function projCard(p) {
       ph ? h('a', { class: 'btn', href: 'https://wa.me/91' + ph, target: '_blank', rel: 'noopener' }, 'WhatsApp') : h('span', {}),
       reportBtn('project', `${p.name} · ${p.rera}`)),
     h('div', { class: 'grid2' },
-      (() => { const pin = projPin(p); return pin ? gmapsBtn(pin.lat, pin.lng) : h('a', { class: 'btn', href: gmaps(null, null, [p.name, p.promoter, p.locality || (areaById(p.area_id) || {}).en, p.district || 'Surat'].filter(Boolean).join(', ')), target: '_blank', rel: 'noopener' }, '🔍 ', t('gsearch')); })(),
+      (() => { const pin = projPos(p); return pin ? gmapsBtn(pin.lat, pin.lng) : h('a', { class: 'btn', href: gmaps(null, null, [p.name, p.promoter, p.locality || (areaById(p.area_id) || {}).en, p.district || 'Surat'].filter(Boolean).join(', ')), target: '_blank', rel: 'noopener' }, '🔍 ', t('gsearch')); })(),
       h('button', { class: 'btn', onclick: () => { const a = areaById(p.area_id) || SURAT, pin = projPin(p); pinPicker(p.name, pin ? { ...pin, exact: true } : { lat: a.lat, lng: a.lng }, (pos) => { const all = cfg.get(PROJPIN_KEY, {}); all[p.rera] = { lat: +pos.lat.toFixed(6), lng: +pos.lng.toFixed(6) }; cfg.set(PROJPIN_KEY, all); toast(t('saved')); render(); }); } }, projPin(p) ? '📌 ' + t('pin_move') : '📍 ' + t('pin_set'))));
 }
 function viewProjects() {
