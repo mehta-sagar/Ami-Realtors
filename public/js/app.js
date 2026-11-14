@@ -1,5 +1,5 @@
 import { t, getLang, setLang, money, moneyShort, fmtDate } from './i18n.js';
-import { AREAS, SURAT, areaById, areaName, km, searchAreas } from './areas.js';
+import { AREAS, SURAT, areaById, areaName, km, searchAreas, findAreaInText } from './areas.js';
 import { UNITS, unitsFor, inBounds, PTYPES, sqftPer, toSqft, rateToSqft, rateFromSqft, defaultUnit, summarize, emi, DEFAULT_VIGHA_SQFT } from './units.js';
 import { parseEntry } from './parse.js';
 import { store, cloud, cfg, lock, DEFAULT_SB_URL } from './store.js';
@@ -98,7 +98,7 @@ async function load() {
   const [news, market, prices, insights, tags, leads, pprices] = await Promise.all([pub('news'), pub('market'), pub('prices'), pub('insights'), pub('tags'), pub('leads'), pub('project_prices')]);
   S.leads = Array.isArray(leads) ? leads : []; S.projPrices = pprices && !Array.isArray(pprices) ? pprices : {};
   loadProjects().then(() => { if (S.tab === 'prices' || S.tab === 'properties') render(); });
-  S.villagesLoaded = false; loadVillages();
+  S.villagesLoaded = false; loadVillages(); loadRiver();
   S.insights = Array.isArray(insights) ? insights : []; S.tags = tags && !Array.isArray(tags) ? tags : {};
   if (news.length) S.data.news = news.sort((a, b) => String(b.published_on).localeCompare(String(a.published_on)));
   if (market.length) S.data.market = market.sort((a, b) => String(b.day).localeCompare(String(a.day)));
@@ -173,6 +173,38 @@ async function drawBorder(a) {
 //     that have both. If jantri is low, the model price is low too.
 // It returns the value, a low-high band and a confidence, and says how it was built.
 const MODEL_LOCAL_KM = 6, MODEL_SHRINK = 1 / 9;
+// The Tapi splits Surat: Adajan and Nanpura are 1 km apart but different markets. The river line comes from
+// OpenStreetMap once and is cached; two points are on opposite banks when the line between them crosses it an odd number of times.
+const RIVER_KEY = 'river.tapi.v1';
+async function loadRiver() {
+  const c = cfg.get(RIVER_KEY, null);
+  if (c) { S.river = c; return; }
+  // Bundled copy first (works offline), then OpenStreetMap for the full river.
+  try { const r = await fetch('data/tapi.json'); if (r.ok) { const j = await r.json(); if (j.segments && j.segments.length) { S.river = j.segments; S.fits = null; if (S.map) { drawPins(); drawMapCard(); } return; } } } catch { /* fall through */ }
+  const q = '[out:json][timeout:40];way["waterway"="river"]["name"~"Tapi|Tapti|તાપી",i](20.95,72.55,21.45,73.20);out geom;';
+  for (const host of ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter']) {
+    try {
+      const r = await fetch(host, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+      if (!r.ok) continue;
+      const j = await r.json();
+      const segs = [];
+      for (const w of j.elements || []) for (let i = 1; i < (w.geometry || []).length; i++) segs.push([w.geometry[i - 1].lat, w.geometry[i - 1].lon, w.geometry[i].lat, w.geometry[i].lon].map((x) => +x.toFixed(5)));
+      if (segs.length) { S.river = segs; try { cfg.set(RIVER_KEY, segs); } catch { /* full */ } S.fits = null; if (S.map) { drawPins(); drawMapCard(); } }
+      return;
+    } catch { /* next server */ }
+  }
+}
+function crossesRiver(aLat, aLng, bLat, bLng) {
+  if (!S.river) return false;
+  const ccw = (ax, ay, bx, by, cx, cy) => (cy - ay) * (bx - ax) > (by - ay) * (cx - ax);
+  let n = 0;
+  for (const [y1, x1, y2, x2] of S.river) {
+    if (Math.max(x1, x2) < Math.min(aLng, bLng) || Math.min(x1, x2) > Math.max(aLng, bLng) || Math.max(y1, y2) < Math.min(aLat, bLat) || Math.min(y1, y2) > Math.max(aLat, bLat)) continue;
+    if (ccw(aLng, aLat, x1, y1, x2, y2) !== ccw(bLng, bLat, x1, y1, x2, y2) && ccw(aLng, aLat, bLng, bLat, x1, y1) !== ccw(aLng, aLat, bLng, bLat, x2, y2)) n++;
+  }
+  return n % 2 === 1;
+}
+const sameBank = (lat, lng, a) => !crossesRiver(lat, lng, a.lat, a.lng);
 const coreKm = (lat, lng) => km(SURAT.lat, SURAT.lng, lat, lng);
 function trendFit(ptype) {
   S.fits ||= {};
@@ -191,7 +223,7 @@ function trendFit(ptype) {
   return (S.fits[ptype] = { fit, mk });
 }
 function jantriAt(lat, lng, ptype) {
-  const c = AREAS.filter((a) => !a.ind).map((a) => ({ a, d: km(lat, lng, a.lat, a.lng) })).filter((x) => x.d <= 2.5).sort((x, y) => x.d - y.d);
+  const c = AREAS.filter((a) => !a.ind && sameBank(lat, lng, a)).map((a) => ({ a, d: km(lat, lng, a.lat, a.lng) })).filter((x) => x.d <= 2.5).sort((x, y) => x.d - y.d);
   for (const x of c) { const j = stats(x.a.id, ptype, 'jantri').median; if (j != null) return { j, a: x.a, d: x.d }; }
   return null;
 }
@@ -205,7 +237,7 @@ function knn(lat, lng, ptype, skipId) {
     return { value: s / w, near, conf: near[0].d < 3 ? 'mid' : 'low', lo: (s / w) * 0.7, hi: (s / w) * 1.3, parts: [] };
   }
   const { fit, mk } = trendFit(ptype), d0 = coreKm(lat, lng);
-  const near = fit ? fit.pts.filter((x) => x.a.id !== skipId).map((x) => ({ ...x, dd: km(lat, lng, x.a.lat, x.a.lng) })).filter((x) => x.dd <= MODEL_LOCAL_KM).sort((x, y) => x.dd - y.dd).slice(0, 4) : [];
+  const near = fit ? fit.pts.filter((x) => x.a.id !== skipId).map((x) => ({ ...x, dd: km(lat, lng, x.a.lat, x.a.lng) })).filter((x) => x.dd <= MODEL_LOCAL_KM && sameBank(lat, lng, x.a)).sort((x, y) => x.dd - y.dd).slice(0, 4) : [];
   const parts = []; let logv = null, conf = 'low';
   if (fit) {
     let w = 0, s = 0; for (const x of near) { const wi = 1 / Math.max(0.5, x.dd) ** 2; w += wi; s += wi * x.r; }
@@ -216,7 +248,7 @@ function knn(lat, lng, ptype, skipId) {
   }
   const ja = jantriAt(lat, lng, ptype);
   if (ja && mk.length) {
-    const loc = mk.map((x) => ({ ...x, d: km(lat, lng, x.a.lat, x.a.lng) })).sort((x, y) => x.d - y.d).slice(0, 5).map((x) => x.m).sort((x, y) => x - y);
+    const loc = mk.filter((x) => sameBank(lat, lng, x.a)).map((x) => ({ ...x, d: km(lat, lng, x.a.lat, x.a.lng) })).sort((x, y) => x.d - y.d).slice(0, 5).map((x) => x.m).sort((x, y) => x - y);
     const markup = loc[Math.floor(loc.length / 2)], jv = ja.j * markup;
     parts.push(['jantri', ja.j, markup]);
     logv = logv == null ? Math.log(jv) : (logv + 2 * Math.log(jv)) / 3; // jantri is local and official, so it counts double
@@ -238,14 +270,14 @@ const KNN_K = 4;
 const estateAt = (lat, lng) => AREAS.filter((a) => a.ind && km(lat, lng, a.lat, a.lng) <= a.ind).sort((x, y) => km(lat, lng, x.lat, x.lng) - km(lat, lng, y.lat, y.lng))[0] || null;
 const OWN_KM = 1.2;
 // Best available price for one property type at a point: the estate's own price, the area's own price, or the nearby estimate.
-function priceAt(lat, lng, ptype) {
+function priceAt(lat, lng, ptype, hint) {
   const est = estateAt(lat, lng);
   if (est) {
     if (ptype !== 'industrial') return null;
     const m = stats(est.id, 'industrial', 'market', null).median, g = stats(est.id, 'industrial', 'gidc').median;
     return m != null ? { value: m, own: est } : g != null ? { value: g, own: est, gidc: true } : null;
   }
-  const a = AREAS.filter((x) => !x.ind).map((x) => ({ x, d: km(lat, lng, x.lat, x.lng) })).sort((p, q) => p.d - q.d)[0];
+  const a = hint && !hint.ind ? { x: hint, d: 0 } : AREAS.filter((x) => !x.ind && sameBank(lat, lng, x)).map((x) => ({ x, d: km(lat, lng, x.lat, x.lng) })).sort((p, q) => p.d - q.d)[0];
   if (a && a.d <= OWN_KM) { const m = stats(a.x.id, ptype, 'market', null).median; if (m != null) return { value: m, own: a.x }; }
   const k = knn(lat, lng, ptype);
   return k || null;
@@ -344,6 +376,9 @@ async function showSpot(lat, lng, label, all) {
       const r = await (await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=17&lat=${lat}&lon=${lng}`, { headers: { 'Accept-Language': 'en' } })).json();
       const ad = r.address || {};
       S.spotAt.label = [ad.road, ad.neighbourhood || ad.suburb || ad.village || ad.town].filter(Boolean).join(', ') || r.name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      // The area named in the address (e.g. "Adajan") wins over whichever area centre happens to be closest.
+      const hit = findAreaInText([ad.neighbourhood, ad.quarter, ad.suburb, ad.city_district, ad.village, ad.town, r.display_name].filter(Boolean).join(' , '));
+      if (S.spotAt) S.spotAt.area = hit && km(lat, lng, hit.lat, hit.lng) < 6 ? hit.id : null;
     } catch { S.spotAt.label = `${lat.toFixed(4)}, ${lng.toFixed(4)}`; }
     if (S.spotAt && S.spotAt.lat === lat) drawMapCard();
   }
@@ -352,17 +387,21 @@ function drawMapCard() {
   const el = $('#mapcard'); if (!el) return;
   const unit = defaultUnit(S.mapType);
   if (S.spotAt) {
-    const sp = S.spotAt, estate = estateAt(sp.lat, sp.lng), near = estate ? { a: estate, d: 0 } : AREAS.filter((a) => !a.ind).map((a) => ({ a, d: km(sp.lat, sp.lng, a.lat, a.lng) })).sort((x, y) => x.d - y.d)[0];
-    const pType = estate ? 'industrial' : S.mapType, pu = defaultUnit(pType), pa = priceAt(sp.lat, sp.lng, pType);
+    const sp = S.spotAt, estate = estateAt(sp.lat, sp.lng), hint = sp.area && areaById(sp.area);
+    const near = estate ? { a: estate, d: 0 } : hint ? { a: hint, d: 0 } : AREAS.filter((a) => !a.ind && sameBank(sp.lat, sp.lng, a)).map((a) => ({ a, d: km(sp.lat, sp.lng, a.lat, a.lng) })).sort((x, y) => x.d - y.d)[0];
+    const pType = estate ? 'industrial' : S.mapType, pu = defaultUnit(pType), pa = priceAt(sp.lat, sp.lng, pType, hint);
+    const projNear = S.projects && near ? AREAS.filter((a) => a.id === near.a.id || (km(sp.lat, sp.lng, a.lat, a.lng) <= 2.5 && sameBank(sp.lat, sp.lng, a))).map((a) => a.id) : [];
+    const nProj = S.projects ? S.projects.filter((p) => projNear.includes(p.area_id)).length : 0;
     const srcLine = (x, u) => x.own ? `${t('own_short')}: ${areaName(x.own, getLang())}${x.gidc ? ' · ' + t('gidc') : ''}` : `${t('based_on')}: ${knnLine(x, u)}`;
     const allRows = S.spotAll && h('div', { class: 'list tight' }, h('div', { class: 'xs gold b' }, t('here_all')),
-      PTYPES.map((pt) => { const x = priceAt(sp.lat, sp.lng, pt), u = defaultUnit(pt); return h('div', { class: 'between small' }, h('span', {}, `${t(pt)} · ${unitLabel(u)}`), h('span', { class: 'b' }, x ? (x.own ? '' : x.conf === 'floor' ? '≥ ' : '≈ ') + rate(x.value, u) : '—')); }));
+      PTYPES.map((pt) => { const x = priceAt(sp.lat, sp.lng, pt, hint), u = defaultUnit(pt); return h('div', { class: 'between small' }, h('span', {}, `${t(pt)} · ${unitLabel(u)}`), h('span', { class: 'b' }, x ? (x.own ? '' : x.conf === 'floor' ? '≥ ' : '≈ ') + rate(x.value, u) : '—')); }));
     return el.replaceChildren(h('div', { class: 'card float' },
       h('div', { class: 'between' }, h('div', { class: 'title' }, sp.label), h('div', { class: 'muted small' }, `${t(pType)} · ${t('per')} ${unitLabel(pu)}`)),
       estate && h('div', { class: 'xs goldtext b' }, `🏭 ${t('inside')}: ${areaName(estate, getLang())} — ${t('ind_only')}`),
       h('div', { class: 'between' }, h('span', { class: 'gold xs b' }, pa && pa.own ? t('market_rate') : t('nearby_estimate')), h('span', { class: 'title big' }, pa ? (pa.own ? '' : pa.conf === 'floor' ? '≥ ' : '≈ ') + rate(pa.value, pu) : t('no_price'))),
       pa ? h('div', { class: 'xs muted' }, srcLine(pa, pu)) : h('div', { class: 'xs muted' }, t('no_nearby')),
       allRows,
+      nProj ? h('button', { class: 'btn', onclick: () => { S.propView = 'projects'; S.projQ = { year: 'all', type: 'all', q: '', areas: projNear, n: 40 }; go('properties'); } }, `🏗 ${t('proj_near')}: ${nProj}`) : null,
       near && near.d <= 8 && h('button', { class: 'btn gold', onclick: () => { S.spotAt = null; S.price.area = near.a.id; S.price.ptype = S.mapType; S.price.unit = null; S.price.grade = 'all'; S.tab = 'prices'; render(); } }, `${t('full_detail')}: ${areaName(near.a, getLang())}`)));
   }
   const a = S.mapSel && areaById(S.mapSel);
@@ -377,6 +416,7 @@ function drawMapCard() {
       h('div', { class: 'tile' }, h('div', { class: 'muted xs' }, t('dastavej')), h('div', { class: 'b' }, rate(d.median, unit))),
       h('div', { class: 'tile dark' }, h('div', { class: 'gold xs' }, est ? t('nearby_estimate') : t('market_rate')), h('div', { class: 'b' }, est ? '≈ ' + rate(est.value, unit) : rate(mk.median, unit)))),
     est && h('div', { class: 'xs muted' }, t('based_on'), ': ', knnLine(est, unit)),
+    S.projects && S.projects.some((p) => p.area_id === a.id) && h('button', { class: 'btn', onclick: () => { S.propView = 'projects'; S.projQ = { year: 'all', type: 'all', q: '', area: a.id, n: 40 }; go('properties'); } }, `🏗 ${t('proj_near')}: ${S.projects.filter((p) => p.area_id === a.id).length}`),
     h('button', { class: 'btn gold', onclick: () => { S.price.area = a.id; S.price.ptype = S.mapType; S.price.unit = null; S.price.grade = 'all'; S.tab = 'prices'; render(); } }, t('full_detail'))));
 }
 function mapSuggest(e) {
@@ -647,9 +687,11 @@ function settings() {
 // ---------- shell ----------
 function render() {
   if (S.map && S.tab !== 'map') { S.map.remove(); S.map = null; }
+  if (S.pmap) { S.pmap.remove(); S.pmap = null; }
   const view = { today: viewToday, map: viewMap, prices: viewPrices, customers: viewCustomers, properties: viewProps, more: viewMore }[S.tab]();
   $('#app').replaceChildren(h('main', { class: 'screen ' + S.tab }, view), tabbar());
   if (S.tab === 'map') initMap();
+  if (S.tab === 'properties' && S.propView === 'projects' && S.projQ && S.projQ.mapOn && S.projects && S.projects.length) initProjMap();
 }
 function tabbar() {
   const cur = S.tab === 'prices' ? 'map' : S.tab;
@@ -1188,18 +1230,36 @@ function viewProjects() {
   if (!S.projects.length) return [h('div', { class: 'empty' }, t('proj_offline')), h('button', { class: 'btn', onclick: () => { S.projects = null; loadProjects(true).then(render); } }, t('retry'))];
   const Q = S.projQ ||= { year: 'all', type: 'all', q: '', area: null, n: 40 };
   const q = Q.q.trim().toLowerCase();
-  const list = S.projects.filter((p) => (Q.year === 'all' || p.end_month.startsWith(Q.year)) && (Q.type === 'all' || p.ptype === Q.type) && (!Q.area || p.area_id === Q.area)
+  const list = S.projects.filter((p) => (Q.year === 'all' || p.end_month.startsWith(Q.year)) && (Q.type === 'all' || p.ptype === Q.type) && (!Q.area || p.area_id === Q.area) && (!Q.areas || Q.areas.includes(p.area_id))
     && (!q || [p.name, p.promoter, projArea(p), p.locality, p.taluka].join(' ').toLowerCase().includes(q)));
   const years = ['all', '2025', '2026', '2027', '2028', '2029', '2030'];
   return [
     h('label', { class: 'searchbox flat' }, icon('search', 18), h('input', { placeholder: t('search_proj'), value: Q.q, oninput: (e) => { Q.q = e.target.value; Q.n = 40; clearTimeout(S.pqT); S.pqT = setTimeout(render, 250); } })),
     Q.area && h('button', { class: 'chip on', onclick: () => { Q.area = null; render(); } }, areaName(areaById(Q.area), getLang()), ' ✕'),
+    Q.areas && h('button', { class: 'chip on', onclick: () => { Q.areas = null; render(); } }, Q.areas.map((id) => areaName(areaById(id), getLang())).filter(Boolean).slice(0, 4).join(', '), ' ✕'),
     chips(years.map((y) => [y, y === 'all' ? t('all') : y]), Q.year, (v) => { Q.year = v; Q.n = 40; render(); }, 'scroll'),
     chips(['all', 'residential', 'plotted', 'mixed', 'commercial'].map((k) => [k, k === 'all' ? t('all') : t('p_' + k)]), Q.type, (v) => { Q.type = v; Q.n = 40; render(); }, 'scroll'),
-    h('div', { class: 'xs muted' }, `${list.length} ${t('proj_count')} · ${t('proj_src')}`),
+    h('div', { class: 'between' }, h('div', { class: 'xs muted' }, `${list.length} ${t('proj_count')} · ${t('proj_src')}`),
+      h('button', { class: 'chip' + (Q.mapOn ? ' on' : ''), onclick: () => { Q.mapOn = !Q.mapOn; render(); } }, '🗺 ', t('map'))),
+    Q.mapOn ? h('div', { id: 'pmap', class: 'pmap' }) : null,
     list.slice(0, Q.n).map(projCard),
     list.length > Q.n && h('button', { class: 'btn', onclick: () => { Q.n += 60; render(); } }, '+ ', list.length - Q.n),
   ];
+}
+// Projects map: one bubble per area, sized by how many RERA projects are due there (filters above apply).
+function initProjMap() {
+  const L = window.L, Q = S.projQ, el = document.getElementById('pmap'); if (!el) return;
+  const q = Q.q.trim().toLowerCase();
+  const list = S.projects.filter((p) => (Q.year === 'all' || p.end_month.startsWith(Q.year)) && (Q.type === 'all' || p.ptype === Q.type) && (!q || [p.name, p.promoter, projArea(p)].join(' ').toLowerCase().includes(q)));
+  const by = {}; for (const p of list) if (areaById(p.area_id)) (by[p.area_id] ||= []).push(p);
+  S.pmap = L.map(el, { zoomControl: false }).setView([SURAT.lat, SURAT.lng], 11);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap' }).addTo(S.pmap);
+  for (const [id, ps] of Object.entries(by)) {
+    const a = areaById(id), sel = (Q.areas || []).includes(id) || Q.area === id;
+    const html = `<div class="pin${sel ? ' sel' : ''}"><span>${areaName(a, getLang())}</span><b>🏗 ${ps.length}</b></div>`;
+    L.marker([a.lat, a.lng], { icon: L.divIcon({ className: 'pinwrap', html, iconSize: null }) }).on('click', () => { Q.area = id; Q.areas = null; Q.n = 40; render(); }).addTo(S.pmap);
+  }
+  const sel = Q.area && areaById(Q.area); if (sel) S.pmap.setView([sel.lat, sel.lng], 13);
 }
 function projectsHere(a) {
   if (!S.projects) return null;

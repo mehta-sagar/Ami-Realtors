@@ -119,3 +119,4 @@ button { cursor: pointer; }
 .pin.ind { background: #EEF1F4; border: 1.5px solid #5B6B7A; } .pin.ind b { color: #2F3D4A; }
 .linkbtn.flag { color: #9A6B1A; opacity: .85; }
 .searchbox.flat { box-shadow: none; border: 1px solid #E4E0D4; min-height: 44px; }
+.pmap { height: 340px; border-radius: 18px; overflow: hidden; margin: 6px 0 10px; }

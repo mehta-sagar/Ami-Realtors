@@ -101,6 +101,7 @@ const T = {
   m_ratio: ['ફ્લેટ ભાવ પરથી પ્રકાર ગુણોત્તર', 'type ratio vs flat'],
   conf_floor: ['ઓછામાં ઓછું = જંત્રી; બજાર ભાવ હજુ મળ્યો નથી', 'At least the jantri; no market quote yet'],
   f_jobs_near: ['ઉદ્યોગ-રોજગાર નજીક, પણ દૂર એટલે પ્રદૂષણ ઓછું', 'Industry jobs within reach, far enough from pollution'], proj_offline: ['પ્રોજેક્ટ લોડ ન થયા (ઇન્ટરનેટ તપાસો)', 'Could not load projects (check internet)'], retry: ['ફરી પ્રયાસ', 'Try again'],
+  proj_near: ['નજીકના નવા પ્રોજેક્ટ (RERA)', 'New projects nearby (RERA)'],
   conf_low: ['ઓછો ભરોસો', 'Low confidence'], conf_mid: ['મધ્યમ ભરોસો', 'Medium confidence'], model_price: ['મોડેલ ભાવ', 'Model price'],
   type: ['મિલકતનો પ્રકાર', 'Property type'], more: ['વધુ', 'More'], approx: ['આશરે', 'approx.'],
 };

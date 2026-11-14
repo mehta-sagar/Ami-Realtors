@@ -1,0 +1,32 @@
+{
+ "_note": "Where property classifieds appear in each e-paper. Checked by reading the page images. Update when a layout changes.",
+ "papers": [
+  {
+   "paper": "Sandesh",
+   "edition": "Surat City",
+   "url": "https://sandesh.com/epaper/surat?date={YYYY-MM-DD}&page={page}",
+   "pages_total": 16,
+   "classifieds_page": 11,
+   "where": "bottom third, 'સંદેશ ક્લાસિફાઇડ્સ' band; property ads under 'વેચવાનું છે' and 'પ્રોપર્ટી'",
+   "image": "page images listed in the page HTML as epapercdn.sandesh.com/epaper/YYYY/MM/DD/<id>-<n>.jpg (2324x3231)",
+   "checked": "2026-11-14"
+  },
+  {
+   "paper": "Sandesh",
+   "edition": "Surat City",
+   "classifieds_page": 13,
+   "where": "public notices (જાહેર નોટીસ) incl. land title notices",
+   "checked": "2026-11-14"
+  },
+  {
+   "paper": "Gujarat Samachar",
+   "edition": "Surat",
+   "url": "https://epaper.gujaratsamachar.com/surat/{DD-MM-YYYY}/{page}",
+   "pages_total": 16,
+   "classifieds_page": 13,
+   "where": "bottom-right 'ક્લાસિફાઇડ્સ' block; on 14 Nov 2026 it had no property ads (medical, repairing, travel, matrimonial only)",
+   "image": "epaperstatic.gujaratsamachar.com/epaper/<YYYYMMDD>-<id>-<DDMMYYYY>_SUR-<n-1>.jpg (2800x3720)",
+   "checked": "2026-11-14"
+  }
+ ]
+}
