@@ -1731,23 +1731,40 @@ function viewDetail() {
 }
 const waLink = (ph, text) => 'https://wa.me/' + (ph ? '91' + tel(ph) : '') + (text ? '?text=' + encodeURIComponent(text) : '');
 const CARD_URL = () => location.origin + '/card.html';
-function builderMsg(p) {
-  const en = getLang() === 'en';
+// RERA stores names in capitals ("SHALIGRAM INFRASPACE LLP"); write them the way a person would.
+const niceName = (x) => String(x || '').toLowerCase().replace(/\s+/g, ' ').trim()
+  .replace(/(^|[\s(.&/-])([a-z])/g, (m, a, b) => a + b.toUpperCase()).replace(/\b(Llp|Pvt|Ltd|Huf|Opc)\b/g, (m) => m.toUpperCase());
+const projName = (p) => niceName(p.name);
+// One builder, one or more of their projects → a message that names them and only their own projects.
+function builderMsg(p, list, custom) {
+  const en = getLang() === 'en', ps = list && list.length ? list : [p];
+  const who = niceName(p.promoter);
+  const names = ps.map(projName), last = names.length > 1 ? names.pop() : null;
+  const projTxt = last ? `${names.join(', ')} ${en ? 'and' : 'અને'} ${last}` : names[0];
+  const area = [...new Set(ps.map(projArea).filter(Boolean))].slice(0, 3).join(', ');
+  const hi = en ? `Namaste ${who} team,` : `નમસ્તે ${who} ટીમ,`;
+  if (custom) {
+    const body = custom.replace(/\{builder\}/gi, who).replace(/\{project\}/gi, projTxt).replace(/\{area\}/gi, area);
+    return `${/\{builder\}/i.test(custom) ? '' : hi + '\n'}${body}${/\{project\}/i.test(custom) ? '' : `\n\n${en ? (ps.length > 1 ? 'Projects' : 'Project') : 'પ્રોજેક્ટ'}: ${projTxt}`}\n\n${en ? 'Our visiting card' : 'અમારું વિઝિટિંગ કાર્ડ'}: ${CARD_URL()}\n— ${BRAND.person}, ${BRAND.name} (${BRAND.phones})`;
+  }
   return en
-    ? `Namaste, I am Dharmesh Mehta from Ami Realtors, Chowk Bazaar, Surat (${BRAND.phones}). We have buyers looking in ${projArea(p) || 'your area'}. Please share the price list, floor plans and brokerage terms for ${p.name}. Our visiting card: ${CARD_URL()}`
-    : `નમસ્તે, હું ધર્મેશ મહેતા, અમી રિયલ્ટર્સ, ચોક બજાર, સુરત (${BRAND.phones}). ${projArea(p) || 'આપના વિસ્તાર'}માં અમારી પાસે ગ્રાહકો છે. ${p.name} પ્રોજેક્ટનું પ્રાઇસ લિસ્ટ, પ્લાન અને બ્રોકરેજની શરતો મોકલશો. અમારું વિઝિટિંગ કાર્ડ: ${CARD_URL()}`;
+    ? `${hi}\nI am Dharmesh Mehta from Ami Realtors, Chowk Bazaar, Surat (${BRAND.phones}). We have buyers looking in ${area || 'your area'}. Please share the price list, floor plans and brokerage terms for ${projTxt}.\nOur visiting card: ${CARD_URL()}`
+    : `${hi}\nહું ધર્મેશ મહેતા, અમી રિયલ્ટર્સ, ચોક બજાર, સુરત (${BRAND.phones}). ${area || 'આપના વિસ્તાર'}માં અમારી પાસે ગ્રાહકો છે. આપના ${projTxt} પ્રોજેક્ટનું પ્રાઇસ લિસ્ટ, પ્લાન અને બ્રોકરેજની શરતો મોકલશો.\nઅમારું વિઝિટિંગ કાર્ડ: ${CARD_URL()}`;
 }
 // ---------- many builders at once: one tap per builder, card + message already filled ----------
 // WhatsApp lets no app send to many chats by itself, so this is a queue: Send → WhatsApp opens with the
 // text ready → tap send there → come back → next one is already highlighted.
+// Grouped by phone AND builder, so each builder gets a message with their own name and only their projects.
 function broadcastSheet(projects) {
-  const byPhone = new Map();
-  for (const p of projects) { const ph = tel(p.phone); if (!ph) continue; const x = byPhone.get(ph) || { ph, who: p.promoter, list: [] }; x.list.push(p); byPhone.set(ph, x); }
-  const rows = [...byPhone.values()].map((x) => ({ ph: x.ph, who: x.who || '—', sub: x.list.map((p) => p.name).join(', '), msg: (custom) => {
-    const names = x.list.map((p) => p.name).slice(0, 3).join(', ');
-    return custom ? `${custom}\n\n${getLang() === 'en' ? 'Projects' : 'પ્રોજેક્ટ'}: ${names}\n${CARD_URL()}` : builderMsg(x.list[0]).replace(x.list[0].name, names);
-  } }));
-  cardQueue(t('bc_title'), rows, projects.length - rows.reduce((n, r) => n + r.sub.split(', ').length, 0), builderMsg(projects[0] || { name: '', promoter: '' }), 'b');
+  const groups = new Map();
+  for (const p of projects) {
+    const ph = tel(p.phone); if (!ph) continue;
+    const key = ph + '|' + niceName(p.promoter);
+    const x = groups.get(key) || { ph, who: niceName(p.promoter), list: [] }; x.list.push(p); groups.set(key, x);
+  }
+  const rows = [...groups.values()].map((x) => ({ ph: x.ph, key: x.ph + '|' + x.who, who: x.who || '—', sub: x.list.map(projName).join(', '), msg: (custom) => builderMsg(x.list[0], x.list, custom) }));
+  const noPhone = projects.filter((p) => !tel(p.phone)).length;
+  cardQueue(t('bc_title'), rows, noPhone, getLang() === 'en' ? 'Write your own message. {builder} = builder name, {project} = their projects' : 'પોતાનો મેસેજ લખો. {builder} = બિલ્ડરનું નામ, {project} = તેમના પ્રોજેક્ટ', 'b', true);
 }
 function adMsg(l) {
   const en = getLang() === 'en', what = String(l.text || '').slice(0, 90);
@@ -1759,27 +1776,29 @@ function leadsQueue(leads) {
   const seen = new Set();
   const rows = leads.filter((l) => { const ph = tel(l.phone); if (!ph || seen.has(ph)) return false; seen.add(ph); return true; })
     .map((l) => ({ ph: tel(l.phone), who: (l.source || '').split(',')[0] || t('leads'), sub: String(l.text).slice(0, 80), msg: (custom) => (custom ? `${custom}\n${CARD_URL()}` : adMsg(l)) }));
-  cardQueue(t('ad_send_title'), rows, leads.length - rows.length, adMsg(leads[0] || {}), 'l');
+  cardQueue(t('ad_send_title'), rows, leads.length - rows.length, adMsg(leads[0] || {}), 'l', true);
 }
 // One queue for any list of numbers: Send → WhatsApp opens with the text and card link → back → next.
-function cardQueue(title, rows, skipped, placeholder, kind) {
+function cardQueue(title, rows, skipped, placeholder, kind, preview) {
   const day = 'bc.sent.' + kind + '.' + new Date().toISOString().slice(0, 10);
   const sent = new Set(cfg.get(day, []));
   const f = { text: '' };
   openSheet(title, (api) => {
-    const next = rows.find((x) => !sent.has(x.ph));
+    const next = rows.find((x) => !sent.has(x.key || x.ph));
     return [
       h('div', { class: 'small muted' }, `${rows.length} ${t('bc_numbers')}${skipped > 0 ? ` · ${skipped} ${t('bc_nophone')}` : ''}`),
       h('div', { class: 'card inset' }, h('div', { class: 'b small' }, t('bc_card')),
         h('div', { class: 'prow' }, h('img', { src: 'img/card.jpg', alt: '', class: 'cardthumb' }), h('div', { class: 'grow stack tight' }, h('button', { class: 'btn sm', onclick: shareBizCard }, icon('share', 16), t('bc_card_share')), h('div', { class: 'xs muted' }, t('bc_card_help'))))),
-      field(t('bc_msg'), h('textarea', { class: 'input area', rows: 4, placeholder, oninput: (e) => { f.text = e.target.value; } })),
+      field(t('bc_msg'), h('textarea', { class: 'input area', rows: 4, placeholder, value: f.text, onchange: (e) => { f.text = e.target.value; api.redraw(); }, oninput: (e) => { f.text = e.target.value; } })),
       h('div', { class: 'between' }, h('span', { class: 'b' }, `${sent.size}/${rows.length} ${t('bc_done')}`), sent.size ? h('button', { class: 'linkbtn', onclick: () => { sent.clear(); cfg.set(day, []); api.redraw(); } }, t('bc_reset')) : null),
       h('div', { class: 'progress' }, h('span', { style: `width:${rows.length ? (sent.size / rows.length) * 100 : 0}%` })),
       rows.map((x) => {
-        const done = sent.has(x.ph), isNext = x === next;
+        const k = x.key || x.ph, done = sent.has(k), isNext = x === next;
+        const msg = x.msg(f.text.trim());
         return h('div', { class: 'card inset bcrow' + (done ? ' done' : '') + (isNext ? ' next' : '') },
           h('div', { class: 'between' }, h('div', { class: 'grow' }, h('div', { class: 'b small' }, x.who), h('div', { class: 'xs muted' }, '+91 ' + x.ph + ' · ' + x.sub)),
-            h('a', { class: 'btn ' + (done ? '' : 'green') + ' sm', href: waLink(x.ph, x.msg(f.text.trim())), target: '_blank', rel: 'noopener', onclick: () => { sent.add(x.ph); cfg.set(day, [...sent]); setTimeout(api.redraw, 400); } }, done ? '✓ ' + t('bc_again') : icon('wa', 16), done ? '' : t('send'))));
+            h('a', { class: 'btn ' + (done ? '' : 'green') + ' sm', href: waLink(x.ph, msg), target: '_blank', rel: 'noopener', onclick: () => { sent.add(k); cfg.set(day, [...sent]); setTimeout(api.redraw, 400); } }, done ? '✓ ' + t('bc_again') : icon('wa', 16), done ? '' : t('send'))),
+          preview && isNext && h('div', { class: 'xs msgprev' }, msg));
       }),
     ];
   }, { full: true });
