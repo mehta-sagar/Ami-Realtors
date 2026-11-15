@@ -23,6 +23,17 @@ export function coordsFromText(text) {
     const m = s.match(re);
     if (m) { const a = +m[1], b = +m[2], lat = swap ? b : a, lng = swap ? a : b; if (SURAT_BOX(lat, lng)) return { lat, lng, how }; }
   }
+  // Directions share ("geocode=FYo6QwEd…;FSs9QwEd…&daddr=Place"): the last block is the destination, as
+  // two little-endian int32 numbers (micro-degrees). saddr is only where the sender was standing.
+  const gc = s.match(/[?&]geocode=([^&]+)/);
+  if (gc) {
+    try {
+      const last = gc[1].split(';').filter(Boolean).pop().replace(/-/g, '+').replace(/_/g, '/');
+      const b = Uint8Array.from(atob(last), (c) => c.charCodeAt(0)), dv = new DataView(b.buffer);
+      if (b[0] === 0x15 && b[5] === 0x1d) { const lat = dv.getInt32(1, true) / 1e6, lng = dv.getInt32(6, true) / 1e6; if (SURAT_BOX(lat, lng)) return { lat, lng, how: 'dest' }; }
+    } catch { /* not that format */ }
+  }
+  s = s.replace(/[?&]saddr=[^&]*/g, '');
   // directions data: !1d{lng}!2d{lat}, the last pair is the destination
   const dd = [...s.matchAll(new RegExp(`!1d${num}!2d${num}`, 'g'))].pop();
   if (dd && SURAT_BOX(+dd[2], +dd[1])) return { lat: +dd[2], lng: +dd[1], how: 'dir' };

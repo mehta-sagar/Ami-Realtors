@@ -255,6 +255,8 @@ Object.assign(T, {
   min_lakh: ['₹ થી (લાખ)', 'From ₹ lakh'], max_lakh: ['₹ સુધી (લાખ)', 'To ₹ lakh'], sort: ['ક્રમ', 'Sort'], sort_new: ['નવું પહેલાં', 'Newest'], sort_low: ['ભાવ ઓછો → વધુ', 'Price low → high'], sort_high: ['ભાવ વધુ → ઓછો', 'Price high → low'], sort_rate: ['દર (ફૂટ/વાર) ઓછો', 'Lowest rate'],
   st_available: ['ઉપલબ્ધ', 'Available'], st_hold: ['હોલ્ડ', 'On hold'], st_sold: ['વેચાઈ ગઈ', 'Sold'],
   mmap_help: ['ઘાટી પિન = ચોક્કસ લોકેશન. આછી પિન = વિસ્તારનું કેન્દ્ર (અંદાજે). મિલકત ખોલી "📍 નકશા પર" થી ચોક્કસ પિન મૂકો.', 'Solid pin = exact spot. Light pin = area centre (approx.). Open a listing and use "📍 Set on map" for the exact spot.'],
+  map_pin: ['નકશા પર મૂકો', 'Set on map'],
+  pin_fix: ['લોકેશન અંદાજે છે – સાચી જગ્યાએ પિન મૂકો', 'Location is approximate – set the exact pin'],
   pin_exact: ['ચોક્કસ લોકેશન', 'Exact location'], pin_approx: ['વિસ્તારનું અંદાજિત લોકેશન', 'Approx. (area centre)'],
   prop_title: ['ટૂંકું નામ', 'Short title'], address: ['સરનામું / સોસાયટી', 'Address / society'], pin_none: ['નકશા પર પિન નથી', 'No map pin yet'],
   maps_link_ph: ['અથવા Google Maps લિંક પેસ્ટ કરો', 'or paste a Google Maps link'], link_no_coords: ['લિંકમાંથી લોકેશન ન મળ્યું', 'No location found in that link'],

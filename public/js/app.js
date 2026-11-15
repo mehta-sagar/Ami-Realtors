@@ -804,6 +804,7 @@ function propCard(p) {
       h('div', { class: 'title' }, p.title || propTitle(p)),
       p.title ? h('div', { class: 'small muted' }, propTitle(p)) : null,
       p.address ? h('div', { class: 'xs muted' }, '📍 ' + p.address) : null,
+      p.lat == null ? h('button', { class: 'linkbtn xs', onclick: () => setPropPin(p) }, '≈ ', t('pin_fix')) : null,
       h('div', { class: 'b' }, p.price ? moneyShort(p.price) : t('price_on_ask'), r ? h('span', { class: 'muted small' }, ` · ${rate(r, unit)} / ${unitLabel(unit)}`) : null),
       p.rent ? h('div', { class: 'xs goldtext b' }, `${t('rent')}: ${money(p.rent)}/${t('month')}${yld ? ` · ${t('yield')} ${yld.toFixed(1)}%` : ''}`) : null,
       (p.brokers || []).length ? h('div', { class: 'xs goldtext b' }, '🤝 ' + p.brokers.map((x) => (brokerOf(x.broker_id) || {}).name).filter(Boolean).join(', ')) : null,
@@ -814,6 +815,13 @@ function propCard(p) {
       h('button', { class: 'btn', onclick: () => openValue(p) }, '₹ ', t('model_price'))),
     aiBtn(() => askAI(getLang() === 'en' ? 'property' : 'મિલકત', [`${p.title ? p.title + ' – ' : ''}${propTitle(p, 'en-card')} for ${p.deal === 'rent' ? 'rent' : 'sale'}`, p.address && `Address: ${p.address}`, p.price && `Asking price: Rs ${Number(p.price).toLocaleString('en-IN')}`, r && `Rate: Rs ${Math.round(r)} per sq ft`, p.rent && `Current rent: Rs ${Number(p.rent).toLocaleString('en-IN')} per month`, p.floor && `Floor: ${p.floor}`, p.facing && `Facing: ${p.facing}`, p.furnished != null && (p.furnished ? 'Furnished' : 'Unfurnished'), p.notes && `Notes: ${p.notes.slice(0, 800)}`, ...areaFacts(a, p.ptype || 'flat')]), 'btn ai sm'));
 }
+// Put a listing's exact spot on the map (drag the pin) and save it straight away.
+function setPropPin(p) {
+  const pos = propPos(p) || { lat: SURAT.lat, lng: SURAT.lng };
+  pinPicker(p.title || propTitle(p), { lat: pos.lat, lng: pos.lng, exact: !!pos.exact }, async (ll) => {
+    try { await saveRec('properties', { ...p, lat: +ll.lat.toFixed(6), lng: +ll.lng.toFixed(6) }); toast(t('saved')); render(); } catch (e) { fail(e); }
+  });
+}
 function openValue(p) {
   const pos = propPos(p); if (!pos) return toast(t('need_area'), true);
   const pt = p.ptype || 'flat', size = p.size ? toSqft(p.size, p.size_unit || defaultUnit(pt), vigha()) / sqftPer(defaultUnit(pt), vigha()) : null;
@@ -823,7 +831,7 @@ function openValue(p) {
 function propPos(p) {
   if (p.lat != null && p.lng != null) return { lat: +p.lat, lng: +p.lng, exact: true };
   const a = areaById(p.area_id); if (!a || a.lat == null) return null;
-  const hsh = parseInt(hashStr(String(p.id)).slice(0, 4), 36) || 0, ang = (hsh % 360) * Math.PI / 180, r = 0.0025 + (hsh % 7) * 0.0006;
+  const hsh = parseInt(hashStr(String(p.id)).slice(0, 4), 36) || 0, ang = (hsh % 360) * Math.PI / 180, r = 0.0006 + (hsh % 5) * 0.0003;
   return { lat: a.lat + Math.sin(ang) * r, lng: a.lng + Math.cos(ang) * r, exact: false };
 }
 const propRate = (p) => (p.price && p.size ? p.price / toSqft(p.size, p.size_unit || defaultUnit(p.ptype), vigha()) : null);
@@ -904,10 +912,11 @@ function drawPropMap(list) {
   S.mmapLayer.clearLayers(); const pts = [];
   for (const p of list) {
     const pos = propPos(p); if (!pos) continue; pts.push([pos.lat, pos.lng]);
-    const html = `<div class="pin small${pos.exact ? ' sel' : ''}"><span>${esc(t(p.ptype || 'flat'))}</span><b>${p.price ? esc(moneyShort(p.price)) : '—'}</b></div>`;
+    const html = `<div class="pin small${pos.exact ? ' sel' : ' approx'}"><span>${esc(t(p.ptype || 'flat'))}</span><b>${p.price ? esc(moneyShort(p.price)) : '—'}</b></div>`;
     const m = L.marker([pos.lat, pos.lng], { icon: L.divIcon({ className: 'pinwrap', html, iconSize: null }) }).addTo(S.mmapLayer);
     const pop = h('div', { class: 'stack tight' }, h('b', {}, p.title || propTitle(p)), h('div', { class: 'xs' }, [areaName(areaById(p.area_id), getLang()), p.address].filter(Boolean).join(' · ')),
-      h('div', { class: 'xs muted' }, pos.exact ? t('pin_exact') : t('pin_approx')), h('button', { class: 'btn sm', onclick: () => propertyForm(p) }, t('details')));
+      h('div', { class: 'xs muted' }, pos.exact ? t('pin_exact') : t('pin_approx')),
+      h('div', { class: 'grid2' }, h('button', { class: 'btn sm', onclick: () => propertyForm(p) }, t('details')), h('button', { class: 'btn sm', onclick: () => setPropPin(p) }, '📍 ', t('map_pin'))));
     m.bindPopup(pop);
   }
   if (pts.length) S.mmap.fitBounds(pts, { padding: [30, 30], maxZoom: 15 });
@@ -950,7 +959,7 @@ function propertyForm(init) {
     field(t('address'), inp(f, 'address', { placeholder: 'Society / road / landmark' })),
     h('div', { class: 'between' },
       h('span', { class: 'xs muted' }, f.lat != null ? `📍 ${(+f.lat).toFixed(5)}, ${(+f.lng).toFixed(5)}` : t('pin_none')),
-      h('button', { type: 'button', class: 'linkbtn', onclick: () => { const a = areaById(f.area_id) || SURAT; pinPicker(t('set_pin'), f.lat != null ? { lat: +f.lat, lng: +f.lng, exact: true } : { lat: a.lat, lng: a.lng }, (pos) => { f.lat = +pos.lat.toFixed(6); f.lng = +pos.lng.toFixed(6); api.redraw(); }); } }, '📍 ', t('set_pin'))),
+      h('button', { type: 'button', class: 'linkbtn', onclick: () => { const a = areaById(f.area_id) || SURAT; pinPicker(t('map_pin'), f.lat != null ? { lat: +f.lat, lng: +f.lng, exact: true } : { lat: a.lat, lng: a.lng }, (pos) => { f.lat = +pos.lat.toFixed(6); f.lng = +pos.lng.toFixed(6); api.redraw(); }); } }, '📍 ', t('map_pin'))),
     h('input', { class: 'input', placeholder: t('maps_link_ph'), onchange: async (e) => {
       const v = e.target.value.trim(); if (!v) return;
       try { const c = coordsFromText(v) || (isMapsUrl(firstUrl(v) || '') ? await resolveMapsLink(firstUrl(v)) : null); if (!c) return toast(t('link_no_coords'), true); f.lat = +(+c.lat).toFixed(6); f.lng = +(+c.lng).toFixed(6); api.redraw(); } catch (err) { fail(err); }
@@ -1238,6 +1247,9 @@ async function saveOwnListings(recs) {
   let n = 0, dup = 0; const done = [];
   for (const r of recs) {
     if (done.some((d) => similar(d, r.notes)) || ownDup(r)) { dup++; continue; }
+    if (r.lat == null && /maps\.app\.goo\.gl|google\.[a-z.]+\/maps|goo\.gl\/maps/i.test(r.notes)) {
+      try { const c = await resolveMapsLink(firstUrl(r.notes.match(/https?:\/\/\S*(?:goo\.gl|google)\S*/i)[0])); if (c && c.lat != null) { r.lat = +(+c.lat).toFixed(6); r.lng = +(+c.lng).toFixed(6); } } catch { /* keep the area pin */ }
+    }
     done.push(r.notes); await saveRec('properties', r); n++;
   }
   syncOwnEvidence(); return { n, dup };

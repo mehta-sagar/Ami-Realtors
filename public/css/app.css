@@ -243,3 +243,4 @@ h1.sm { font-size: 20px; line-height: 1.2; overflow: hidden; text-overflow: elli
 .bulkbar { position: sticky; bottom: calc(-1 * (env(safe-area-inset-bottom) + 20px)); background: var(--bg); padding: 8px 0 calc(env(safe-area-inset-bottom) + 8px); z-index: 2; border-top: 1px solid var(--line); }
 .msgprev { white-space: pre-wrap; background: #fff; border: 1px dashed var(--line); border-radius: 10px; padding: 8px 10px; color: var(--ink); }
 .waitem { gap: 8px; } .waitem.out { opacity: .5; } .waitem .seg button { font-size: 12px; min-height: 36px; } .hero .btn.gold.big { width: 100%; }
+.pin.approx { background: #FBF7EA; border: 1.5px dashed #B79A4A; opacity: .8; } .pin.approx span::before { content: '≈ '; }

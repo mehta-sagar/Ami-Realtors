@@ -65,7 +65,7 @@ const A = [
   ['nana-varachha', 'Nana Varachha', 'નાના વરાછા', 'Surat', 21.2258, 72.889, ''],
   ['umarwada', 'Umarwada', 'ઉમરવાડા', 'Surat', 21.1973, 72.8438, ''],
   ['salabatpura', 'Salabatpura', 'સલાબતપુરા', 'Surat', 21.1917, 72.8326, ''],
-  ['gopipura', 'Gopipura', 'ગોપીપુરા', 'Surat', 21.1902, 72.8222, ''],
+  ['gopipura', 'Gopipura', 'ગોપીપુરા', 'Surat', 21.1940, 72.8235, ''],
   ['sagrampura', 'Sagrampura', 'સગરામપુરા', 'Surat', 21.1861, 72.8218, ''],
   ['tadkeshwar', 'Tadkeshwar', 'તડકેશ્વર', 'Surat', 21.3546, 73.0679, ''],
   ['bharthana-vesu', 'Bharthana (Vesu)', 'ભરથાણા (વેસુ)', 'Surat', 21.1422, 72.7922, 'bharthana'],
