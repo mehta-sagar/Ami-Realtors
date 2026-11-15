@@ -218,3 +218,27 @@ export async function facilitiesAround(lat, lng, cache, radius = 2000) {
   try { cache.set(key, out); } catch { /* full */ }
   return out;
 }
+
+// ---------- fast first answer (about 1 second): road + city/village from Nominatim, highways from the phone's copy ----------
+// The full map read (corner, canal, land use, metro) comes from Overpass, which is often slow; this shows something at once.
+export async function quickFacts(lat, lng, cache) {
+  const key = `osm.quick.${lat.toFixed(4)},${lng.toFixed(4)}`;
+  const c = cache.get(key, null); if (c) return c;
+  const ctrl = new AbortController(), tm = setTimeout(() => ctrl.abort(), 12000);
+  let r = {};
+  try { r = await (await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=17&addressdetails=1&lat=${lat}&lon=${lng}`, { headers: { 'Accept-Language': 'en' }, signal: ctrl.signal })).json(); } finally { clearTimeout(tm); }
+  const ad = r.address || {};
+  const cls = r.category === 'highway' ? r.type : null;
+  const hn = hwNear(lat, lng) || {};
+  const city = ad.city || ad.town || '';
+  const out = {
+    quick: true, at: Date.now(),
+    label: [ad.road, ad.neighbourhood || ad.suburb || ad.village || ad.town].filter(Boolean).join(', ') || r.name || null,
+    front: cls ? { cls, name: r.name || ad.road || '', d: 0, width: CLASS_WIDTH[cls] || 9, tagged: false } : ad.road ? { cls: 'residential', name: ad.road, d: 0, width: 9, tagged: false, guess: true } : null,
+    highway: hn.highway || null, state: hn.state || null,
+    muni: /surat/i.test(city) && !ad.village ? 'Surat' : null, village: ad.village || ad.hamlet || null,
+    address: ad,
+  };
+  try { cache.set(key, out); } catch { /* full */ }
+  return out;
+}

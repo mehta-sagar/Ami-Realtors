@@ -3,7 +3,7 @@ import { AREAS, SURAT, areaById, areaName, km, searchAreas, findAreaInText } fro
 import { UNITS, unitsFor, inBounds, PTYPES, sqftPer, toSqft, rateToSqft, rateFromSqft, defaultUnit, summarize, emi, DEFAULT_VIGHA_SQFT } from './units.js';
 import { parseEntry } from './parse.js';
 import { store, cloud, cfg, lock, DEFAULT_SB_URL, SB_PUBLIC_KEY, PRIVATE } from './store.js';
-import { resolveMapsLink, coordsFromText, firstUrl, isMapsUrl, roadsAround, facilitiesAround, loadHighways } from './geo.js';
+import { resolveMapsLink, coordsFromText, firstUrl, isMapsUrl, roadsAround, facilitiesAround, loadHighways, quickFacts } from './geo.js';
 import { DEFAULT_INPUTS, adjustments, incomeValue, rentFromValue, residualLand, fsiFor, agriValue, reconcile as reconcileVals, CAP, VACANCY, OUTGO } from './valuation.js';
 
 const S = {
@@ -453,11 +453,18 @@ function drawMapCard() {
     const allRows = S.spotAll && h('div', { class: 'list tight' }, h('div', { class: 'xs gold b' }, t('here_all')),
       PTYPES.map((pt) => { const x = priceAt(sp.lat, sp.lng, pt, hint), u = defaultUnit(pt); return h('div', { class: 'between small' }, h('span', {}, `${t(pt)} · ${unitLabel(u)}`), h('span', { class: 'b' }, x ? (x.own ? '' : x.conf === 'floor' ? '≥ ' : '≈ ') + rate(x.value, u) : '—')); }));
     // What the map knows about this exact spot (corner, road, highway, SMC/SUDA/village, canal, land use) → adjusted price.
+    if (!sp.quick && !sp.quickLoading) {
+      sp.quickLoading = true;
+      quickFacts(sp.lat, sp.lng, cfg).then((q) => { sp.quick = q; if (q.label && (!sp.label || sp.label === '…' || /^\d/.test(sp.label))) sp.label = q.label; if (S.spotAt === sp) drawMapCard(); }).catch(() => { sp.quick = { failed: true }; if (S.spotAt === sp) drawMapCard(); });
+    }
     if (!sp.facts && !sp.factsLoading) {
       sp.factsLoading = true;
       roadsAround(sp.lat, sp.lng, cfg).then((r) => { sp.facts = r; if (S.spotAt === sp) drawMapCard(); }).catch(() => { sp.facts = { failed: true }; if (S.spotAt === sp) drawMapCard(); });
     }
-    const auto = sp.facts && !sp.facts.failed ? autoInputs(sp.lat, sp.lng, sp.facts, pType) : null;
+    // best facts so far: the full map read when it has come, else the quick one (fills the gaps of each other)
+    const full = sp.facts && !sp.facts.failed ? sp.facts : null, quick = sp.quick && !sp.quick.failed ? sp.quick : null;
+    const facts = full ? { ...full, front: full.front || (quick && quick.front), muni: full.muni || (quick && quick.muni), village: full.village || (quick && quick.village) } : quick;
+    const auto = facts ? autoInputs(sp.lat, sp.lng, facts, pType) : null;
     const adj = auto && pa ? adjustments(pType, auto) : null;
     const open = !!S.cardOpen;
     return el.replaceChildren(h('div', { class: 'card float spotcard' },
@@ -468,8 +475,10 @@ function drawMapCard() {
       estate && h('div', { class: 'xs goldtext b' }, `🏭 ${t('inside')}: ${areaName(estate, getLang())} — ${t('ind_only')}`),
       h('div', { class: 'between' }, h('span', { class: 'gold xs b' }, pa && pa.own ? t('market_rate') : t('nearby_estimate')), h('span', { class: 'title' + (adj ? '' : ' big') }, pa ? (pa.own ? '' : pa.conf === 'floor' ? '≥ ' : '≈ ') + rate(pa.value, pu) : t('no_price'))),
       adj && adj.list.length ? h('div', { class: 'between' }, h('span', { class: 'gold xs b' }, t('this_spot')), h('span', { class: 'title big' }, '≈ ' + rate(pa.value * (1 + adj.total), pu), h('span', { class: 'xs muted' }, ` (${adj.total >= 0 ? '+' : ''}${Math.round(adj.total * 100)}%)`))) : null,
-      sp.facts ? (sp.facts.failed ? h('div', { class: 'xs muted' }, t('osm_fail')) : h('div', { class: 'factchips' }, factChips(sp.facts, auto))) : h('div', { class: 'xs muted shimmer' }, t('reading_map')),
-      h('button', { class: 'btn gold', onclick: () => openDetail('value', { lat: sp.lat, lng: sp.lng, label: sp.label, ptype: pType, area: hint ? hint.id : null }) }, icon('calc', 18), t('valuation')),
+      facts ? h('div', { class: 'factchips' }, factChips(facts, auto), !sp.facts ? h('span', { class: 'fchip shimmer' }, t('reading_more')) : null)
+        : sp.quick && sp.quick.failed && sp.facts ? h('div', { class: 'xs muted' }, t('osm_fail')) : h('div', { class: 'xs muted shimmer' }, t('reading_map')),
+      h('div', { class: 'grid2' }, h('button', { class: 'btn gold', onclick: () => openDetail('value', { lat: sp.lat, lng: sp.lng, label: sp.label, ptype: pType, area: hint ? hint.id : null }) }, icon('calc', 18), t('valuation_short')),
+        aiBtn(() => askAI(getLang() === 'en' ? 'location' : 'જગ્યા', [...spotFacts(sp, pType, pa, facts), ...areaFacts(near && near.a, pType)]))),
       open && [
         pa ? h('div', { class: 'xs muted' }, srcLine(pa, pu)) : h('div', { class: 'xs muted' }, t('no_nearby')),
         adj && adj.list.length && h('div', { class: 'xs muted' }, adj.list.map((x) => `${t(x.key)} ${x.pct > 0 ? '+' : ''}${Math.round(x.pct * 100)}%`).join(' · ')),
@@ -493,7 +502,7 @@ function drawMapCard() {
     est && h('div', { class: 'xs muted' }, t('based_on'), ': ', knnLine(est, unit)),
     gmapsBtn(null, null, `${a.en.replace(/\s*\(.*\)/, '')}, ${a.district}, Gujarat`),
     S.projects && S.projects.some((p) => p.area_id === a.id) && h('button', { class: 'btn', onclick: () => goProjects({ area: a.id }) }, `🏗 ${t('proj_near')}: ${S.projects.filter((p) => p.area_id === a.id).length}`),
-    h('button', { class: 'btn gold', onclick: () => openPrices(a.id, S.mapType) }, t('full_detail'))));
+    h('div', { class: 'grid2' }, h('button', { class: 'btn gold', onclick: () => openPrices(a.id, S.mapType) }, t('full_detail')), aiBtn(() => askAI(getLang() === 'en' ? 'area' : 'વિસ્તાર', areaFacts(a, S.mapType))))));
 }
 // The map card is a "step" too: the phone's back gesture closes it before leaving the map.
 function mapCardNav() { if (!S.cardNav) S.cardNav = navPush(() => { S.cardNav = null; clearSpot(); }); }
@@ -512,10 +521,10 @@ function autoInputs(lat, lng, r, ptype) {
   inp.tp = inp.authority === 'smc' ? 'final' : inp.authority === 'suda' ? 'draft' : 'none';
   if (inp.authority === 'gp') { inp.sewer = 'no'; inp.water = r.built ? 'yes' : 'no'; }
   if (inp.authority === 'suda' && !r.built) inp.sewer = 'no';
-  if (!r.front) inp.access = 'none'; else if (r.front.cls === 'track') inp.access = 'kachha';
+  if (!r.front) { if (!r.quick) inp.access = 'none'; } else if (r.front.cls === 'track') inp.access = 'kachha';
   if (r.canal && r.canal.d <= 0.6) inp.irrigation = 'canal';
   inp.na = /farmland|orchard|meadow|farmyard/.test(r.landuse || '') ? 'agri' : /residential|commercial|industrial|retail/.test(r.landuse || '') ? 'na' : inp.authority === 'gp' ? 'agri' : 'zone';
-  if (ptype !== 'land' && !r.front) inp.electricity = r.built ? 'yes' : 'no';
+  if (ptype !== 'land' && !r.front && !r.quick) inp.electricity = r.built ? 'yes' : 'no';
   return inp;
 }
 function factChips(r, inp) {
@@ -523,7 +532,7 @@ function factChips(r, inp) {
   const chip = (txt, cls = '') => h('span', { class: 'fchip ' + cls }, txt);
   if (r.corner) c.push(chip('📐 ' + t('adj_corner'), 'good'));
   if (r.front) c.push(chip(`🛣 ${r.front.width} m ${t('rc_' + r.front.cls) || ''}`, r.front.width >= 18 ? 'good' : r.front.width <= 7 ? 'warn' : ''));
-  else c.push(chip('🚫 ' + t('i_noroad'), 'warn'));
+  else if (!r.quick) c.push(chip('🚫 ' + t('i_noroad'), 'warn'));
   if (r.highway) c.push(chip(`🛤 ${r.highway.ref || 'NH'} ${kmTxt(r.highway.d)}`, r.highway.d <= 0.05 ? 'good' : ''));
   if (r.metro && r.metro.d <= 2) c.push(chip(`🚇 ${kmTxt(r.metro.d)}`));
   if (inp) c.push(chip('🏛 ' + (inp.authority === 'smc' ? 'SMC' : inp.authority === 'suda' ? 'SUDA' : t('i_gp')) + (r.village && inp.authority !== 'smc' ? ' · ' + r.village : '')));
@@ -752,6 +761,7 @@ function propTitle(p, lang = getLang()) {
   const tr = (k) => (lang === getLang() ? t(k) : EN[k] || k);
   return [p.bhk && p.bhk + ' BHK', p.ptype && tr(p.ptype), p.size && `${Number(p.size).toLocaleString('en-IN')} ${lang === getLang() ? unitLabel(p.size_unit || 'sqft') : EN['u_' + (p.size_unit || 'sqft')]}`].filter(Boolean).join(' · ') || '—';
 }
+const EN_M = { m_comparison: 'Market comparison', m_income: 'Rent capitalisation', m_residual: 'Land residual', m_agri: 'Agricultural model' };
 const EN = { flat: 'Flat', bungalow: 'Bungalow', shop: 'Shop', office: 'Office', plot: 'Plot', land: 'Land', industrial: 'Industrial', u_sqft: 'sq ft', u_sqm: 'sq m', u_var: 'sq yd', u_vigha: 'vigha', u_acre: 'acre', u_hectare: 'hectare' };
 function propCard(p) {
   const a = areaById(p.area_id), ph = tel(p.owner_phone);
@@ -767,7 +777,8 @@ function propCard(p) {
     h('div', { class: 'grid3' },
       ph ? h('a', { class: 'btn green', href: 'tel:+91' + ph }, t('call')) : h('span', {}),
       a ? gmapsBtn(null, null, [p.address, a.en.replace(/\s*\(.*\)/, ''), a.district, 'Gujarat'].filter(Boolean).join(', ')) : h('button', { class: 'btn', onclick: () => shareCard(p).catch(fail) }, t('share_card')),
-      h('button', { class: 'btn', onclick: () => propertyForm(p) }, t('edit'))));
+      h('button', { class: 'btn', onclick: () => propertyForm(p) }, t('edit'))),
+    aiBtn(() => askAI(getLang() === 'en' ? 'property' : 'મિલકત', [`${propTitle(p, 'en-card')} for ${p.deal === 'rent' ? 'rent' : 'sale'}`, p.price && `Price: Rs ${Number(p.price).toLocaleString('en-IN')}`, p.price && p.size && `Rate: Rs ${Math.round(p.price / p.size)} per ${EN['u_' + (p.size_unit || 'sqft')]}`, p.floor && `Floor: ${p.floor}`, p.facing && `Facing: ${p.facing}`, p.furnished != null && (p.furnished ? 'Furnished' : 'Unfurnished'), p.notes && `Notes: ${p.notes}`, ...areaFacts(a, p.ptype || 'flat')]), 'btn ai sm'));
 }
 function viewProps() {
   const list = S.data.properties.slice().sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
@@ -1302,7 +1313,8 @@ function viewPrices() {
     insightCard(a, mk, unit),
     factsCard(a, mk, j),
     projectsHere(a),
-    h('button', { class: 'btn gold', onclick: () => openDetail('value', { lat: a.lat, lng: a.lng, label: areaName(a, getLang()), ptype: P.ptype, area: a.id }) }, icon('calc', 18), t('valuation')),
+    h('div', { class: 'grid2' }, h('button', { class: 'btn gold', onclick: () => openDetail('value', { lat: a.lat, lng: a.lng, label: areaName(a, getLang()), ptype: P.ptype, area: a.id }) }, icon('calc', 18), t('valuation_short')),
+      aiBtn(() => askAI(getLang() === 'en' ? 'area' : 'વિસ્તાર', areaFacts(a, P.ptype)))),
     h('section', { class: 'card' }, h('h2', {}, t('nearby')), nearbyBlock(a.lat, a.lng)),
     h('section', { class: 'card' }, h('h2', {}, t('land_records')), areaLinks(a)),
   ];
@@ -1789,7 +1801,9 @@ const FAC = [['school', '🏫'], ['hospital', '🏥'], ['market', '🛒'], ['ban
 // Roads + facilities around a point, filled in when OpenStreetMap answers.
 function nearbyBlock(lat, lng) {
   const roads = h('div', { class: 'stack tight' }, h('div', { class: 'muted small shimmer' }, t('loading'))), fac = h('div', { class: 'stack tight' }, h('div', { class: 'muted small shimmer' }, t('loading')));
-  roadsAround(lat, lng, cfg).then((r) => roads.replaceChildren(...roadRows(r))).catch(() => roads.replaceChildren(h('div', { class: 'muted small' }, t('osm_fail'))));
+  let gotFull = false;
+  quickFacts(lat, lng, cfg).then((q) => { if (!gotFull) roads.replaceChildren(...roadRows(q), h('div', { class: 'xs muted shimmer' }, t('reading_more'))); }).catch(() => {});
+  roadsAround(lat, lng, cfg).then((r) => { gotFull = true; roads.replaceChildren(...roadRows(r)); }).catch(() => { const s0 = roads.querySelector('.shimmer'); if (s0) s0.remove(); else roads.replaceChildren(h('div', { class: 'muted small' }, t('osm_fail'))); });
   facilitiesAround(lat, lng, cfg).then((f) => fac.replaceChildren(...FAC.map(([k, e]) => {
     const xs = f[k] || []; if (!xs.length) return h('div', { class: 'between small' }, h('span', {}, e, ' ', t('fac_' + k)), h('span', { class: 'muted' }, t('fac_none')));
     const top = xs[0];
@@ -1853,7 +1867,8 @@ function viewProjectDetail(p) {
         pos ? gmapsBtn(pos.lat, pos.lng) : h('a', { class: 'btn', href: gmaps(null, null, [p.name, p.promoter, p.locality || (a || {}).en, 'Surat'].filter(Boolean).join(', ')), target: '_blank', rel: 'noopener' }, '🔍 ', t('gsearch'))),
       h('div', { class: 'grid2' },
         h('button', { class: 'btn', onclick: () => { const c = a || SURAT, pin = projPin(p); pinPicker(p.name, pin ? { ...pin, exact: true } : { lat: c.lat, lng: c.lng }, (ps) => { const all = cfg.get(PROJPIN_KEY, {}); all[p.rera] = { lat: +ps.lat.toFixed(6), lng: +ps.lng.toFixed(6) }; cfg.set(PROJPIN_KEY, all); toast(t('saved')); render(); }); } }, projPin(p) ? '📌 ' + t('pin_move') : '📍 ' + t('pin_set')),
-        at && h('button', { class: 'btn gold', onclick: () => openDetail('value', { lat: at.lat, lng: at.lng, label: p.name, ptype: pt, area: p.area_id }) }, icon('calc', 18), t('valuation')))),
+        at && h('button', { class: 'btn gold', onclick: () => openDetail('value', { lat: at.lat, lng: at.lng, label: p.name, ptype: pt, area: p.area_id }) }, icon('calc', 18), t('valuation'))),
+      aiBtn(() => askAI(getLang() === 'en' ? 'new project' : 'નવો પ્રોજેક્ટ', [`Project: ${p.name} by ${p.promoter}`, `GujRERA: ${p.rera}`, `Type: ${p.ptype}`, `Possession: ${p.end_month}`, p.address && `Address: ${p.address}`, pr && `Price: ${pr.text}${pr.kind === 'expected' ? ' (app expectation, not quoted)' : ''}`, pos && `Map: https://www.google.com/maps?q=${pos.lat},${pos.lng}`, ...areaFacts(a, pt)], getLang() === 'en' ? 'Tell me: builder track record and delays, fair price per sq ft vs nearby resale and new launches, location pros/cons, RERA/legal checks, and who should buy here. Use the web and cite sources.' : null))),
     a && h('section', { class: 'card' }, h('div', { class: 'between' }, h('h2', {}, t('locality'), ': ', areaName(a, getLang())), h('button', { class: 'linkbtn', onclick: () => openPrices(a.id, pt) }, t('full_detail'))),
       areaPriceBlock(a, pt, pos && pos.lat, pos && pos.lng)),
     a && h('section', { class: 'card' }, h('h2', {}, t('pros_cons')), prosConsBlock(a)),
@@ -1882,7 +1897,8 @@ function viewLeadDetail(l) {
         ph ? h('a', { class: 'btn green', href: 'tel:+91' + ph }, t('call')) : h('span', {}),
         ph ? h('a', { class: 'btn', href: waLink(ph, adMsg(l)), target: '_blank', rel: 'noopener' }, icon('wa', 16), t('send_card')) : h('span', {}),
         h('button', { class: 'btn', onclick: () => inquiryForm({ name: l.name, phone: ph, area_id: l.area_id, ptype, deal: 'buy', notes: `${t('lead_seller')} · ${l.source || ''}: ${l.text}` }, render) }, t('to_inquiry'))),
-      a && h('button', { class: 'btn gold', onclick: () => openDetail('value', { lat: a.lat, lng: a.lng, label: areaName(a, getLang()), ptype, area: a.id, size: size || null, rent: rent && p.price ? p.price : null }) }, icon('calc', 18), t('valuation'))),
+      a && h('button', { class: 'btn gold', onclick: () => openDetail('value', { lat: a.lat, lng: a.lng, label: areaName(a, getLang()), ptype, area: a.id, size: size || null, rent: rent && p.price ? p.price : null }) }, icon('calc', 18), t('valuation')),
+      aiBtn(() => askAI(getLang() === 'en' ? 'newspaper property ad' : 'છાપાની મિલકત જાહેરાત', [`Ad text: ${l.text}`, `Source: ${l.source || ''} (${l.date || ''})`, `Type: ${EN[ptype]}, ${rent ? 'for rent' : 'for sale'}`, ask && `Asking rate: ${rateTxt(ask, ptype)}`, mkt && `Market/model rate here: ${rateTxt(mkt.value, ptype)}`, ...areaFacts(a, ptype)]))),
     (ask || p.price) && h('section', { class: 'card' }, h('h2', {}, t('ad_vs_market')),
       p.price && h('div', { class: 'between small' }, h('span', {}, t('asking')), h('span', { class: 'b' }, moneyShort(p.price))),
       ask && h('div', { class: 'between small' }, h('span', {}, t('asking_rate')), h('span', { class: 'b' }, rate(ask, unit) + ' / ' + unitLabel(unit))),
@@ -1922,6 +1938,7 @@ function viewNewsDetail(n) {
     h('div', { class: 'grid2' },
       h('a', { class: 'btn green', href: 'https://wa.me/?text=' + encodeURIComponent(newsShareText(n)), target: '_blank', rel: 'noopener' }, icon('wa', 18), t('share_wa')),
       n.url ? h('a', { class: 'btn', href: n.url, target: '_blank', rel: 'noopener' }, t('original')) : h('span', {})),
+    aiBtn(() => askAI(getLang() === 'en' ? 'news' : 'સમાચાર', [`Headline: ${n.title_en || n.title_gu}`, `Date: ${n.published_on}`, `Summary: ${n.summary_en || n.summary_gu || ''}`, n.url && `Link: ${n.url}`], getLang() === 'en' ? 'Explain what this means for property buyers, sellers and prices in the affected Surat areas, which areas gain or lose, and what a broker should tell clients. Use the web for details and cite sources.' : 'આ સમાચારથી સુરતના કયા વિસ્તારમાં ભાવ પર શું અસર થશે, કોને ફાયદો/નુકસાન, અને બ્રોકરે ગ્રાહકને શું કહેવું તે ગુજરાતીમાં સમજાવો. વેબ પરથી વિગત લઈ સ્ત્રોત આપો.')),
     h('div', { class: 'xs muted center' }, t('news_note')),
     h('div', { class: 'center' }, reportBtn('news', `${n.published_on} · ${n.title_en || n.title_gu} · ${n.url || ''}`)),
   ];
@@ -1935,6 +1952,10 @@ function viewValuation(d) {
   const box = h('div', { class: 'stack' });
   const redraw = () => box.replaceChildren(...valuationBody(d, V, hint));
   const again = () => { if (S.detail && S.detail.kind === 'value' && S.val === V) { const y = $('.screen').scrollTop; render(); $('.screen').scrollTop = y; } };
+  if (!V.quick && !V.qLoading) {
+    V.qLoading = true;
+    quickFacts(d.lat, d.lng, cfg).then((q) => { V.quick = q; if (!V.roads) { Object.assign(inp, autoInputs(d.lat, d.lng, q, V.ptype)); V.authSet = true; } again(); }).catch(() => {});
+  }
   if (!V.roads && !V.loading) {
     V.loading = true;
     roadsAround(d.lat, d.lng, cfg).then((r) => {
@@ -2018,7 +2039,7 @@ function valuationBody(d, V, hint) {
     h('section', { class: 'card' }, h('h2', {}, t('val_adjust')),
       adj.list.length ? adj.list.map((x) => result(t(x.key) + (x.note ? ` (${x.note})` : ''), `${x.pct > 0 ? '+' : ''}${Math.round(x.pct * 1000) / 10}%`)) : h('div', { class: 'muted small' }, t('adj_none')),
       adj.list.length ? result(t('total'), `${adj.total > 0 ? '+' : ''}${Math.round(adj.total * 1000) / 10}%`, true) : null,
-      V.roads && !V.roads.failed ? h('div', { class: 'stack tight' }, roadRows(V.roads)) : h('div', { class: 'xs muted shimmer' }, V.roads && V.roads.failed ? t('osm_fail') : t('loading'))),
+      V.roads && !V.roads.failed ? h('div', { class: 'stack tight' }, roadRows(V.roads)) : V.quick && !V.quick.failed ? h('div', { class: 'stack tight' }, roadRows(V.quick), !V.roads && h('div', { class: 'xs muted shimmer' }, t('reading_more'))) : h('div', { class: 'xs muted shimmer' }, V.roads && V.roads.failed ? t('osm_fail') : t('loading'))),
     h('section', { class: 'card' }, h('h2', {}, t('val_inputs')), h('div', { class: 'xs muted' }, t('val_inputs_help')),
       h('div', { class: 'grid2' },
         field(t('r_front') + ' (m)', h('input', { class: 'input', inputmode: 'decimal', value: inp.road_m ?? '', onchange: (e) => { inp.road_m = N(e.target.value); rd(); } })),
@@ -2035,6 +2056,7 @@ function valuationBody(d, V, hint) {
         h('div', { class: 'grid2' }, field(t('i_tenure'), sel('tenure', [['old', t('i_old')], ['new', t('i_new')]])), field(t('i_na'), sel('na', [['agri', t('i_agri')], ['zone', t('i_zone')], ['na', 'NA']]))),
         field(t('i_soil'), sel('soil', [['normal', t('i_soil_ok')], ['khar', t('i_khar')]])),
         h('div', { class: 'xs muted' }, t('agri_rule'))]),
+    aiBtn(() => askAI(getLang() === 'en' ? 'valuation' : 'મૂલ્યાંકન', [...spotFacts({ lat: d.lat, lng: d.lng, label: d.label }, pt, base, V.roads || V.quick), N(V.size) && `Size: ${N(V.size)} sq ft`, N(V.rent) && `Monthly rent: Rs ${N(V.rent)}`, fin && `App valuation: ${rateTxt(fin.value, pt)} (range ${rateTxt(fin.lo, pt)} – ${rateTxt(fin.hi, pt)})`, ...parts.map((x) => `${EN_M[x.key] || x.key}: ${rateTxt(x.value, pt)}`), ...areaFacts(a, pt)], getLang() === 'en' ? 'Check this valuation like a registered valuer: is it reasonable for Surat today, which method should carry most weight, what adjustments are missing, and what documents to verify. Use recent web data and cite sources.' : null)),
     h('div', { class: 'grid2' },
       h('button', { class: 'btn', onclick: () => { openDetail('sources'); } }, t('how_calc')),
       a ? h('button', { class: 'btn', onclick: () => openPrices(a.id, pt) }, t('full_detail')) : h('span', {})),
@@ -2068,10 +2090,48 @@ function linkSheet(prefill, note) {
   const f = { v: prefill || '' };
   const sh = openSheet(t('link_title'), () => [
     note ? h('div', { class: 'authmsg bad' }, note) : h('div', { class: 'small muted' }, t('link_help')),
-    h('textarea', { class: 'input area', rows: 3, placeholder: 'https://maps.app.goo.gl/…', value: f.v, oninput: (e) => { f.v = e.target.value; if (coordsFromText(f.v) || isMapsUrl(firstUrl(f.v))) priceFromLink(f.v); } }),
+    h('textarea', { class: 'input area', rows: 3, placeholder: 'https://maps.app.goo.gl/…', value: f.v, oninput: (e) => { f.v = e.target.value; clearTimeout(f.tm); f.tm = setTimeout(() => { if (coordsFromText(f.v) || isMapsUrl(firstUrl(f.v))) priceFromLink(f.v); }, e.inputType === 'insertFromPaste' ? 50 : 900); } }),
     h('button', { class: 'btn gold', onclick: () => priceFromLink(f.v) }, t('get_price'))]);
   // focus the box: iPhone then shows its own "Paste" right on the keyboard, and the price opens as soon as a link lands
   setTimeout(() => { const ta = sh.body.querySelector('textarea'); if (ta && !f.v) ta.focus(); }, 120);
+}
+
+// ---------- Ask Gemini (or ChatGPT / Claude) about whatever is on screen ----------
+// The question is written for you with every fact the app knows, copied, and the AI app opens: just paste and send.
+function askAI(title, facts, ask) {
+  const en = getLang() === 'en';
+  const prompt = (en
+    ? `I am a real-estate broker in Surat, Gujarat (Ami Realtors). Help me with this ${title}.\n\nFacts from my app:\n${facts.filter(Boolean).map((x) => '- ' + x).join('\n')}\n\n${ask || 'Give me: 1) is the price fair vs the Surat market and why, 2) pros and cons of the location, 3) risks and legal/document checks (7/12, title, NA, RERA, TP/FP), 4) who would buy or rent it and a negotiation tip. Use recent Surat data from the web and cite sources.'}`
+    : `હું સુરત, ગુજરાતમાં પ્રોપર્ટી બ્રોકર છું (અમી રિયલ્ટર્સ). આ ${title} વિશે મદદ કરો.\n\nમારી એપની માહિતી:\n${facts.filter(Boolean).map((x) => '- ' + x).join('\n')}\n\n${ask || 'મને ગુજરાતીમાં કહો: 1) સુરતના બજાર પ્રમાણે ભાવ યોગ્ય છે કે નહીં અને કેમ, 2) લોકેશનના ફાયદા-ગેરફાયદા, 3) જોખમ અને કાગળની તપાસ (7/12, ટાઇટલ, NA, RERA, TP/FP), 4) કોણ ખરીદશે/ભાડે લેશે અને ભાવતાલની ટીપ. વેબ પરથી તાજી સુરતની માહિતી વાપરો અને સ્ત્રોત આપો.'}`);
+  const go = async (url, useQ) => {
+    try { await navigator.clipboard.writeText(prompt); } catch { /* old phone */ }
+    window.open(useQ ? url + encodeURIComponent(prompt) : url, '_blank', 'noopener');
+    if (!useQ) toast(t('ai_pasted'));
+  };
+  openSheet(t('ask_ai'), () => [
+    h('div', { class: 'small muted' }, t('ai_help')),
+    h('textarea', { class: 'input area', rows: 7, value: prompt, readonly: true }),
+    h('button', { class: 'btn gold big', onclick: () => go('https://gemini.google.com/app', false) }, '✨ ', t('ask_gemini')),
+    h('div', { class: 'grid2' },
+      h('button', { class: 'btn', onclick: () => go('https://chatgpt.com/?q=', true) }, 'ChatGPT'),
+      h('button', { class: 'btn', onclick: () => go('https://claude.ai/new?q=', true) }, 'Claude')),
+    h('button', { class: 'linkbtn center', onclick: async () => { try { await navigator.clipboard.writeText(prompt); toast(t('copied')); } catch { /* */ } } }, t('copy'))]);
+}
+const aiBtn = (fn, cls = 'btn ai') => h('button', { class: cls, onclick: (e) => { e.stopPropagation(); fn(); } }, '✨ ', t('ask_gemini'));
+const rateTxt = (v, pt) => (v ? `${rate(v, defaultUnit(pt))} per ${EN['u_' + defaultUnit(pt)] || defaultUnit(pt)}` : '');
+function areaFacts(a, pt) {
+  if (!a) return [];
+  const mk = stats(a.id, pt, 'market', null), j = stats(a.id, pt, 'jantri');
+  const pts = areaPoints(a).slice(0, 6).map((p) => `${p.kind === 'pro' ? 'Pro' : 'Con'}: ${p.en}`);
+  return [`Area: ${a.en}, ${a.district}`, mk.median && `Market rate (${EN[pt]}): ${rateTxt(mk.median, pt)} from ${mk.used} recent quotes`, j.median && `Jantri: ${rateTxt(j.median, pt)}`, ...pts];
+}
+function spotFacts(sp, pt, pa, facts) {
+  const f = facts || {};
+  return [`Location: ${sp.label || ''} (${(+sp.lat).toFixed(5)}, ${(+sp.lng).toFixed(5)}) https://www.google.com/maps?q=${(+sp.lat).toFixed(6)},${(+sp.lng).toFixed(6)}`,
+    `Property type: ${EN[pt]}`, pa && `App estimate: ${rateTxt(pa.value, pt)}${pa.own ? ' (own area quotes)' : ' (model from nearby areas)'}`,
+    f.front && `Road in front: about ${f.front.width} m ${f.front.cls}${f.front.name ? ' (' + f.front.name + ')' : ''}`, f.corner && 'Corner plot (two roads meet)',
+    f.highway && `Nearest national highway ${f.highway.ref || ''}: ${f.highway.d} km`, f.metro && `Metro station: ${f.metro.d.toFixed(1)} km`,
+    f.muni ? 'Inside Surat Municipal Corporation' : f.village ? `Village: ${f.village}` : null, f.landuse && `Land use on map: ${f.landuse}`, f.canal && `Canal ${f.canal.d} km away`];
 }
 // ---------- trash (deleted customers stay 30 days) ----------
 const TRASH_DAYS = 30;

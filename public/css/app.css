@@ -227,3 +227,4 @@ h1.sm { font-size: 20px; line-height: 1.2; overflow: hidden; text-overflow: elli
 .fchip.good { background: #EEF5EC; border-color: #CFE3CB; color: #1F4D2B; } .fchip.warn { background: #FBEDE7; border-color: #F0D2C6; color: #8A2A17; }
 .cardhd { border: 0; background: transparent; text-align: left; padding: 0; min-width: 0; }
 .spotcard .linkbtn.center { align-self: center; min-height: 24px; padding: 0; }
+.btn.ai { background: linear-gradient(135deg, #EEF2FF, #F5EEFF); border-color: #D9D6F5; color: #3B2E8C; }
