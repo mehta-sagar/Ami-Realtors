@@ -1,7 +1,7 @@
 import { t, getLang, setLang, money, moneyShort, fmtDate } from './i18n.js';
 import { AREAS, SURAT, areaById, areaName, km, searchAreas, findAreaInText } from './areas.js';
 import { UNITS, unitsFor, inBounds, PTYPES, sqftPer, toSqft, rateToSqft, rateFromSqft, defaultUnit, summarize, emi, DEFAULT_VIGHA_SQFT } from './units.js';
-import { parseEntry } from './parse.js';
+import { parseEntry, normDigits } from './parse.js';
 import { store, cloud, cfg, lock, DEFAULT_SB_URL, SB_PUBLIC_KEY, PRIVATE } from './store.js';
 import { resolveMapsLink, coordsFromText, firstUrl, isMapsUrl, roadsAround, facilitiesAround, loadHighways, quickFacts } from './geo.js';
 import { DEFAULT_INPUTS, adjustments, incomeValue, rentFromValue, residualLand, fsiFor, agriValue, reconcile as reconcileVals, CAP, VACANCY, OUTGO } from './valuation.js';
@@ -1049,6 +1049,90 @@ function viewToday() {
   ];
 }
 
+
+// ---------- WhatsApp message → customer + property (seller / landlord) or inquiry (buyer / tenant) ----------
+// Dad copies one message or many from WhatsApp, taps once, checks what the app understood, saves.
+const WANT = /જોઈએ|જોઇએ|joie|joiye|jojiye|required|requirement|req\b|want|need|looking|wanted|buyer|client\s*(?:hai|che|chhe)|ખરીદવ|kharidv|levo|levu|levi|લેવો|લેવું|લેવી/i;
+const GIVE = /વેચવ|vechv|vechan|for\s*sale|\bsale\b|\bsell|available|ઉપલબ્ધ|resale|આપવાન|aapvan|apvan|to\s*let|for\s*rent|ready\s*possession|owner\s*(?:property|direct)/i;
+const RENTW = /ભાડે|bhade|bhada|ભાડું|ભાડા|\brent|lease|લીઝ|pg\b/i;
+function waIntent(text) {
+  const rent = RENTW.test(text), want = WANT.test(text), give = GIVE.test(text);
+  if (rent) return want && !give ? 'rentwant' : 'rentout';
+  if (want && !give) return 'buy';
+  if (give) return 'sell';
+  return /budget|બજેટ/i.test(text) ? 'buy' : 'sell';
+}
+const WA_KINDS = [['sell', 'wa_sell'], ['buy', 'wa_buy'], ['rentout', 'wa_rentout'], ['rentwant', 'wa_rentwant']];
+function waItems(text) {
+  const msgs = splitChat(text).filter((m) => m.text && m.text.replace(/\s/g, '').length > 6);
+  return msgs.map((m, i) => {
+    const p = parseEntry(m.text), kind = waIntent(m.text);
+    if (!p.price && /rent/.test(kind)) { // "35000 rent", "ભાડું 18,000", "rent 25k"
+      const r = normDigits(m.text).match(/(\d[\d,]{3,})\s*(?:rs\.?|₹|\/-)?\s*(?:rent|ભાડું|bhadu|per\s*month|p\.?m\.?|મહિને)|(?:rent|ભાડું|bhadu)\s*:?\s*(?:rs\.?|₹)?\s*(\d[\d,]{3,}|\d+\s*k\b)/i);
+      if (r) { const v = (r[1] || r[2]).replace(/,/g, ''); p.price = /k$/i.test(v.trim()) ? parseFloat(v) * 1000 : Number(v); }
+    }
+    const sender = m.who && !/^\+?\d[\d\s-]+$/.test(m.who) ? m.who : '';
+    const senderPh = m.who && /^\+?\d[\d\s-]{9,}$/.test(m.who) ? tel(m.who) : '';
+    return { i, on: true, kind, p, text: m.text.trim(), date: m.date, name: p.name || sender || '', phone: p.phone || senderPh || '' };
+  });
+}
+function waLine(x) {
+  const p = x.p, a = areaById(p.area_id);
+  return [a && areaName(a, getLang()), p.bhk && p.bhk + ' BHK', p.ptype && t(p.ptype), p.size && `${p.size} ${unitLabel(p.size_unit || 'sqft')}`, p.price && moneyShort(p.price), p.rate && `${money(p.rate)}/${unitLabel(p.rate_unit || defaultUnit(p.ptype || 'flat'))}`, p.furnished === true ? t('furnished') : null].filter(Boolean).join(' · ');
+}
+async function waSave(x) {
+  const c = await upsertCustomer(x.name || null, x.phone || null);
+  const p = x.p, note = `WhatsApp${x.date ? ' ' + x.date : ''}: ${x.text}`.slice(0, 1500);
+  if (x.kind === 'sell' || x.kind === 'rentout') {
+    const o = fromParse(p, x.text);
+    await saveRec('properties', { ptype: o.ptype || null, deal: x.kind === 'rentout' ? 'rent' : 'sale', area_id: o.area_id || null, price: N(o.price), size: N(o.size), size_unit: o.size_unit || defaultUnit(o.ptype), bhk: N(o.bhk), furnished: o.furnished ?? null, owner_name: x.name || null, owner_phone: tel(x.phone) || null, notes: note, photos: [], docs: [], brokers: [] });
+    await saveRec('activities', { customer_id: c.id, type: 'note', text: `${t(x.kind === 'rentout' ? 'wa_rentout' : 'wa_sell')}: ${waLine(x)}`, at: new Date().toISOString() });
+  } else {
+    await saveRec('inquiries', { customer_id: c.id, name: c.name || x.name || null, phone: c.phone || tel(x.phone) || null, area_id: p.area_id || null, ptype: p.ptype || null, deal: x.kind === 'rentwant' ? 'rent' : 'buy', budget: N(p.price), notes: note, status: 'new', followup_at: null });
+    await saveRec('activities', { customer_id: c.id, type: 'inquiry', text: waLine(x) || null, at: new Date().toISOString() });
+  }
+  return c;
+}
+async function waImport() {
+  let pre = '';
+  try { pre = navigator.clipboard && navigator.clipboard.readText ? (await navigator.clipboard.readText()) || '' : ''; } catch { pre = ''; }
+  const f = { text: pre, items: pre.trim() ? waItems(pre) : null };
+  const sh = openSheet(t('wa_import'), (api) => {
+    if (!f.items || !f.items.length) return [
+      h('div', { class: 'small muted' }, t('wa_import_help')),
+      f.items && !f.items.length ? h('div', { class: 'authmsg bad' }, t('wa_nothing')) : null,
+      h('textarea', { class: 'input area', rows: 8, value: f.text, placeholder: 'Vesu 3BHK flat 1650 sqft 1.25 cr, Rameshbhai 98250xxxxx', oninput: (e) => { f.text = e.target.value; } }),
+      h('button', { class: 'btn gold big', onclick: () => { f.items = waItems(f.text); api.redraw(); } }, t('wa_read'))];
+    const on = f.items.filter((x) => x.on);
+    return [
+      h('div', { class: 'small b' }, `${f.items.length} ${t('wa_found')}`),
+      f.items.map((x) => h('div', { class: 'card inset waitem' + (x.on ? '' : ' out') },
+        h('div', { class: 'between top' },
+          h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: x.on, onchange: (e) => { x.on = e.target.checked; api.redraw(); } }), h('span', { class: 'b small' }, waLine(x) || t('wa_no_details'))),
+          h('button', { class: 'linkbtn xs', onclick: () => {
+            const o = fromParse(x.p, x.text);
+            if (x.kind === 'sell' || x.kind === 'rentout') propertyForm({ ...o, deal: x.kind === 'rentout' ? 'rent' : 'sale', owner_name: x.name, owner_phone: x.phone, notes: x.text });
+            else inquiryForm({ name: x.name, phone: x.phone, area_id: x.p.area_id, ptype: x.p.ptype, deal: x.kind === 'rentwant' ? 'rent' : 'buy', budget: x.p.price, notes: x.text }, () => { x.on = false; x.done = true; api.redraw(); render(); });
+          } }, t('edit'))),
+        seg(WA_KINDS.map(([k, l]) => [k, t(l)]), x.kind, (v) => { x.kind = v; api.redraw(); }),
+        h('div', { class: 'grid2' },
+          h('input', { class: 'input', placeholder: t('name'), value: x.name, oninput: (e) => { x.name = e.target.value; } }),
+          h('input', { class: 'input', placeholder: t('phone'), inputmode: 'tel', value: x.phone, oninput: (e) => { x.phone = e.target.value; } })),
+        h('div', { class: 'xs muted clamp3' }, x.text))),
+      h('div', { class: 'grid2 bulkbar' },
+        h('button', { class: 'btn', onclick: () => { f.items = null; api.redraw(); } }, t('back')),
+        h('button', { class: 'btn gold', onclick: async (ev) => {
+          const btn = ev.currentTarget; if (btn.disabled) return;
+          const list = f.items.filter((x) => x.on);
+          if (!list.length) return toast(t('select_first'), true);
+          btn.disabled = true; btn.textContent = t('please_wait');
+          let np = 0, ni = 0;
+          for (const x of list) { try { await waSave(x); if (x.kind === 'sell' || x.kind === 'rentout') np++; else ni++; } catch (e) { fail(e); } }
+          sh.close(); render(); toast(`✓ ${np} ${t('wa_saved_props')} · ${ni} ${t('wa_saved_inq')}`);
+        } }, `${t('save')} (${on.length})`))];
+  }, { full: true });
+}
+
 function viewCustomers() {
   const q = { v: '' };
   const start = (text) => { const p = parseEntry(text || ''); inquiryForm({ phone: p.phone || tel(text), name: p.name, area_id: p.area_id, ptype: p.ptype, deal: p.deal === 'rent' ? 'rent' : 'buy', budget: p.price, notes: (text || '').replace(/[\d\s+()-]/g, '').length > 3 ? text : '' }, render); };
@@ -1078,6 +1162,7 @@ function viewCustomers() {
         h('input', { id: 'pasteNum', class: 'input', inputmode: 'tel', placeholder: '+91', oninput: (e) => { q.v = e.target.value; } }),
         h('button', { class: 'btn gold', onclick: async () => { try { const s = await navigator.clipboard.readText(); $('#pasteNum').value = q.v = s.trim(); } catch { $('#pasteNum').focus(); } } }, t('paste')),
         h('button', { class: 'btn mid', onclick: () => start(q.v) }, t('add'))),
+      h('button', { class: 'btn gold big', onclick: waImport }, icon('wa', 20), ' ', t('wa_import')),
       h('button', { class: 'linkbtn goldlink', onclick: () => voiceBox(t('speak_add'), (text) => start(text)) }, icon('mic', 18), ' ', t('speak_add'))),
     seg([['list', t('list')], ['pipeline', t('pipeline')]], S.crmView || 'list', (v) => { S.crmView = v; render(); }),
     S.crmView === 'pipeline' ? board() : [h('input', { class: 'input', placeholder: t('search_customer'), value: S.crmQ || '', oninput: (e) => { S.crmQ = e.target.value; drawList(); } }), body],

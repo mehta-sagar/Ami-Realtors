@@ -1,5 +1,5 @@
 // App shell cache so the app opens without network. Data and map tiles always go to the network.
-const V = 'ami-v28';
+const V = 'ami-v29';
 const SHELL = ['./', 'index.html', 'css/app.css', 'js/app.js', 'js/i18n.js', 'js/areas.js', 'js/units.js', 'js/parse.js', 'js/store.js', 'js/geo.js', 'js/valuation.js', 'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css', 'vendor/supabase.js', 'manifest.webmanifest', 'icons/icon-180.png', 'icons/icon-192.png', 'img/emblem.jpg', 'img/logo.jpg', 'img/card.jpg'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(V).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== V).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
