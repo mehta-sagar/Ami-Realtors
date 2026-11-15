@@ -3,7 +3,7 @@ import { AREAS, SURAT, areaById, areaName, km, searchAreas, findAreaInText } fro
 import { UNITS, unitsFor, inBounds, PTYPES, sqftPer, toSqft, rateToSqft, rateFromSqft, defaultUnit, summarize, emi, DEFAULT_VIGHA_SQFT } from './units.js';
 import { parseEntry } from './parse.js';
 import { store, cloud, cfg, lock, DEFAULT_SB_URL, SB_PUBLIC_KEY, PRIVATE } from './store.js';
-import { resolveMapsLink, coordsFromText, firstUrl, isMapsUrl, roadsAround, facilitiesAround } from './geo.js';
+import { resolveMapsLink, coordsFromText, firstUrl, isMapsUrl, roadsAround, facilitiesAround, loadHighways } from './geo.js';
 import { DEFAULT_INPUTS, adjustments, incomeValue, rentFromValue, residualLand, fsiFor, agriValue, reconcile as reconcileVals, CAP, VACANCY, OUTGO } from './valuation.js';
 
 const S = {
@@ -177,7 +177,7 @@ function viewMap() {
       h('div', { id: 'mapsug', class: 'sug' }),
       h('div', { class: 'maprow' },
         h('button', { class: 'locbtn', 'aria-label': t('my_location'), onclick: myLocation }, icon('loc', 20), h('span', {}, t('my_location'))),
-        h('button', { class: 'locbtn', 'aria-label': t('link_title'), onclick: linkSheet }, icon('link', 20), h('span', {}, t('link_short')))),
+        h('button', { class: 'locbtn', 'aria-label': t('link_title'), onclick: linkQuick }, icon('link', 20), h('span', {}, t('link_short')))),
       chips([['flat', `${t('flat')} · ${t('u_sqft')}`], ['plot', `${t('plot')} · ${t('u_var')}`], ['land', `${t('land')} · ${t('u_vigha')}`], ['industrial', `${t('industrial')} · ${t('u_sqft')}`]], S.mapType, (v) => { S.mapType = v; render(); }, 'onmap scroll')),
     h('div', { id: 'mapcard' }),
   ];
@@ -397,7 +397,7 @@ function drawPins() {
       }
       const html = `<div class="pin${a.id === S.mapSel ? ' sel' : ''}${est ? ' est' : ''}${a.ind ? ' ind' : ''}"><span>${a.ind ? '🏭 ' : ''}${areaName(a, getLang())}</span><b>${val}</b></div>`;
       L.marker([a.lat, a.lng], { icon: L.divIcon({ className: 'pinwrap', html, iconSize: null }), keyboard: true, title: a.en })
-        .on('click', () => { S.mapSel = a.id; S.spotNote = null; S.spotAt = null; drawPins(); drawMapCard(); drawBorder(a); }).addTo(S.layer);
+        .on('click', () => { S.mapSel = a.id; S.spotNote = null; S.spotAt = null; mapCardNav(); drawPins(); drawMapCard(); drawBorder(a); }).addTo(S.layer);
     });
   // Smaller pins for every other named place once zoomed in; their price is the nearby estimate.
   if (z >= 12 && S.places) {
@@ -421,7 +421,7 @@ function myLocation() {
 }
 // A spot is any point on the map: a tapped street, a searched landmark or a small place pin.
 async function showSpot(lat, lng, label, all) {
-  S.spotAll = !!all;
+  S.spotAll = !!all; S.cardOpen = false; mapCardNav();
   const L = window.L;
   S.mapSel = null; S.spotAt = { lat, lng, label: label || '…' };
   if (S.border) { S.border.remove(); S.border = null; }
@@ -452,23 +452,39 @@ function drawMapCard() {
     const srcLine = (x, u) => x.own ? `${t('own_short')}: ${areaName(x.own, getLang())}${x.gidc ? ' · ' + t('gidc') : ''}` : `${t('based_on')}: ${knnLine(x, u)}`;
     const allRows = S.spotAll && h('div', { class: 'list tight' }, h('div', { class: 'xs gold b' }, t('here_all')),
       PTYPES.map((pt) => { const x = priceAt(sp.lat, sp.lng, pt, hint), u = defaultUnit(pt); return h('div', { class: 'between small' }, h('span', {}, `${t(pt)} · ${unitLabel(u)}`), h('span', { class: 'b' }, x ? (x.own ? '' : x.conf === 'floor' ? '≥ ' : '≈ ') + rate(x.value, u) : '—')); }));
-    return el.replaceChildren(h('div', { class: 'card float' },
-      h('div', { class: 'between' }, h('div', { class: 'title' }, sp.label), h('div', { class: 'muted small' }, `${t(pType)} · ${t('per')} ${unitLabel(pu)}`)),
+    // What the map knows about this exact spot (corner, road, highway, SMC/SUDA/village, canal, land use) → adjusted price.
+    if (!sp.facts && !sp.factsLoading) {
+      sp.factsLoading = true;
+      roadsAround(sp.lat, sp.lng, cfg).then((r) => { sp.facts = r; if (S.spotAt === sp) drawMapCard(); }).catch(() => { sp.facts = { failed: true }; if (S.spotAt === sp) drawMapCard(); });
+    }
+    const auto = sp.facts && !sp.facts.failed ? autoInputs(sp.lat, sp.lng, sp.facts, pType) : null;
+    const adj = auto && pa ? adjustments(pType, auto) : null;
+    const open = !!S.cardOpen;
+    return el.replaceChildren(h('div', { class: 'card float spotcard' },
+      h('div', { class: 'between' },
+        h('button', { class: 'grow cardhd', onclick: () => { S.cardOpen = !open; drawMapCard(); } }, h('div', { class: 'title' }, sp.label), h('div', { class: 'xs muted' }, `${t(pType)} · ${t('per')} ${unitLabel(pu)}`)),
+        h('button', { class: 'iconbtn sm', 'aria-label': t('more'), onclick: () => { S.cardOpen = !open; drawMapCard(); } }, icon(open ? 'down' : 'chev', 18)),
+        h('button', { class: 'iconbtn sm', 'aria-label': t('close'), onclick: closeSpot }, icon('x', 18))),
       estate && h('div', { class: 'xs goldtext b' }, `🏭 ${t('inside')}: ${areaName(estate, getLang())} — ${t('ind_only')}`),
-      h('div', { class: 'between' }, h('span', { class: 'gold xs b' }, pa && pa.own ? t('market_rate') : t('nearby_estimate')), h('span', { class: 'title big' }, pa ? (pa.own ? '' : pa.conf === 'floor' ? '≥ ' : '≈ ') + rate(pa.value, pu) : t('no_price'))),
-      pa ? h('div', { class: 'xs muted' }, srcLine(pa, pu)) : h('div', { class: 'xs muted' }, t('no_nearby')),
-      allRows,
+      h('div', { class: 'between' }, h('span', { class: 'gold xs b' }, pa && pa.own ? t('market_rate') : t('nearby_estimate')), h('span', { class: 'title' + (adj ? '' : ' big') }, pa ? (pa.own ? '' : pa.conf === 'floor' ? '≥ ' : '≈ ') + rate(pa.value, pu) : t('no_price'))),
+      adj && adj.list.length ? h('div', { class: 'between' }, h('span', { class: 'gold xs b' }, t('this_spot')), h('span', { class: 'title big' }, '≈ ' + rate(pa.value * (1 + adj.total), pu), h('span', { class: 'xs muted' }, ` (${adj.total >= 0 ? '+' : ''}${Math.round(adj.total * 100)}%)`))) : null,
+      sp.facts ? (sp.facts.failed ? h('div', { class: 'xs muted' }, t('osm_fail')) : h('div', { class: 'factchips' }, factChips(sp.facts, auto))) : h('div', { class: 'xs muted shimmer' }, t('reading_map')),
       h('button', { class: 'btn gold', onclick: () => openDetail('value', { lat: sp.lat, lng: sp.lng, label: sp.label, ptype: pType, area: hint ? hint.id : null }) }, icon('calc', 18), t('valuation')),
-      h('div', { class: 'grid3' }, h('a', { class: 'btn sm', href: gmaps(sp.lat, sp.lng), target: '_blank', rel: 'noopener' }, '🗺 Maps'), h('button', { class: 'btn sm', onclick: () => savePlace(sp) }, '＋ ', t('save_short')), h('button', { class: 'btn sm', 'aria-label': t('close'), onclick: () => { S.spotAt = null; if (S.spot) { S.spot.remove(); S.spot = null; } drawMapCard(); } }, '✕')),
-      nProj ? h('button', { class: 'btn', onclick: () => goProjects({ areas: projNear }) }, `🏗 ${t('proj_near')}: ${nProj}`) : null,
-      near && near.d <= 8 && h('button', { class: 'btn gold', onclick: () => openPrices(near.a.id, S.mapType) }, `${t('full_detail')}: ${areaName(near.a, getLang())}`)));
+      open && [
+        pa ? h('div', { class: 'xs muted' }, srcLine(pa, pu)) : h('div', { class: 'xs muted' }, t('no_nearby')),
+        adj && adj.list.length && h('div', { class: 'xs muted' }, adj.list.map((x) => `${t(x.key)} ${x.pct > 0 ? '+' : ''}${Math.round(x.pct * 100)}%`).join(' · ')),
+        allRows,
+        h('div', { class: 'grid2' }, h('a', { class: 'btn sm', href: gmaps(sp.lat, sp.lng), target: '_blank', rel: 'noopener' }, '🗺 Maps'), h('button', { class: 'btn sm', onclick: () => savePlace(sp) }, '＋ ', t('save_short'))),
+        nProj ? h('button', { class: 'btn', onclick: () => goProjects({ areas: projNear }) }, `🏗 ${t('proj_near')}: ${nProj}`) : null,
+        near && near.d <= 8 && h('button', { class: 'btn', onclick: () => openPrices(near.a.id, S.mapType) }, `${t('full_detail')}: ${areaName(near.a, getLang())}`)],
+      !open && h('button', { class: 'linkbtn center', onclick: () => { S.cardOpen = true; drawMapCard(); } }, t('show_more'), ' ⌄')));
   }
   const a = S.mapSel && areaById(S.mapSel);
   if (!a) return el.replaceChildren();
   const j = stats(a.id, S.mapType, 'jantri'), d = stats(a.id, S.mapType, 'dastavej'), mk = stats(a.id, S.mapType, 'market', null);
   const est = mk.median == null ? knn(a.lat, a.lng, S.mapType, a.id) : null;
   el.replaceChildren(h('div', { class: 'card float' },
-    h('div', { class: 'between' }, h('div', { class: 'title big' }, areaName(a, getLang())), h('div', { class: 'muted small' }, `${t(S.mapType)} · ${t('per')} ${unitLabel(unit)}`)),
+    h('div', { class: 'between' }, h('div', { class: 'grow' }, h('div', { class: 'title big' }, areaName(a, getLang())), h('div', { class: 'muted xs' }, `${t(S.mapType)} · ${t('per')} ${unitLabel(unit)}`)), h('button', { class: 'iconbtn sm', 'aria-label': t('close'), onclick: closeSpot }, icon('x', 18))),
     S.spotNote && h('div', { class: 'small goldtext b' }, S.spotNote),
     h('div', { class: 'grid3' },
       h('div', { class: 'tile' }, h('div', { class: 'muted xs' }, t('jantri')), h('div', { class: 'b' }, rate(j.median, unit))),
@@ -479,6 +495,43 @@ function drawMapCard() {
     S.projects && S.projects.some((p) => p.area_id === a.id) && h('button', { class: 'btn', onclick: () => goProjects({ area: a.id }) }, `🏗 ${t('proj_near')}: ${S.projects.filter((p) => p.area_id === a.id).length}`),
     h('button', { class: 'btn gold', onclick: () => openPrices(a.id, S.mapType) }, t('full_detail'))));
 }
+// The map card is a "step" too: the phone's back gesture closes it before leaving the map.
+function mapCardNav() { if (!S.cardNav) S.cardNav = navPush(() => { S.cardNav = null; clearSpot(); }); }
+function clearSpot() { S.spotAt = null; S.mapSel = null; S.cardOpen = false; if (S.spot) { S.spot.remove(); S.spot = null; } if (S.border) { S.border.remove(); S.border = null; } if (S.map) { drawPins(); drawMapCard(); } }
+function closeSpot() { if (S.cardNav && NAV[NAV.length - 1] === S.cardNav) navBack(); else { if (S.cardNav) S.cardNav.dead = true; S.cardNav = null; clearSpot(); } }
+// Turn what OpenStreetMap says about a spot into valuation inputs (no typing needed; editable in Valuation).
+function autoInputs(lat, lng, r, ptype) {
+  const inp = { ...DEFAULT_INPUTS };
+  if (!r || r.failed) return inp;
+  if (r.front) inp.road_m = r.front.width;
+  if (r.corner) inp.corner = true;
+  if (r.highway) { inp.hw_km = r.highway.d; if (r.highway.d <= 0.05) inp.highway_frontage = true; }
+  if (r.metro) inp.metro_km = r.metro.d;
+  const dk = coreKm(lat, lng);
+  inp.authority = r.muni ? 'smc' : dk <= 11 ? 'smc' : dk <= 28 ? 'suda' : 'gp';
+  inp.tp = inp.authority === 'smc' ? 'final' : inp.authority === 'suda' ? 'draft' : 'none';
+  if (inp.authority === 'gp') { inp.sewer = 'no'; inp.water = r.built ? 'yes' : 'no'; }
+  if (inp.authority === 'suda' && !r.built) inp.sewer = 'no';
+  if (!r.front) inp.access = 'none'; else if (r.front.cls === 'track') inp.access = 'kachha';
+  if (r.canal && r.canal.d <= 0.6) inp.irrigation = 'canal';
+  inp.na = /farmland|orchard|meadow|farmyard/.test(r.landuse || '') ? 'agri' : /residential|commercial|industrial|retail/.test(r.landuse || '') ? 'na' : inp.authority === 'gp' ? 'agri' : 'zone';
+  if (ptype !== 'land' && !r.front) inp.electricity = r.built ? 'yes' : 'no';
+  return inp;
+}
+function factChips(r, inp) {
+  const c = [];
+  const chip = (txt, cls = '') => h('span', { class: 'fchip ' + cls }, txt);
+  if (r.corner) c.push(chip('📐 ' + t('adj_corner'), 'good'));
+  if (r.front) c.push(chip(`🛣 ${r.front.width} m ${t('rc_' + r.front.cls) || ''}`, r.front.width >= 18 ? 'good' : r.front.width <= 7 ? 'warn' : ''));
+  else c.push(chip('🚫 ' + t('i_noroad'), 'warn'));
+  if (r.highway) c.push(chip(`🛤 ${r.highway.ref || 'NH'} ${kmTxt(r.highway.d)}`, r.highway.d <= 0.05 ? 'good' : ''));
+  if (r.metro && r.metro.d <= 2) c.push(chip(`🚇 ${kmTxt(r.metro.d)}`));
+  if (inp) c.push(chip('🏛 ' + (inp.authority === 'smc' ? 'SMC' : inp.authority === 'suda' ? 'SUDA' : t('i_gp')) + (r.village && inp.authority !== 'smc' ? ' · ' + r.village : '')));
+  if (inp && inp.sewer === 'no') c.push(chip('🚽 ' + t('no_sewer_short'), 'warn'));
+  if (r.canal && r.canal.d <= 1) c.push(chip(`💧 ${t('i_canal')} ${kmTxt(r.canal.d)}`, 'good'));
+  if (r.landuse) c.push(chip('🗺 ' + (t('lu_' + r.landuse) !== 'lu_' + r.landuse ? t('lu_' + r.landuse) : r.landuse)));
+  return c;
+}
 function mapSuggest(e) {
   const q = e.target.value.trim(), box = $('#mapsug');
   if (!q) return box.replaceChildren();
@@ -488,7 +541,7 @@ function mapSuggest(e) {
     ...places.map((p) => h('button', { class: 'row', onclick: () => goPlace(p) }, h('span', {}, placeName(p)), h('span', { class: 'muted' }, `${p.en} · ${Math.round(km(SURAT.lat, SURAT.lng, p.lat, p.lng))} km`))));
 }
 function goArea(a) {
-  S.mapSel = a.id; S.spotNote = null; S.spotAt = null; if (S.spot) { S.spot.remove(); S.spot = null; }
+  mapCardNav(); S.mapSel = a.id; S.spotNote = null; S.spotAt = null; if (S.spot) { S.spot.remove(); S.spot = null; }
   $('#mapsug').replaceChildren(); $('#mapq').value = a.en; $('#mapq').blur();
   S.map.flyTo([a.lat, a.lng], 14, { duration: 0.6 }); drawMapCard(); drawBorder(a);
 }
@@ -864,8 +917,9 @@ function settings() {
       h('h3', {}, t('push_title')), h('div', { class: 'xs muted' }, t('push_help')),
       h('button', { class: 'btn ' + (pushOn() ? '' : 'gold'), onclick: async () => { await enablePush(); api.redraw(); } }, pushOn() ? '✓ ' + t('push_on') : t('push_enable')),
       h('h3', {}, t('lock')),
-      lock.hasPin ? [h('button', { class: 'btn', onclick: () => { lock.clear(); api.redraw(); } }, t('remove_pin')),
-        lock.hasFace ? h('div', { class: 'small goldtext b' }, t('faceid_on')) : (window.PublicKeyCredential && h('button', { class: 'btn green', onclick: async () => { try { await lock.enableFace(); api.redraw(); } catch (e) { fail(e); } } }, t('enable_faceid')))]
+      lock.hasFace ? [h('div', { class: 'small goldtext b' }, '✓ ', t('faceid_on')), h('button', { class: 'btn', onclick: () => { lock.clear(); api.redraw(); } }, t('remove_pin'))]
+        : window.PublicKeyCredential && h('button', { class: 'btn green', onclick: async () => { try { await lock.enableFace(); api.redraw(); toast(t('faceid_on')); } catch (e) { toast(t('faceid_fail'), true); } } }, '🔐 ', t('enable_faceid')),
+      lock.hasPin ? (!lock.hasFace && h('button', { class: 'btn', onclick: () => { lock.clear(); api.redraw(); } }, t('remove_pin')))
         : h('div', { class: 'join' }, inp(f, 'pin', { type: 'password', inputmode: 'numeric', maxlength: 4, placeholder: t('pin_4'), autocomplete: 'off' }), h('button', { class: 'btn green', onclick: async () => { if (!/^\d{4}$/.test(f.pin)) return toast(t('pin_4'), true); await lock.setPin(f.pin); f.pin = ''; api.redraw(); } }, t('set_pin'))),
       h('h3', {}, t('cloud')),
       h('div', { class: 'small goldtext b' }, `${cloud.live ? '🟢 ' + t('live_on') : '🟡 ' + t('live_off')} · ${cloud.email}`),
@@ -896,6 +950,7 @@ function tabbar() {
 function go(tab) {
   for (const sh of sheets.slice().reverse()) sh.close();
   for (const e of NAV) e.dead = true;
+  S.cardNav = null;
   if (S.tab === tab && !S.detail) { const sc = $('.screen'); if (sc) sc.scrollTo({ top: 0, behavior: 'smooth' }); return; }
   S.tab = tab; S.detail = null; render();
 }
@@ -960,7 +1015,7 @@ function viewToday() {
       h('button', { class: 'iconbtn', 'aria-label': t('settings'), onclick: settings }, icon('gear'))),
     m && h('div', { class: 'grid4' }, [['gold', m.gold_10g, moneyShort], ['silver', m.silver_kg, moneyShort], ['sensex', m.sensex, (x) => Number(x).toLocaleString('en-IN')], ['home_loan', m.home_loan_rate, (x) => x + '%']]
       .map(([k, v, f]) => h('div', { class: 'tile' }, h('div', { class: 'muted xs' }, t(k)), h('div', { class: 'b' }, v == null ? '—' : f(v))))),
-    h('button', { class: 'hero linkhero', onclick: linkSheet }, h('span', { class: 'hero-ic' }, '📍'), h('div', { class: 'grow' }, h('div', { class: 'hero-t' }, t('link_title')), h('div', { class: 'xs' }, t('link_sub'))), icon('chev', 18)),
+    h('button', { class: 'hero linkhero', onclick: linkQuick }, h('span', { class: 'hero-ic' }, '📍'), h('div', { class: 'grow' }, h('div', { class: 'hero-t' }, t('link_title')), h('div', { class: 'xs' }, t('link_sub'))), icon('chev', 18)),
     !pushOn() && h('button', { class: 'btn gold', onclick: async () => { await enablePush(); render(); } }, '🔔 ', t('push_enable')),
     h('section', { class: 'card' },
       h('div', { class: 'between' }, h('h2', {}, t('todo_today')), h('button', { class: 'linkbtn', onclick: () => taskForm({}, render) }, '+ ', t('task'))),
@@ -1404,7 +1459,7 @@ function viewMore() {
       h('div', { class: 'grid2' }, h('button', { class: 'btn gold', onclick: shareBizCard }, '📤 ', t('share_bizcard')), h('a', { class: 'btn green', href: 'tel:+91' + BRAND.phone1 }, t('call'), ' ', BRAND.phones.split(' / ')[0]))),
     h('section', { class: 'card' }, row('prices', () => openPrices(S.price.area, S.price.ptype)), row('bulk_paste', bulkPaste), row('brokers', () => brokersSheet()), row('commission', commission)),
     h('section', { class: 'card' }, row('emi_calc', emiCalc), row('stamp_calc', stampCalc), row('cg_calc', cgCalc)),
-    h('section', { class: 'card' }, row('link_title', linkSheet), row('sources_title', () => openDetail('sources')), row('trash', () => openDetail('trash'))),
+    h('section', { class: 'card' }, row('link_title', linkQuick), row('sources_title', () => openDetail('sources')), row('trash', () => openDetail('trash'))),
     h('section', { class: 'card' }, cloud.ready && row('team', () => openDetail('team')), row('reports', reportsSheet), row('settings', settings), cloud.ready && row('sign_out', async () => { if (await ask(t('sign_out') + '?')) { await cloud.signOut(); location.reload(); } }))];
 }
 
@@ -1629,13 +1684,20 @@ function viewLeads() {
     h('div', { class: 'small muted' }, t('leads_note')),
     h('button', { class: 'btn', onclick: bulkPaste }, '📋 ', t('bulk_paste')),
     h('button', { class: 'btn gold', onclick: () => voiceBox(t('add_lead'), (text) => { const p = parseEntry(text); const l = { id: 'l' + Date.now(), date: new Date().toISOString().slice(0, 10), text, phone: p.phone, area_id: p.area_id, ptype: p.ptype, name: p.name, source: t('src_own') }; cfg.set(LEADS_KEY, [l, ...cfg.get(LEADS_KEY, [])]); render(); }) }, icon('plus', 18), t('add_lead')),
-    all.length ? all.map((l) => { const ph = tel(l.phone); return h('article', { class: 'card tap', onclick: (e) => { if (!e.target.closest('a,button')) openDetail('lead', l); } },
-      h('div', { class: 'tag' }, [l.source, l.date && fmtDate(l.date, { day: 'numeric', month: 'short' }), areaById(l.area_id) && areaName(areaById(l.area_id), getLang())].filter(Boolean).join(' · ')),
+    h('div', { class: 'between' }, h('span', { class: 'xs muted' }, `${all.length} ${t('leads')}`),
+      h('button', { class: 'chip' + (S.lsel ? ' on' : ''), onclick: () => { S.lsel = S.lsel ? null : new Set(); render(); } }, '✓ ', t('select'))),
+    S.lsel && h('div', { class: 'card inset selbar' },
+      h('div', { class: 'between' }, h('span', { class: 'b' }, `${S.lsel.size} ${t('selected')}`),
+        h('div', { class: 'chips' }, h('button', { class: 'chip', onclick: () => { for (const l of all) if (tel(l.phone)) S.lsel.add(l.id); render(); } }, t('select_all')), h('button', { class: 'chip', onclick: () => { S.lsel.clear(); render(); } }, t('select_none')))),
+      h('button', { class: 'btn gold', onclick: () => { const sel = all.filter((l) => S.lsel.has(l.id)); if (!sel.length) return toast(t('select_first'), true); leadsQueue(sel); } }, icon('wa', 18), t('ad_send_sel'))),
+    all.length ? all.map((l) => { const ph = tel(l.phone), picked = S.lsel && S.lsel.has(l.id); return h('article', { class: 'card tap' + (picked ? ' picked' : ''), onclick: (e) => { if (e.target.closest('a,button,input')) return; if (S.lsel) { if (!ph) return; if (picked) S.lsel.delete(l.id); else S.lsel.add(l.id); render(); return; } openDetail('lead', l); } },
+      h('div', { class: 'between top' }, h('div', { class: 'tag grow' }, [l.source, l.date && fmtDate(l.date, { day: 'numeric', month: 'short' }), areaById(l.area_id) && areaName(areaById(l.area_id), getLang())].filter(Boolean).join(' · ')),
+        S.lsel && ph ? h('input', { type: 'checkbox', class: 'pick-cb', checked: picked, onchange: (e) => { if (e.target.checked) S.lsel.add(l.id); else S.lsel.delete(l.id); render(); } }) : null),
       h('div', { class: 'small' }, l.text),
-      h('div', { class: 'grid3' },
-        ph ? h('a', { class: 'btn green', href: 'tel:+91' + ph }, t('call')) : h('span', {}),
-        h('button', { class: 'btn', onclick: () => inquiryForm({ name: l.name, phone: ph, area_id: l.area_id, ptype: l.ptype, deal: 'buy', notes: `${t('lead_seller')} · ${l.source || ''}: ${l.text}` }, render) }, t('to_inquiry')),
-        h('button', { class: 'btn', onclick: () => openDetail('lead', l) }, t('details')))); })
+      !S.lsel && h('div', { class: 'grid3' },
+        ph ? h('a', { class: 'btn green sm', href: 'tel:+91' + ph }, t('call')) : h('span', {}),
+        ph ? h('a', { class: 'btn sm', href: waLink(ph, adMsg(l)), target: '_blank', rel: 'noopener' }, icon('wa', 16), t('send_card')) : h('span', {}),
+        h('button', { class: 'btn sm', onclick: () => openDetail('lead', l) }, t('details')))); })
       : h('div', { class: 'empty' }, t('no_leads')),
   ];
 }
@@ -1661,29 +1723,44 @@ function builderMsg(p) {
 // text ready → tap send there → come back → next one is already highlighted.
 function broadcastSheet(projects) {
   const byPhone = new Map();
-  for (const p of projects) { const ph = tel(p.phone); if (!ph) continue; const x = byPhone.get(ph) || { ph, builder: p.promoter, projects: [] }; x.projects.push(p); byPhone.set(ph, x); }
-  const rows = [...byPhone.values()];
-  const sent = new Set(cfg.get('bc.sent.' + new Date().toISOString().slice(0, 10), []));
-  const f = { text: '', withName: true };
-  const msgFor = (x) => {
-    const names = x.projects.map((p) => p.name).slice(0, 3).join(', ');
-    const base = f.text.trim() || builderMsg(x.projects[0]);
-    return f.text.trim() ? `${base}\n\n${getLang() === 'en' ? 'Projects' : 'પ્રોજેક્ટ'}: ${names}\n${CARD_URL()}` : base.replace(x.projects[0].name, names);
-  };
-  openSheet(t('bc_title'), (api) => {
+  for (const p of projects) { const ph = tel(p.phone); if (!ph) continue; const x = byPhone.get(ph) || { ph, who: p.promoter, list: [] }; x.list.push(p); byPhone.set(ph, x); }
+  const rows = [...byPhone.values()].map((x) => ({ ph: x.ph, who: x.who || '—', sub: x.list.map((p) => p.name).join(', '), msg: (custom) => {
+    const names = x.list.map((p) => p.name).slice(0, 3).join(', ');
+    return custom ? `${custom}\n\n${getLang() === 'en' ? 'Projects' : 'પ્રોજેક્ટ'}: ${names}\n${CARD_URL()}` : builderMsg(x.list[0]).replace(x.list[0].name, names);
+  } }));
+  cardQueue(t('bc_title'), rows, projects.length - rows.reduce((n, r) => n + r.sub.split(', ').length, 0), builderMsg(projects[0] || { name: '', promoter: '' }), 'b');
+}
+function adMsg(l) {
+  const en = getLang() === 'en', what = String(l.text || '').slice(0, 90);
+  return en
+    ? `Namaste, I saw your property ad${l.source ? ' in ' + l.source.split(',')[0] : ''}${l.date ? ' (' + l.date + ')' : ''}: "${what}". I am Dharmesh Mehta from Ami Realtors, Chowk Bazaar, Surat (${BRAND.phones}). We have serious buyers – can we talk? Our visiting card: ${CARD_URL()}`
+    : `નમસ્તે, ${l.source ? l.source.split(',')[0] + 'માં ' : ''}આપની મિલકતની જાહેરાત જોઈ: "${what}". હું ધર્મેશ મહેતા, અમી રિયલ્ટર્સ, ચોક બજાર, સુરત (${BRAND.phones}). અમારી પાસે ગંભીર ખરીદદારો છે – વાત કરી શકીએ? અમારું વિઝિટિંગ કાર્ડ: ${CARD_URL()}`;
+}
+function leadsQueue(leads) {
+  const seen = new Set();
+  const rows = leads.filter((l) => { const ph = tel(l.phone); if (!ph || seen.has(ph)) return false; seen.add(ph); return true; })
+    .map((l) => ({ ph: tel(l.phone), who: (l.source || '').split(',')[0] || t('leads'), sub: String(l.text).slice(0, 80), msg: (custom) => (custom ? `${custom}\n${CARD_URL()}` : adMsg(l)) }));
+  cardQueue(t('ad_send_title'), rows, leads.length - rows.length, adMsg(leads[0] || {}), 'l');
+}
+// One queue for any list of numbers: Send → WhatsApp opens with the text and card link → back → next.
+function cardQueue(title, rows, skipped, placeholder, kind) {
+  const day = 'bc.sent.' + kind + '.' + new Date().toISOString().slice(0, 10);
+  const sent = new Set(cfg.get(day, []));
+  const f = { text: '' };
+  openSheet(title, (api) => {
     const next = rows.find((x) => !sent.has(x.ph));
     return [
-      h('div', { class: 'small muted' }, `${rows.length} ${t('bc_builders')} · ${projects.length - rows.reduce((s, x) => s + x.projects.length, 0)} ${t('bc_nophone')}`),
+      h('div', { class: 'small muted' }, `${rows.length} ${t('bc_numbers')}${skipped > 0 ? ` · ${skipped} ${t('bc_nophone')}` : ''}`),
       h('div', { class: 'card inset' }, h('div', { class: 'b small' }, t('bc_card')),
         h('div', { class: 'prow' }, h('img', { src: 'img/card.jpg', alt: '', class: 'cardthumb' }), h('div', { class: 'grow stack tight' }, h('button', { class: 'btn sm', onclick: shareBizCard }, icon('share', 16), t('bc_card_share')), h('div', { class: 'xs muted' }, t('bc_card_help'))))),
-      field(t('bc_msg'), h('textarea', { class: 'input area', rows: 4, placeholder: builderMsg(projects[0] || { name: '', promoter: '' }), oninput: (e) => { f.text = e.target.value; } })),
-      h('div', { class: 'between' }, h('span', { class: 'b' }, `${sent.size}/${rows.length} ${t('bc_done')}`), sent.size ? h('button', { class: 'linkbtn', onclick: () => { sent.clear(); cfg.set('bc.sent.' + new Date().toISOString().slice(0, 10), []); api.redraw(); } }, t('bc_reset')) : null),
+      field(t('bc_msg'), h('textarea', { class: 'input area', rows: 4, placeholder, oninput: (e) => { f.text = e.target.value; } })),
+      h('div', { class: 'between' }, h('span', { class: 'b' }, `${sent.size}/${rows.length} ${t('bc_done')}`), sent.size ? h('button', { class: 'linkbtn', onclick: () => { sent.clear(); cfg.set(day, []); api.redraw(); } }, t('bc_reset')) : null),
       h('div', { class: 'progress' }, h('span', { style: `width:${rows.length ? (sent.size / rows.length) * 100 : 0}%` })),
       rows.map((x) => {
         const done = sent.has(x.ph), isNext = x === next;
         return h('div', { class: 'card inset bcrow' + (done ? ' done' : '') + (isNext ? ' next' : '') },
-          h('div', { class: 'between' }, h('div', { class: 'grow' }, h('div', { class: 'b small' }, x.builder || '—'), h('div', { class: 'xs muted' }, '+91 ' + x.ph + ' · ' + x.projects.map((p) => p.name).join(', '))),
-            h('a', { class: 'btn ' + (done ? '' : 'green') + ' sm', href: waLink(x.ph, msgFor(x)), target: '_blank', rel: 'noopener', onclick: () => { sent.add(x.ph); cfg.set('bc.sent.' + new Date().toISOString().slice(0, 10), [...sent]); setTimeout(api.redraw, 400); } }, done ? '✓ ' + t('bc_again') : icon('wa', 16), done ? '' : t('send'))));
+          h('div', { class: 'between' }, h('div', { class: 'grow' }, h('div', { class: 'b small' }, x.who), h('div', { class: 'xs muted' }, '+91 ' + x.ph + ' · ' + x.sub)),
+            h('a', { class: 'btn ' + (done ? '' : 'green') + ' sm', href: waLink(x.ph, x.msg(f.text.trim())), target: '_blank', rel: 'noopener', onclick: () => { sent.add(x.ph); cfg.set(day, [...sent]); setTimeout(api.redraw, 400); } }, done ? '✓ ' + t('bc_again') : icon('wa', 16), done ? '' : t('send'))));
       }),
     ];
   }, { full: true });
@@ -1803,7 +1880,7 @@ function viewLeadDetail(l) {
       ph && h('div', { class: 'between' }, h('span', { class: 'b' }, '📞 +91 ' + ph), copyBtn(ph)),
       h('div', { class: 'grid3' },
         ph ? h('a', { class: 'btn green', href: 'tel:+91' + ph }, t('call')) : h('span', {}),
-        ph ? h('a', { class: 'btn', href: waLink(ph, getLang() === 'en' ? `Namaste, I saw your ad (${l.source || 'newspaper'}). Is it still available? – Dharmesh Mehta, Ami Realtors (${BRAND.phones})` : `નમસ્તે, આપની જાહેરાત (${l.source || 'છાપું'}) જોઈ. મિલકત હજુ ઉપલબ્ધ છે? – ધર્મેશ મહેતા, અમી રિયલ્ટર્સ (${BRAND.phones})`), target: '_blank', rel: 'noopener' }, icon('wa', 16), 'WhatsApp') : h('span', {}),
+        ph ? h('a', { class: 'btn', href: waLink(ph, adMsg(l)), target: '_blank', rel: 'noopener' }, icon('wa', 16), t('send_card')) : h('span', {}),
         h('button', { class: 'btn', onclick: () => inquiryForm({ name: l.name, phone: ph, area_id: l.area_id, ptype, deal: 'buy', notes: `${t('lead_seller')} · ${l.source || ''}: ${l.text}` }, render) }, t('to_inquiry'))),
       a && h('button', { class: 'btn gold', onclick: () => openDetail('value', { lat: a.lat, lng: a.lng, label: areaName(a, getLang()), ptype, area: a.id, size: size || null, rent: rent && p.price ? p.price : null }) }, icon('calc', 18), t('valuation'))),
     (ask || p.price) && h('section', { class: 'card' }, h('h2', {}, t('ad_vs_market')),
@@ -1862,10 +1939,7 @@ function viewValuation(d) {
     V.loading = true;
     roadsAround(d.lat, d.lng, cfg).then((r) => {
       V.roads = r;
-      if (inp.road_m == null && r.front) inp.road_m = r.front.width;
-      if (inp.hw_km == null && r.highway) inp.hw_km = r.highway.d;
-      if (r.highway && r.highway.d <= 0.05) inp.highway_frontage = true;
-      if (inp.metro_km == null && r.metro) inp.metro_km = r.metro.d;
+      Object.assign(inp, autoInputs(d.lat, d.lng, r, V.ptype)); V.authSet = true;
       again();
     }).catch(() => { V.roads = { failed: true }; again(); });
   }
@@ -1982,6 +2056,14 @@ async function priceFromLink(text) {
     if (S.map) { S.map.setView([c.lat, c.lng], 17); showSpot(c.lat, c.lng, c.name || null, true); }
   } catch { toast(t('link_fail'), true); }
 }
+// Link button: if a map link is already copied, use it straight away (iPhone shows one "Paste" bubble).
+async function linkQuick() {
+  try {
+    const clip = navigator.clipboard && navigator.clipboard.readText ? await navigator.clipboard.readText() : '';
+    if (clip && (coordsFromText(clip) || isMapsUrl(firstUrl(clip)))) return priceFromLink(clip);
+  } catch { /* permission refused: fall back to the paste box */ }
+  linkSheet();
+}
 function linkSheet() {
   const f = { v: '' };
   const sh = openSheet(t('link_title'), () => [
@@ -2054,14 +2136,44 @@ function viewSources() {
 // ---------- lock screen ----------
 function showLock() {
   return new Promise((done) => {
-    const pin = h('input', { class: 'input pin', type: 'password', inputmode: 'numeric', maxlength: 4, 'aria-label': t('enter_pin'), autocomplete: 'off',
+    const pin = lock.hasPin && h('input', { class: 'input pin', type: 'password', inputmode: 'numeric', maxlength: 4, 'aria-label': t('enter_pin'), autocomplete: 'off',
       oninput: async (e) => { if (e.target.value.length === 4) { if (await lock.checkPin(e.target.value)) finish(); else { e.target.value = ''; toast(t('wrong_pin'), true); } } } });
     const face = async () => { if (await lock.checkFace()) finish(); };
-    const el = h('div', { class: 'lockscreen' }, h('div', { class: 'lockbox' }, h('img', { src: 'img/logo.jpg', alt: 'Ami Realtors' }), h('div', { class: 'brandline' }, BRAND.tag_gu), h('div', { class: 'goldtext small b' }, t('enter_pin')), pin,
-      lock.hasFace && h('button', { class: 'btn gold', onclick: face }, t('unlock_faceid'))));
+    const el = h('div', { class: 'lockscreen' }, h('div', { class: 'lockbox' }, h('img', { src: 'img/logo.jpg', alt: 'Ami Realtors' }), h('div', { class: 'brandline' }, BRAND.tag_gu),
+      pin && [h('div', { class: 'goldtext small b' }, t('enter_pin')), pin],
+      lock.hasFace && h('button', { class: 'btn gold big', onclick: face }, '🔒 ', t('unlock_faceid')),
+      h('button', { class: 'linkbtn', onclick: async () => { lock.clear(); await cloud.signOut(); location.reload(); } }, t('use_password'))));
     function finish() { el.remove(); done(); }
     document.body.append(el);
-    if (lock.hasFace) face(); else setTimeout(() => pin.focus(), 100);
+    if (lock.hasFace) face(); else if (pin) setTimeout(() => pin.focus(), 100);
+  });
+}
+// After the first sign-in on a phone: offer Face ID so the app opens with a glance from then on.
+function offerFaceId() {
+  if (lock.hasFace || cfg.get('faceAsked', false) || !window.PublicKeyCredential) return;
+  cfg.set('faceAsked', true);
+  const sh = openSheet(t('faceid_title'), () => [
+    h('div', { class: 'center', style: 'font-size:56px' }, '🔐'),
+    h('div', { class: 'small' }, t('faceid_help')),
+    h('button', { class: 'btn gold big', onclick: async () => { try { await lock.enableFace(); sh.userClose(); toast(t('faceid_on')); } catch (e) { toast(t('faceid_fail'), true); } } }, t('enable_faceid')),
+    h('button', { class: 'btn', onclick: () => sh.userClose() }, t('later'))]);
+}
+// Password reset link from the email: set the new password right here.
+function showNewPassword() {
+  return new Promise((done) => {
+    const f = { pw: '', pw2: '', msg: null, bad: false };
+    const el = h('div', {});
+    const draw = () => el.replaceChildren(authShell(
+      h('h1', { class: 'center' }, t('new_password')), h('div', { class: 'small muted center' }, cloud.email),
+      f.msg && h('div', { class: 'authmsg' + (f.bad ? ' bad' : '') }, f.msg),
+      field(t('new_password'), h('input', { class: 'input', type: 'password', autocomplete: 'new-password', oninput: (e) => { f.pw = e.target.value; } })),
+      field(t('new_password_again'), h('input', { class: 'input', type: 'password', autocomplete: 'new-password', oninput: (e) => { f.pw2 = e.target.value; } })),
+      h('button', { class: 'btn gold big', onclick: async () => {
+        if (f.pw.length < 6) { f.msg = t('pw_short'); f.bad = true; return draw(); }
+        if (f.pw !== f.pw2) { f.msg = t('pw_mismatch'); f.bad = true; return draw(); }
+        try { await cloud.setPassword(f.pw); history.replaceState(null, '', location.pathname); el.remove(); toast(t('pw_saved')); done(); } catch (e) { f.msg = e.message; f.bad = true; draw(); }
+      } }, t('save'))));
+    draw(); document.body.append(el);
   });
 }
 
@@ -2072,7 +2184,7 @@ function authShell(...kids) {
 }
 function showLogin() {
   return new Promise((done) => {
-    const f = { email: cfg.get('lastEmail', ''), password: '', mode: 'in', msg: null, bad: false, busy: false, unconfirmed: false };
+    const f = { email: cfg.get('lastEmail', ''), password: '', mode: 'in', msg: cloud.linkError ? `${t('link_expired')} (${cloud.linkError})` : null, bad: !!cloud.linkError, busy: false, unconfirmed: false };
     const el = h('div', {});
     const say = (msg, bad) => { f.msg = msg; f.bad = !!bad; draw(); };
     const draw = () => el.replaceChildren(authShell(
@@ -2200,14 +2312,17 @@ function viewTeam() {
 let hiddenAt = 0, locked = false;
 document.addEventListener('visibilitychange', async () => {
   if (document.hidden) hiddenAt = Date.now();
-  else if (lock.hasPin && !locked && Date.now() - hiddenAt > 120000) { locked = true; await showLock(); locked = false; }
+  else if ((lock.hasPin || lock.hasFace) && !locked && Date.now() - hiddenAt > 120000) { locked = true; await showLock(); locked = false; }
 });
 (async function start() {
   setLang(getLang());
   await cloud.init();
-  if (!cloud.ready) await showLogin();
+  if (cloud.recovery && cloud.ready) await showNewPassword();
+  let fresh = false;
+  if (!cloud.ready) { await showLogin(); fresh = true; }
+  else if (lock.hasPin || lock.hasFace) { locked = true; await showLock(); locked = false; }
+  if (location.hash && /access_token|error/.test(location.hash)) history.replaceState(null, '', location.pathname);
   if (cloud.team === null && cloud.ready) await showTeamSetup();
-  if (lock.hasPin) { locked = true; await showLock(); locked = false; }
   // Anything saved on this phone before signing in moves to the cloud automatically (nothing is lost).
   if (cloud.ready) { try { if (await store.hasLocal()) { const n = await store.uploadLocal(); if (n) toast(`${t('upload_local')} ✓ (${n})`); } } catch (e) { console.warn('upload', e); } }
   await load();
@@ -2216,6 +2331,8 @@ document.addEventListener('visibilitychange', async () => {
   startLive();
   if (cloud.ready && cloud.isOwner && cloud.team && cloud.team.team_id) cloud.members().then((m) => { S.members = m; }).catch(() => {});
   loadPlaces();
+  setTimeout(() => loadHighways(cfg).catch(() => {}), 4000);
   handleShared();
+  if (fresh || !cfg.get('faceAsked', false)) setTimeout(offerFaceId, 900);
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

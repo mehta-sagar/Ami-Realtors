@@ -48,9 +48,13 @@ export const cloud = {
     sb = null; session = null; team = null;
     if (!window.supabase) return false;
     try {
-      sb = window.supabase.createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true } });
+      const hash = location.hash || '';
+      this.recovery = /type=recovery/.test(hash);
+      this.linkError = (hash.match(/error_description=([^&]+)/) || [])[1] ? decodeURIComponent(hash.match(/error_description=([^&]+)/)[1].replace(/\+/g, ' ')) : null;
+      sb = window.supabase.createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
       session = (await sb.auth.getSession()).data.session;
-      sb.auth.onAuthStateChange((_e, s) => { session = s; });
+      sb.auth.onAuthStateChange((ev, s) => { session = s; if (ev === 'PASSWORD_RECOVERY') this.recovery = true; });
+      if (/access_token|error_description|type=/.test(hash)) await new Promise((r) => setTimeout(r, 300));
       if (session) await this.loadTeam();
     } catch (e) { console.warn(e); }
     return this.ready;
@@ -74,6 +78,7 @@ export const cloud = {
     if (!session) throw new Error('CONFIRM_EMAIL');
     await this.loadTeam();
   },
+  async setPassword(password) { const { error } = await sb.auth.updateUser({ password }); if (error) throw error; this.recovery = false; },
   async resendConfirm(email) { const { error } = await sb.auth.resend({ type: 'signup', email, options: { emailRedirectTo: location.origin + '/' } }); if (error) throw error; },
   async resetPassword(email) { const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin }); if (error) throw error; },
   async createTeam(name, person) { const { data, error } = await sb.rpc('create_team', { p_name: name, p_person: person }); if (error) throw error; team = data; cfg.set('team', team); return team; },

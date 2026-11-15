@@ -222,3 +222,8 @@ h1.sm { font-size: 20px; line-height: 1.2; overflow: hidden; text-overflow: elli
 .tprow { min-height: 52px; } .chip.sm { min-height: 32px; padding: 0 10px; font-size: 12px; display: inline-flex; align-items: center; text-decoration: none; color: var(--green); font-weight: 600; }
 .authmsg { border-radius: 14px; padding: 12px 14px; font-size: 15px; line-height: 1.45; background: #EEF5EC; color: #1F4D2B; } .authmsg.bad { background: #FBEDE7; color: #8A2A17; }
 .btn[disabled] { opacity: .6; pointer-events: none; }
+.factchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.fchip { font-size: 12px; font-weight: 600; padding: 4px 9px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); white-space: nowrap; }
+.fchip.good { background: #EEF5EC; border-color: #CFE3CB; color: #1F4D2B; } .fchip.warn { background: #FBEDE7; border-color: #F0D2C6; color: #8A2A17; }
+.cardhd { border: 0; background: transparent; text-align: left; padding: 0; min-width: 0; }
+.spotcard .linkbtn.center { align-self: center; min-height: 24px; padding: 0; }
