@@ -2100,24 +2100,84 @@ function linkSheet(prefill, note) {
 // The question is written for you with every fact the app knows, copied, and the AI app opens: just paste and send.
 function askAI(title, facts, ask) {
   const en = getLang() === 'en';
-  const prompt = (en
-    ? `I am a real-estate broker in Surat, Gujarat (Ami Realtors). Help me with this ${title}.\n\nFacts from my app:\n${facts.filter(Boolean).map((x) => '- ' + x).join('\n')}\n\n${ask || 'Give me: 1) is the price fair vs the Surat market and why, 2) pros and cons of the location, 3) risks and legal/document checks (7/12, title, NA, RERA, TP/FP), 4) who would buy or rent it and a negotiation tip. Use recent Surat data from the web and cite sources.'}`
-    : `હું સુરત, ગુજરાતમાં પ્રોપર્ટી બ્રોકર છું (અમી રિયલ્ટર્સ). આ ${title} વિશે મદદ કરો.\n\nમારી એપની માહિતી:\n${facts.filter(Boolean).map((x) => '- ' + x).join('\n')}\n\n${ask || 'મને ગુજરાતીમાં કહો: 1) સુરતના બજાર પ્રમાણે ભાવ યોગ્ય છે કે નહીં અને કેમ, 2) લોકેશનના ફાયદા-ગેરફાયદા, 3) જોખમ અને કાગળની તપાસ (7/12, ટાઇટલ, NA, RERA, TP/FP), 4) કોણ ખરીદશે/ભાડે લેશે અને ભાવતાલની ટીપ. વેબ પરથી તાજી સુરતની માહિતી વાપરો અને સ્ત્રોત આપો.'}`);
-  const go = async (url, useQ) => {
-    try { await navigator.clipboard.writeText(prompt); } catch { /* old phone */ }
-    window.open(useQ ? url + encodeURIComponent(prompt) : url, '_blank', 'noopener');
-    if (!useQ) toast(t('ai_pasted'));
-  };
-  openSheet(t('ask_ai'), () => [
-    h('div', { class: 'small muted' }, t('ai_help')),
-    h('textarea', { class: 'input area', rows: 7, value: prompt, readonly: true }),
-    h('button', { class: 'btn gold big', onclick: () => go('https://gemini.google.com/app', false) }, '✨ ', t('ask_gemini')),
-    h('div', { class: 'grid2' },
-      h('button', { class: 'btn', onclick: () => go('https://chatgpt.com/?q=', true) }, 'ChatGPT'),
-      h('button', { class: 'btn', onclick: () => go('https://claude.ai/new?q=', true) }, 'Claude')),
-    h('button', { class: 'linkbtn center', onclick: async () => { try { await navigator.clipboard.writeText(prompt); toast(t('copied')); } catch { /* */ } } }, t('copy'))]);
+  const context = `About: ${title}\n` + facts.filter(Boolean).map((x) => '- ' + x).join('\n');
+  const first = ask || (en ? 'Is the price fair for Surat today? Give location pros and cons, risks and document checks, and a negotiation tip.' : 'સુરતના આજના બજાર પ્રમાણે ભાવ યોગ્ય છે? લોકેશનના ફાયદા-ગેરફાયદા, જોખમ, કાગળની તપાસ અને ભાવતાલની ટીપ આપો.');
+  aiChat(title, context, first);
 }
-const aiBtn = (fn, cls = 'btn ai') => h('button', { class: cls, onclick: (e) => { e.stopPropagation(); fn(); } }, '✨ ', t('ask_gemini'));
+// Old way (copy + open the Gemini app), kept as a fallback when the in-app assistant is not set up.
+function openExternalAI(prompt) {
+  return [
+    h('button', { class: 'btn', onclick: async () => { try { await navigator.clipboard.writeText(prompt); } catch { /* */ } window.open('https://gemini.google.com/app', '_blank', 'noopener'); toast(t('ai_pasted')); } }, '✨ ', t('open_gemini_app')),
+    h('div', { class: 'grid2' }, h('button', { class: 'btn', onclick: () => window.open('https://chatgpt.com/?q=' + encodeURIComponent(prompt), '_blank', 'noopener') }, 'ChatGPT'), h('button', { class: 'btn', onclick: () => window.open('https://claude.ai/new?q=' + encodeURIComponent(prompt), '_blank', 'noopener') }, 'Claude'))];
+}
+const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function mdLite(text) {
+  return esc(text).split(/\n/).map((ln) => {
+    let l = ln.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(https?:\/\/[^\s)]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+    if (/^\s*#{1,4}\s/.test(l)) return `<div class="b">${l.replace(/^\s*#+\s/, '')}</div>`;
+    if (/^\s*[*-]\s+/.test(l)) return `<div class="li">• ${l.replace(/^\s*[*-]\s+/, '')}</div>`;
+    return l ? `<div>${l}</div>` : '<div class="gap"></div>';
+  }).join('');
+}
+// In-app assistant: Gemini answers right here, with Google Search, knowing what is on screen.
+function aiChat(title, context, firstQ) {
+  const en = getLang() === 'en';
+  const C = { msgs: [], busy: false, sources: [], err: null };
+  const SUG = en ? ['Is this price fair?', 'Pros and cons', 'Documents to check', 'Negotiation tip', 'Who will buy / rent?', 'WhatsApp message for client']
+    : ['ભાવ યોગ્ય છે?', 'ફાયદા-ગેરફાયદા', 'કયા કાગળ તપાસવા?', 'ભાવતાલની ટીપ', 'કોણ ખરીદશે/ભાડે લેશે?', 'ગ્રાહક માટે WhatsApp મેસેજ'];
+  let sh, list, input;
+  const scroll = () => setTimeout(() => { sh.body.scrollTop = sh.body.scrollHeight; }, 30);
+  const bubble = (m) => h('div', { class: 'msg ' + m.role }, m.role === 'assistant' ? h('div', { html: mdLite(m.text || '…') }) : m.text,
+    m.role === 'assistant' && m.done && m.text ? h('div', { class: 'msgbar' },
+      h('a', { class: 'linkbtn xs', href: 'https://wa.me/?text=' + encodeURIComponent(m.text + `\n— ${BRAND.name}, ${BRAND.person} (${BRAND.phones})`), target: '_blank', rel: 'noopener' }, 'WhatsApp'),
+      h('button', { class: 'linkbtn xs', onclick: async () => { try { await navigator.clipboard.writeText(m.text); toast(t('copied')); } catch { /* */ } } }, t('copy'))) : null,
+    m.sources && m.sources.length ? h('div', { class: 'srcs' }, m.sources.slice(0, 5).map((s0, i) => h('a', { href: s0.uri, target: '_blank', rel: 'noopener', class: 'chip sm' }, `${i + 1}. ${(s0.title || '').slice(0, 28)}`))) : null);
+  const draw = () => {
+    list.replaceChildren(...C.msgs.map(bubble),
+      C.err === 'no_key' ? h('div', { class: 'card inset' }, h('div', { class: 'small b' }, t('ai_setup')), h('div', { class: 'xs muted' }, t('ai_setup_help')), ...openExternalAI(`${context}\n\n${firstQ}`))
+        : C.err ? h('div', { class: 'authmsg bad' }, C.err) : '');
+    scroll();
+  };
+  async function send(q) {
+    q = String(q || '').trim(); if (!q || C.busy) return;
+    C.msgs.push({ role: 'user', text: q }); const ans = { role: 'assistant', text: '', sources: [] }; C.msgs.push(ans); C.busy = true; C.err = null; draw();
+    try {
+      const token = await cloud.token();
+      const r = await fetch('/ai', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + (token || '') }, body: JSON.stringify({ lang: getLang(), context, messages: C.msgs.filter((m) => m !== ans).map((m) => ({ role: m.role, text: m.text })) }) });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); C.msgs.pop(); C.err = j.error === 'no_key' ? 'no_key' : j.error === 'sign_in' ? t('ai_signin') : `${t('ai_fail')} (${j.status || r.status})`; C.busy = false; return draw(); }
+      const rd = r.body.getReader(), dec = new TextDecoder(); let buf = '';
+      for (;;) {
+        const { value, done } = await rd.read(); if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let i; while ((i = buf.indexOf('\n')) >= 0) {
+          const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+          if (!line.startsWith('data:')) continue;
+          try {
+            const j = JSON.parse(line.slice(5)); const cand = (j.candidates || [])[0] || {};
+            for (const part of (cand.content && cand.content.parts) || []) if (part.text) ans.text += part.text;
+            for (const ch of (cand.groundingMetadata && cand.groundingMetadata.groundingChunks) || []) if (ch.web && !ans.sources.some((x) => x.uri === ch.web.uri)) ans.sources.push(ch.web);
+          } catch { /* partial line */ }
+        }
+        const el = list.lastChild; if (el) el.replaceWith(bubble(ans)); scroll();
+      }
+      ans.done = true;
+    } catch (e) { if (!ans.text) { C.msgs.pop(); C.err = t('ai_fail'); } else ans.done = true; }
+    C.busy = false; draw();
+  }
+  sh = openSheet('✨ ' + t('ai_title'), () => {
+    list = h('div', { class: 'chat' });
+    input = h('textarea', { class: 'input area', rows: 1, placeholder: t('ai_ask_more'), onkeydown: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); const v = input.value; input.value = ''; send(v); } } });
+    return [
+      h('div', { class: 'xs muted' }, `${title} · ${t('ai_knows')}`),
+      list,
+      h('div', { class: 'chips scroll' }, SUG.map((x) => h('button', { class: 'chip', onclick: () => send(x) }, x))),
+      h('div', { class: 'chatbar' }, input, h('button', { class: 'btn gold', 'aria-label': t('send'), onclick: () => { const v = input.value; input.value = ''; send(v); } }, '➤')),
+    ];
+  }, { full: true });
+  draw();
+  send(firstQ);
+}
+const aiBtn = (fn, cls = 'btn ai') => h('button', { class: cls, onclick: (e) => { e.stopPropagation(); fn(); } }, '✨ ', t('ask_ai_short'));
 const rateTxt = (v, pt) => (v ? `${rate(v, defaultUnit(pt))} per ${EN['u_' + defaultUnit(pt)] || defaultUnit(pt)}` : '');
 function areaFacts(a, pt) {
   if (!a) return [];

@@ -63,6 +63,30 @@ async function resolveLink(raw) {
   const name = om[1] || om[2] || null;
   return json({ url, body: hint ? 'q=' + hint : '', name });
 }
+
+// ---------- In-app AI assistant (Gemini) ----------
+// The phone sends the conversation + the facts on screen; the Worker checks the person is signed in to the app,
+// then asks Gemini (with Google Search grounding) and streams the answer back. The API key never reaches the phone.
+// Secret: GEMINI_API_KEY (free key from aistudio.google.com). Optional variable: GEMINI_MODEL.
+async function ai(req, env) {
+  const cors = { 'access-control-allow-origin': '*' };
+  if (!env.GEMINI_API_KEY) return new Response(JSON.stringify({ error: 'no_key' }), { status: 501, headers: { 'content-type': 'application/json', ...cors } });
+  const auth = req.headers.get('authorization') || '';
+  const who = await fetch(`${SB_URL}/auth/v1/user`, { headers: { apikey: SB_KEY, Authorization: auth } });
+  if (!who.ok) return new Response(JSON.stringify({ error: 'sign_in' }), { status: 401, headers: { 'content-type': 'application/json', ...cors } });
+  const body = await req.json().catch(() => ({}));
+  const msgs = (body.messages || []).slice(-16).map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: String(m.text || '').slice(0, 12000) }] }));
+  if (!msgs.length) return new Response('{}', { status: 400, headers: cors });
+  const lang = body.lang === 'en' ? 'English' : 'Gujarati (ગુજરાતી), simple words a Surat broker uses';
+  const system = `You are the assistant inside the Ami Realtors app, used by Dharmesh Mehta (a real-estate broker in Chowk Bazaar, Surat, Gujarat), his son Sagar and their staff. Answer in ${lang}. Be practical and specific to Surat and South Gujarat real estate: prices per sq ft / var / vigha, jantri, stamp duty 4.9% + 1% registration, SMC/SUDA, TP/FP, 7/12, NA, GujRERA, GIDC. Use Google Search for anything current and say where numbers come from. Never invent phone numbers, prices or rules; say when you are not sure. Keep answers short with bullet points, then offer one useful next step.\n\nFacts from the app about what is on screen:\n${String(body.context || '').slice(0, 8000)}`;
+  const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const g = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${env.GEMINI_API_KEY}`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: msgs, tools: [{ google_search: {} }], generationConfig: { temperature: 0.4, maxOutputTokens: 2048 } }),
+  });
+  if (!g.ok || !g.body) return new Response(JSON.stringify({ error: 'gemini', status: g.status, detail: (await g.text()).slice(0, 500) }), { status: 502, headers: { 'content-type': 'application/json', ...cors } });
+  return new Response(g.body, { headers: { 'content-type': 'text/event-stream', 'cache-control': 'no-store', ...cors } });
+}
 export default {
   async fetch(req, env) {
     const u = new URL(req.url);
@@ -71,6 +95,7 @@ export default {
       if (!env.PUSH_KEY || u.searchParams.get('key') !== env.PUSH_KEY) return new Response('no', { status: 403 });
       return Response.json(await sendAll(env));
     }
+    if (u.pathname === '/ai' && req.method === 'POST') return ai(req, env);
     if (u.pathname === '/resolve') return resolveLink(u.searchParams.get('u') || '');
     // WhatsApp needs an absolute image address to show the visiting card as the link preview
     if (u.pathname === '/card.html' || u.pathname === '/card') {

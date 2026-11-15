@@ -78,6 +78,7 @@ export const cloud = {
     if (!session) throw new Error('CONFIRM_EMAIL');
     await this.loadTeam();
   },
+  async token() { if (!sb) return null; const { data } = await sb.auth.getSession(); return data.session ? data.session.access_token : null; },
   async setPassword(password) { const { error } = await sb.auth.updateUser({ password }); if (error) throw error; this.recovery = false; },
   async resendConfirm(email) { const { error } = await sb.auth.resend({ type: 'signup', email, options: { emailRedirectTo: location.origin + '/' } }); if (error) throw error; },
   async resetPassword(email) { const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin }); if (error) throw error; },
