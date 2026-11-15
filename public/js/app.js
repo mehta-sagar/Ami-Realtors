@@ -2058,22 +2058,21 @@ async function priceFromLink(text) {
 }
 // Link button: if a map link is already copied, use it straight away (iPhone shows one "Paste" bubble).
 async function linkQuick() {
-  try {
-    const clip = navigator.clipboard && navigator.clipboard.readText ? await navigator.clipboard.readText() : '';
-    if (clip && (coordsFromText(clip) || isMapsUrl(firstUrl(clip)))) return priceFromLink(clip);
-  } catch { /* permission refused: fall back to the paste box */ }
-  linkSheet();
+  let clip = null;
+  try { clip = navigator.clipboard && navigator.clipboard.readText ? await navigator.clipboard.readText() : null; } catch { clip = null; }
+  if (clip && (coordsFromText(clip) || isMapsUrl(firstUrl(clip)))) return priceFromLink(clip);
+  // Nothing usable was copied (or the phone said no): open the box with whatever was copied, so nothing is asked twice.
+  linkSheet(clip, clip ? t('link_not_map') : null);
 }
-function linkSheet() {
-  const f = { v: '' };
+function linkSheet(prefill, note) {
+  const f = { v: prefill || '' };
   const sh = openSheet(t('link_title'), () => [
-    h('div', { class: 'small muted' }, t('link_help')),
-    h('textarea', { class: 'input area', rows: 3, placeholder: 'https://maps.app.goo.gl/…', oninput: (e) => { f.v = e.target.value; } }),
-    h('div', { class: 'grid2' },
-      h('button', { class: 'btn', onclick: async () => { try { f.v = await navigator.clipboard.readText(); sh.body.querySelector('textarea').value = f.v; } catch { toast(t('link_paste'), true); } } }, '📋 ', t('paste')),
-      h('button', { class: 'btn gold', onclick: () => priceFromLink(f.v) }, t('get_price')))]);
+    note ? h('div', { class: 'authmsg bad' }, note) : h('div', { class: 'small muted' }, t('link_help')),
+    h('textarea', { class: 'input area', rows: 3, placeholder: 'https://maps.app.goo.gl/…', value: f.v, oninput: (e) => { f.v = e.target.value; if (coordsFromText(f.v) || isMapsUrl(firstUrl(f.v))) priceFromLink(f.v); } }),
+    h('button', { class: 'btn gold', onclick: () => priceFromLink(f.v) }, t('get_price'))]);
+  // focus the box: iPhone then shows its own "Paste" right on the keyboard, and the price opens as soon as a link lands
+  setTimeout(() => { const ta = sh.body.querySelector('textarea'); if (ta && !f.v) ta.focus(); }, 120);
 }
-
 // ---------- trash (deleted customers stay 30 days) ----------
 const TRASH_DAYS = 30;
 const isGone = (r) => !!r.deleted_at;
