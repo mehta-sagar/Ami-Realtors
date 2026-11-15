@@ -84,6 +84,8 @@ export const cloud = {
   async resetPassword(email) { const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin }); if (error) throw error; },
   async createTeam(name, person) { const { data, error } = await sb.rpc('create_team', { p_name: name, p_person: person }); if (error) throw error; team = data; cfg.set('team', team); return team; },
   async joinTeam(code, person) { const { data, error } = await sb.rpc('join_team', { p_code: code, p_person: person }); if (error) throw error; team = data; cfg.set('team', team); return team; },
+  async backupStatus() { const { data, error } = await sb.rpc('backup_status'); if (error) throw error; return data; },
+  async backupNow() { const { data, error } = await sb.rpc('backup_now'); if (error) throw error; return data; },
   async invite(role) { const { data, error } = await sb.rpc('make_invite', { p_role: role }); if (error) throw error; return data; },
   async members() { const { data, error } = await sb.from('team_members').select('*').order('created_at'); if (error) throw error; return data; },
   async setRole(userId, role) { const { error } = await sb.from('team_members').update({ role }).eq('user_id', userId).eq('team_id', team.team_id); if (error) throw error; },
@@ -245,4 +247,21 @@ export const lock = {
       return !!r;
     } catch { return false; }
   },
+};
+
+// ---------- Backups kept on this phone (a second copy, outside the cloud) ----------
+// One full copy a day, the last 14 days. Survives even if the cloud account is lost.
+export const localBackup = {
+  async list() { return ((await kvGet('backups').catch(() => null)) || []).sort((a, b) => String(b.at).localeCompare(String(a.at))); },
+  async take(data, force) {
+    const all = await this.list(), day = new Date().toISOString().slice(0, 10);
+    if (!force && all.some((b) => String(b.at).slice(0, 10) === day)) return null;
+    const snap = { at: new Date().toISOString(), counts: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, v.length])) };
+    await kvSet('backup:' + snap.at, data);
+    const keep = [snap, ...all].slice(0, 14);
+    for (const old of all.slice(13)) await kvDel('backup:' + old.at).catch(() => {});
+    await kvSet('backups', keep);
+    return snap;
+  },
+  async get(at) { return kvGet('backup:' + at); },
 };
