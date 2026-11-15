@@ -2335,6 +2335,7 @@ function showLogin() {
         if (/not confirmed/i.test(m)) { f.unconfirmed = true; return say(t('not_confirmed'), true); }
         if (/already registered|already exists/i.test(m)) { f.mode = 'in'; return say(t('already_reg'), true); }
         if (/invalid login/i.test(m)) return say(t('wrong_login'), true);
+        if (/email rate limit|over_email_send/i.test(m)) return say(t('email_limit'), true);
         if (/rate limit|too many/i.test(m)) return say(t('rate_limit'), true);
         if (/fetch|network|load failed/i.test(m)) return say(t('no_net'), true);
         say(m, true);

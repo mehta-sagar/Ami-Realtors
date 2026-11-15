@@ -175,6 +175,7 @@ Object.assign(T, {
   ai_ask_more: ['બીજું કંઈ પૂછો…', 'Ask something else…'], ai_fail: ['AI નો જવાબ ન આવ્યો. ફરી પ્રયત્ન કરો', 'No answer from the AI. Try again'], ai_signin: ['ફરી સાઇન ઇન કરો', 'Please sign in again'],
   ai_setup: ['એપની અંદરનું AI હજુ ચાલુ નથી', 'The in-app AI is not switched on yet'], ai_setup_help: ['Cloudflare માં GEMINI_API_KEY ઉમેર્યા પછી જવાબ અહીં જ આવશે. ત્યાં સુધી નીચેથી Gemini એપ ખોલો.', 'Once GEMINI_API_KEY is added in Cloudflare, answers appear right here. Until then, open the Gemini app below.'],
   open_gemini_app: ['Gemini એપમાં ખોલો', 'Open in the Gemini app'],
+  email_limit: ['હમણાં ઈમેલ મોકલી શકાતો નથી (Supabase કલાકમાં ફક્ત 2 ઈમેલ મોકલે છે). વારંવાર દબાવશો નહીં – સાગરને કહો, તે સેટિંગ બદલીને તરત ચાલુ કરી દેશે.', 'Email cannot be sent right now (Supabase sends only 2 emails an hour). Don\'t keep tapping – ask Sagar, he can change a setting so it works at once.'],
   tp_map: ['નકશો PDF', 'Map PDF'], tp_form: ['F-ફોર્મ (FP યાદી)', 'F-form (FP list)'], tp_help: ['નકશામાં રસ્તાની પહોળાઈ અને FP; F-ફોર્મમાં દરેક FP નું મૂળ/અંતિમ ક્ષેત્રફળ અને માલિક.', 'The map shows road widths and FPs; the F-form lists every FP with original/final area and owner.'],
   save_short: ['સાચવો', 'Save'], please_confirm: ['ખાતરી કરો', 'Please confirm'], cancel: ['રદ કરો', 'Cancel'],
   select_first: ['પહેલાં પ્રોજેક્ટ પસંદ કરો', 'Select projects first'], select: ['પસંદ કરો', 'Select'], select_all: ['બધા', 'All'], select_none: ['કોઈ નહીં', 'None'], selected: ['પસંદ', 'selected'],
