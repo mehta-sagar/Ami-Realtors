@@ -1096,6 +1096,7 @@ function settings() {
 function render() {
   if (S.map && (S.tab !== 'map' || S.detail)) { S.map.remove(); S.map = null; }
   if (S.mmap) { S.mmap.remove(); S.mmap = null; }
+  if (S.lmapObj) { S.lmapObj.remove(); S.lmapObj = null; }
   if (S.dmap) { S.dmap.remove(); S.dmap = null; }
   if (S.pmap) { S.pmap.remove(); S.pmap = null; }
   // Same screen redrawn (a tick, a filter, a live update)? Keep the scroll where it was instead of jumping to the top.
@@ -2150,6 +2151,28 @@ function projectsHere(a) {
 
 // ---------- newspaper "for sale" ads (leads) ----------
 const LEADS_KEY = 'leads.own';
+// Paper ads on the map: exact building / near a landmark from the ad's address; ads naming only an area sit
+// at the area centre with a dashed "≈" pin.
+function drawLeadMap(list) {
+  const L = window.L, el = document.getElementById('lmap'); if (!L || !el) return;
+  if (S.lmapObj) { S.lmapObj.remove(); S.lmapObj = null; }
+  const m = (S.lmapObj = L.map(el, { zoomControl: false }).setView([SURAT.lat, SURAT.lng], 11));
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(m);
+  const esc = (x) => String(x || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const pts = [];
+  list.forEach((l, i) => {
+    const a = areaById(l.area_id); let pos = l.lat != null ? { lat: +l.lat, lng: +l.lng } : a ? { lat: a.lat + ((i % 5) - 2) * 0.0005, lng: a.lng + ((i % 3) - 1) * 0.0005 } : null;
+    if (!pos || /જોઈએ|wanted|required/i.test(l.text || '')) return;
+    pts.push([pos.lat, pos.lng]);
+    const kind = l.lat != null ? (l.loc || 'exact') : 'area', pr = parseEntry(l.text || '').price;
+    const html = `<div class="pin small ${kind === 'area' ? 'approx' : kind === 'near' ? 'est' : 'sel'}"><span>${esc(t(l.ptype || 'flat'))}</span><b>${pr ? esc(moneyShort(pr)) : '📰'}</b></div>`;
+    const pop = h('div', { class: 'stack tight' }, h('b', { class: 'small' }, l.place || areaName(a, getLang())), h('div', { class: 'xs muted' }, t('loc_' + kind)), h('div', { class: 'xs clamp3' }, l.text),
+      h('button', { class: 'btn sm', onclick: () => openDetail('lead', l) }, t('details')));
+    L.marker([pos.lat, pos.lng], { icon: L.divIcon({ className: 'pinwrap', html, iconSize: null }) }).bindPopup(pop).addTo(m);
+  });
+  if (pts.length) m.fitBounds(pts, { padding: [30, 30], maxZoom: 15 });
+  setTimeout(() => m.invalidateSize(), 60);
+}
 function viewLeads() {
   const all = [...cfg.get(LEADS_KEY, []), ...(S.leads || [])].sort((x, y) => String(y.date).localeCompare(String(x.date)));
   return [
@@ -2157,7 +2180,12 @@ function viewLeads() {
     h('button', { class: 'btn', onclick: bulkPaste }, '📋 ', t('bulk_paste')),
     h('button', { class: 'btn gold', onclick: () => voiceBox(t('add_lead'), (text) => { const p = parseEntry(text); const l = { id: 'l' + Date.now(), date: new Date().toISOString().slice(0, 10), text, phone: p.phone, area_id: p.area_id, ptype: p.ptype, name: p.name, source: t('src_own') }; cfg.set(LEADS_KEY, [l, ...cfg.get(LEADS_KEY, [])]); render(); }) }, icon('plus', 18), t('add_lead')),
     h('div', { class: 'between' }, h('span', { class: 'xs muted' }, `${all.length} ${t('leads')}`),
-      h('button', { class: 'chip' + (S.lsel ? ' on' : ''), onclick: () => { S.lsel = S.lsel ? null : new Set(); render(); } }, '✓ ', t('select'))),
+      h('div', { class: 'chips' },
+        h('button', { class: 'chip' + (S.lmap ? ' on' : ''), onclick: () => { S.lmap = !S.lmap; render(); } }, '🗺 ', t('map')),
+        h('button', { class: 'chip' + (S.lsel ? ' on' : ''), onclick: () => { S.lsel = S.lsel ? null : new Set(); render(); } }, '✓ ', t('select')))),
+    S.lmap ? h('div', { id: 'lmap', style: 'height:380px;flex:none;border-radius:18px;overflow:hidden' }) : null,
+    S.lmap ? h('div', { class: 'xs muted' }, t('lmap_help')) : null,
+    S.lmap ? (setTimeout(() => drawLeadMap(all), 0), null) : null,
     S.lsel && h('div', { class: 'card inset selbar' },
       h('div', { class: 'between' }, h('span', { class: 'b' }, `${S.lsel.size} ${t('selected')}`),
         h('div', { class: 'chips' }, h('button', { class: 'chip', onclick: () => { for (const l of all) if (tel(l.phone)) S.lsel.add(l.id); render(); } }, t('select_all')), h('button', { class: 'chip', onclick: () => { S.lsel.clear(); render(); } }, t('select_none')))),
@@ -2396,7 +2424,8 @@ function viewLeadDetail(l) {
   const ptype = l.ptype || p.ptype || 'flat', unit = defaultUnit(ptype);
   const size = p.size ? toSqft(p.size, p.size_unit || defaultUnit(ptype), vigha()) : null;
   const ask = p.price && size ? p.price / size : p.rate ? rateToSqft(p.rate, p.rate_unit || unit, vigha()) : null;
-  const mkt = a ? priceAt(a.lat, a.lng, ptype, a) : null;
+  const at = l.lat != null ? { lat: +l.lat, lng: +l.lng } : a ? { lat: a.lat, lng: a.lng } : null;
+  const mkt = at ? priceAt(at.lat, at.lng, ptype, a) : null;
   const rent = /ભાડે|rent/i.test(l.text || '') && !/જોઈએ/.test(l.text || '');
   return [
     backHdr(l.source ? l.source.split(',')[0] : t('leads'), [l.date && fmtDate(l.date, { day: 'numeric', month: 'short', year: 'numeric' }), a && areaName(a, getLang())].filter(Boolean).join(' · ')),
@@ -2404,12 +2433,13 @@ function viewLeadDetail(l) {
       h('div', { class: 'tag' }, [t(ptype), rent ? t('rent') : t('sale')].join(' · ')),
       h('div', { class: 'title' }, l.text),
       h('div', { class: 'xs muted' }, l.source || ''),
+      l.place || at ? h('div', { class: 'between' }, h('span', { class: 'small' }, '📍 ', l.place || areaName(a, getLang()), ' ', h('span', { class: 'xs muted' }, t(l.lat != null ? 'loc_' + (l.loc || 'exact') : 'loc_area'))), at ? gmapsBtn(at.lat, at.lng, null, 'linkbtn') : null) : null,
       ph && h('div', { class: 'between' }, h('span', { class: 'b' }, '📞 +91 ' + ph), copyBtn(ph)),
       h('div', { class: 'grid3' },
         ph ? h('a', { class: 'btn green', href: 'tel:+91' + ph }, t('call')) : h('span', {}),
         ph ? h('a', { class: 'btn', href: waLink(ph, adMsg(l)), target: '_blank', rel: 'noopener' }, icon('wa', 16), t('send_card')) : h('span', {}),
         h('button', { class: 'btn', onclick: () => inquiryForm({ name: l.name, phone: ph, area_id: l.area_id, ptype, deal: 'buy', notes: `${t('lead_seller')} · ${l.source || ''}: ${l.text}` }, render) }, t('to_inquiry'))),
-      a && h('button', { class: 'btn gold', onclick: () => openDetail('value', { lat: a.lat, lng: a.lng, label: areaName(a, getLang()), ptype, area: a.id, size: size || null, rent: rent && p.price ? p.price : null }) }, icon('calc', 18), t('valuation')),
+      at && h('button', { class: 'btn gold', onclick: () => openDetail('value', { lat: at.lat, lng: at.lng, label: l.place || areaName(a, getLang()), ptype, area: a ? a.id : null, size: size || null, rent: rent && p.price ? p.price : null }) }, icon('calc', 18), t('valuation')),
       aiBtn(() => askAI(getLang() === 'en' ? 'newspaper property ad' : 'છાપાની મિલકત જાહેરાત', [`Ad text: ${l.text}`, `Source: ${l.source || ''} (${l.date || ''})`, `Type: ${EN[ptype]}, ${rent ? 'for rent' : 'for sale'}`, ask && `Asking rate: ${rateTxt(ask, ptype)}`, mkt && `Market/model rate here: ${rateTxt(mkt.value, ptype)}`, ...areaFacts(a, ptype)]))),
     (ask || p.price) && h('section', { class: 'card' }, h('h2', {}, t('ad_vs_market')),
       p.price && h('div', { class: 'between small' }, h('span', {}, t('asking')), h('span', { class: 'b' }, moneyShort(p.price))),
@@ -2418,7 +2448,7 @@ function viewLeadDetail(l) {
       ask && mkt && h('div', { class: 'pc ' + (ask <= mkt.value * 1.05 ? 'pro' : 'con') }, h('div', { class: 'small b' }, `${pct(ask, mkt.value)} ${t('vs_market')}`))),
     a && h('section', { class: 'card' }, h('div', { class: 'between' }, h('h2', {}, t('locality'), ': ', areaName(a, getLang())), h('button', { class: 'linkbtn', onclick: () => openPrices(a.id, ptype) }, t('full_detail'))), areaPriceBlock(a, ptype)),
     a && h('section', { class: 'card' }, h('h2', {}, t('pros_cons')), prosConsBlock(a)),
-    a && h('section', { class: 'card' }, h('h2', {}, t('nearby')), h('div', { class: 'xs muted' }, t('near_area_centre')), nearbyBlock(a.lat, a.lng)),
+    at && h('section', { class: 'card' }, h('h2', {}, t('nearby')), l.lat == null ? h('div', { class: 'xs muted' }, t('near_area_centre')) : null, nearbyBlock(at.lat, at.lng)),
     a && h('section', { class: 'card' }, h('h2', {}, t('sources')), areaLinks(a)),
     h('div', { class: 'center' }, reportBtn('lead', `${l.source || ''} ${l.date || ''}: ${String(l.text).slice(0, 80)}`)),
   ];
