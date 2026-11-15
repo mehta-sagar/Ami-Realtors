@@ -57,6 +57,8 @@ declare tid uuid;
 begin
   if auth.uid() is null then raise exception 'not signed in'; end if;
   if my_team() is not null then return team_me(); end if;
+  -- Only one team (Ami Realtors). Once it exists, everyone else needs an invite code from an owner.
+  if exists (select 1 from teams) then raise exception 'The Ami Realtors team already exists. Ask an owner for an invite code.'; end if;
   insert into teams(name, created_by) values (coalesce(nullif(p_name,''),'Ami Realtors'), auth.uid()) returning id into tid;
   insert into team_members(team_id, user_id, role, name, email) values (tid, auth.uid(), 'owner', p_person, (select email from auth.users where id = auth.uid()));
   perform adopt_my_rows(tid);

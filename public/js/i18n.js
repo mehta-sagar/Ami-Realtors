@@ -140,7 +140,7 @@ Object.assign(T, {
   confirm_email: ['ઈમેલમાં આવેલી લિંક ખોલી ખાતરી કરો, પછી લૉગિન કરો', 'Open the link in your email to confirm, then sign in'], no_net: ['ઇન્ટરનેટ નથી', 'No internet'],
   team_setup: ['ટીમમાં જોડાઓ', 'Join your team'], team_join: ['કોડથી જોડાઓ', 'Join with code'], team_create: ['નવી ટીમ (માલિક)', 'New team (owner)'],
   team_name: ['ટીમનું નામ', 'Team name'], your_name: ['તમારું નામ', 'Your name'], invite_code: ['આમંત્રણ કોડ', 'Invite code'],
-  team_create_help: ['ફક્ત પહેલી વાર માલિક (ધર્મેશભાઈ કે સાગર) ટીમ બનાવે. બાકી બધા કોડથી જોડાય.', 'Only the first owner (Dharmesh or Sagar) creates the team. Everyone else joins with a code.'],
+  team_create_help: ['આ એક જ વાર થાય: જે પહેલું ટીમ બનાવે તે માલિક. પછી કોઈ નવી ટીમ બનાવી શકતું નથી; બાકી બધા માલિકે આપેલા કોડથી જોડાય.', 'This happens only once: whoever creates the team first is the owner. After that nobody can create another team; everyone else joins with a code from an owner.'],
   team_ok: ['ટીમ તૈયાર ✓', 'Team ready ✓'], team: ['ટીમ અને લૉગિન', 'Team & logins'], role_owner: ['માલિક', 'Owner'], role_staff: ['સ્ટાફ', 'Staff'],
   invite: ['નવા સભ્યને ઉમેરો', 'Add a member'], invite_help: ['કોડ બનાવો અને WhatsApp પર મોકલો. કોડ 14 દિવસ ચાલે અને એક જ વાર વપરાય.', 'Make a code and send it on WhatsApp. It works once, for 14 days.'],
   invite_msg: ['Ami Realtors એપમાં જોડાવો. આ લિંક ખોલી એકાઉન્ટ બનાવો અને આ કોડ નાખો:', 'Join the Ami Realtors app. Open this link, create an account and enter this code:'],
