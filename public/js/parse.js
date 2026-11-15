@@ -29,6 +29,9 @@ const TYPES = [
   ['industrial', /godown|ગોડાઉન|shed|શેડ|industrial|factory|ફેક્ટરી|gidc/i],
 ];
 
+// Every Indian mobile number in a text (last 10 digits), e.g. "78200 27373 | 97270-68111".
+export const allPhones = (raw) => [...new Set([...normDigits(raw || '').matchAll(/(?<!\d)(?:\+?91[\s-]?|0)?([6-9]\d{4}[\s-]?\d{5}|[6-9]\d{2}[\s-]?\d{3}[\s-]?\d{4})(?![\d])/g)].map((m) => m[1].replace(/\D/g, '')))];
+
 export function parseEntry(raw) {
   const text = normDigits(raw || '');
   const low = text.toLowerCase();

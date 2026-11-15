@@ -101,7 +101,7 @@ export default {
     if (u.pathname === '/card.html' || u.pathname === '/card') {
       let r = await env.ASSETS.fetch(new Request(u.origin + '/card.html'));
       if (r.status >= 300 && r.status < 400 && r.headers.get('location')) r = await env.ASSETS.fetch(new Request(new URL(r.headers.get('location'), u.origin)));
-      const html = (await r.text()).replace('content="img/card.jpg"', `content="${u.origin}/img/card.jpg"`);
+      const html = (await r.text()).replace('content="img/card_en.jpg"', `content="${u.origin}/img/card_en.jpg"`);
       return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=3600' } });
     }
     return env.ASSETS.fetch(req);

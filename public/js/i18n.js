@@ -246,6 +246,21 @@ Object.assign(T, {
   src_paper: ['છાપાની જાહેરાતો', 'Newspaper ads'], src_paper_p: ['સીધા માલિકના ફોન નંબર, રોજ સવારે', 'Owners\' own phone numbers, every morning'], src_paper_c: ['ઘણી જાહેરાતમાં ભાવ/માપ નથી', 'Many ads have no price or size'],
   src_osm: ['રસ્તા અને સુવિધાઓ', 'Roads and facilities'], src_osm_p: ['હાઇવે, રસ્તા, શાળા, હોસ્પિટલ – મફત, દરેક જગ્યા', 'Highways, roads, schools, hospitals – free, everywhere'], src_osm_c: ['રસ્તાની પહોળાઈ ઘણી વાર નોંધાયેલી નથી', 'Road widths are often not mapped'],
   src_own_p: ['તમારા પોતાના સોદા અને બ્રોકર ગ્રુપ – સૌથી તાજા', 'Your own deals and broker groups – the freshest'], src_own_c: ['જેટલા વધુ ઉમેરશો એટલું સચોટ', 'The more you add, the better'],
+  // v4: Mari Milkat filters, own WhatsApp listings, dalal from contacts
+  wa_mine: ['મારી મિલકત', 'My listing'], wa_dup: ['પહેલેથી છે', 'already saved'],
+  bulk_own_found: ['આપણી પોતાની જાહેરાતો મળી – મારી મિલકતમાં ક્લાઉડ પર સેવ થશે', 'of our own ads found – they go to My properties in the cloud'], bulk_only_mine: ['ફક્ત મારી મિલકત', 'Only my listings'],
+  price_on_ask: ['ભાવ પૂછો', 'Price on request'], yield: ['વળતર', 'yield'], need_area: ['પહેલાં વિસ્તાર કે લોકેશન નાખો', 'Add the area or a location first'],
+  no_match: ['આ ફિલ્ટરમાં કંઈ નથી', 'Nothing matches these filters'], search_props: ['શોધો: સોસાયટી, રોડ, વિસ્તાર, દલાલ…', 'Search: society, road, area, broker…'],
+  paste_wa: ['WhatsApp પેસ્ટ', 'Paste WhatsApp'], speak: ['બોલો', 'Speak'], all_areas: ['બધા વિસ્તાર', 'All areas'], all_brokers: ['બધા દલાલ', 'All brokers'], direct_only: ['દલાલ વગર (ડાયરેક્ટ)', 'No broker (direct)'],
+  min_lakh: ['₹ થી (લાખ)', 'From ₹ lakh'], max_lakh: ['₹ સુધી (લાખ)', 'To ₹ lakh'], sort: ['ક્રમ', 'Sort'], sort_new: ['નવું પહેલાં', 'Newest'], sort_low: ['ભાવ ઓછો → વધુ', 'Price low → high'], sort_high: ['ભાવ વધુ → ઓછો', 'Price high → low'], sort_rate: ['દર (ફૂટ/વાર) ઓછો', 'Lowest rate'],
+  st_available: ['ઉપલબ્ધ', 'Available'], st_hold: ['હોલ્ડ', 'On hold'], st_sold: ['વેચાઈ ગઈ', 'Sold'],
+  mmap_help: ['ઘાટી પિન = ચોક્કસ લોકેશન. આછી પિન = વિસ્તારનું કેન્દ્ર (અંદાજે). મિલકત ખોલી "📍 નકશા પર" થી ચોક્કસ પિન મૂકો.', 'Solid pin = exact spot. Light pin = area centre (approx.). Open a listing and use "📍 Set on map" for the exact spot.'],
+  pin_exact: ['ચોક્કસ લોકેશન', 'Exact location'], pin_approx: ['વિસ્તારનું અંદાજિત લોકેશન', 'Approx. (area centre)'],
+  prop_title: ['ટૂંકું નામ', 'Short title'], address: ['સરનામું / સોસાયટી', 'Address / society'], pin_none: ['નકશા પર પિન નથી', 'No map pin yet'],
+  maps_link_ph: ['અથવા Google Maps લિંક પેસ્ટ કરો', 'or paste a Google Maps link'], link_no_coords: ['લિંકમાંથી લોકેશન ન મળ્યું', 'No location found in that link'],
+  current_rent: ['હાલનું ભાડું (મહિને)', 'Current rent (monthly)'], per_month: ['₹ દર મહિને', '₹ per month'],
+  from_contacts: ['કૉન્ટેક્ટમાંથી', 'From contacts'], broker_hint: ['દલાલ: "કૉન્ટેક્ટમાંથી" દબાવો, નામ સુધારો, સેવ.', 'Broker: tap "From contacts", fix the name, save.'],
+  contact_help: ['iPhone: Contacts માં દલાલ ખોલો → નંબર પર લાંબું દબાવો → Copy → અહીં ફરી "કૉન્ટેક્ટમાંથી" દબાવો', 'iPhone: open the broker in Contacts → long-press the number → Copy → tap "From contacts" again'],
 });
 
 let lang = localStorage.getItem('ami.lang') || 'gu';

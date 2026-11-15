@@ -1,7 +1,7 @@
 import { t, getLang, setLang, money, moneyShort, fmtDate } from './i18n.js';
 import { AREAS, SURAT, areaById, areaName, km, searchAreas, findAreaInText } from './areas.js';
 import { UNITS, unitsFor, inBounds, PTYPES, sqftPer, toSqft, rateToSqft, rateFromSqft, defaultUnit, summarize, emi, DEFAULT_VIGHA_SQFT } from './units.js';
-import { parseEntry, normDigits } from './parse.js';
+import { parseEntry, normDigits, allPhones } from './parse.js';
 import { store, cloud, cfg, lock, DEFAULT_SB_URL, SB_PUBLIC_KEY, PRIVATE } from './store.js';
 import { resolveMapsLink, coordsFromText, firstUrl, isMapsUrl, roadsAround, facilitiesAround, loadHighways, quickFacts } from './geo.js';
 import { DEFAULT_INPUTS, adjustments, incomeValue, rentFromValue, residualLand, fsiFor, agriValue, reconcile as reconcileVals, CAP, VACANCY, OUTGO } from './valuation.js';
@@ -159,6 +159,7 @@ async function load() {
   if (market.length) S.data.market = market.sort((a, b) => String(b.day).localeCompare(String(a.day)));
   S.fits = null;
   S.data.price_points = S.data.price_points.filter((p) => !p.pub).concat(prices.map((p, i) => ({ ...p, id: p.id || 'pub-' + i, pub: true })));
+  syncOwnEvidence();
   await ensureCustomers();
 }
 async function saveRec(table, rec) { const row = await store.save(table, rec); const a = S.data[table], i = a.findIndex((r) => r.id === row.id); if (i >= 0) a[i] = row; else a.push(row); return row; }
@@ -688,56 +689,77 @@ function splitChat(text) {
     else if (!out.length && line.trim()) out.push({ date: null, who: '', text: line });
   }
   if (out.length <= 1 && !re.test(String(text).split(/\n/)[0] || '')) return String(text).split(/\n\s*\n/).map((t2) => ({ date: null, who: '', text: t2.trim() })).filter((x) => x.text);
-  return out.filter((x) => !/<media omitted>|deleted this message|message was deleted|joined using|added|left$/i.test(x.text));
+  return out.filter((x) => !(x.text.length < 120 && /<media omitted>|\b(?:image|video|sticker|audio|document|GIF) omitted|deleted this message|message was deleted|joined using|\badded\b|\bleft$|changed (?:the|this) group|created group|security code/i.test(x.text)));
 }
 function bulkItems(text) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10), seen = [];
   return splitChat(text).map((m, i) => {
     const p = parseEntry(m.text), ptype = p.ptype || 'flat';
+    const date = m.date && !isNaN(new Date(m.date)) && m.date <= today ? m.date : today;
+    if (isOwnPost({ ...m, date }, p)) {
+      // Dad's own listing → Mari Milkat (once, even if he posted it five times)
+      const rec = ownListing({ ...m, date }, p);
+      const dup = seen.some((x) => similar(x, rec.notes)) || !!ownDup(rec); seen.push(rec.notes);
+      return { i, ...m, date, p, own: rec, dup, on: !dup };
+    }
     let sqft = null;
     if (p.rate) sqft = rateToSqft(p.rate, p.rate_unit || defaultUnit(ptype), vigha());
     else if (p.price && p.size) sqft = p.price / toSqft(p.size, p.size_unit || defaultUnit(ptype), vigha());
     const quote = p.area_id && sqft && inBounds({ ptype, price_sqft: sqft }) ? { area_id: p.area_id, ptype, price_sqft: sqft } : null;
-    const date = m.date && !isNaN(new Date(m.date)) && m.date <= today ? m.date : today;
+    if (ownPhones().has(tel(p.phone))) p.phone = null; // our own number is not a lead
     return { i, ...m, date, p, quote, lead: !!p.phone || (!!p.area_id && !!(p.price || p.rate)), on: !!(quote || p.phone) };
-  }).filter((x) => x.quote || x.lead);
+  }).filter((x) => x.own || x.quote || x.lead);
 }
-function bulkPaste() {
-  const f = { text: '', items: null };
+async function bulkPaste() {
+  let pre = '';
+  try { pre = navigator.clipboard && navigator.clipboard.readText ? (await navigator.clipboard.readText()) || '' : ''; } catch { pre = ''; }
+  const f = { text: pre.length > 20 ? pre : '', items: null };
+  if (f.text) f.items = bulkItems(f.text);
+  const read = (api) => { f.items = bulkItems(f.text); api.redraw(); };
   const sh = openSheet(t('bulk_paste'), (api) => {
     if (!f.items) return [
       h('div', { class: 'small muted' }, t('bulk_help')),
-      h('textarea', { class: 'input area', rows: 10, placeholder: '[12/11/26, 10:42:15] Ramesh Broker: Vesu 3BHK 1650 sqft 1.25 cr 98250xxxxx', oninput: (e) => { f.text = e.target.value; } }),
-      h('button', { class: 'btn gold', onclick: () => { f.items = bulkItems(f.text); api.redraw(); } }, t('bulk_read'))];
-    const nq = f.items.filter((x) => x.on && x.quote).length, nl = f.items.filter((x) => x.on && !x.quote && x.p.phone).length;
+      h('textarea', { class: 'input area', rows: 10, value: f.text, placeholder: '[12/11/26, 10:42:15] Ramesh Broker: Vesu 3BHK 1650 sqft 1.25 cr 98250xxxxx', oninput: (e) => { f.text = e.target.value; },
+        onpaste: (e) => setTimeout(() => { f.text = e.target.value; if (f.text.trim()) read(api); }, 60) }),
+      h('button', { class: 'btn gold', onclick: () => read(api) }, t('bulk_read'))];
+    const on = f.items.filter((x) => x.on);
+    const no = on.filter((x) => x.own).length, nq = on.filter((x) => x.quote).length, nl = on.filter((x) => !x.own && !x.quote && x.p.phone).length;
+    const nown = f.items.filter((x) => x.own).length, ndup = f.items.filter((x) => x.dup).length;
     const setAll = (fn) => { for (const x of f.items) x.on = fn(x); api.redraw(); };
     return [
-      h('div', { class: 'small b' }, `${f.items.length} ${t('bulk_found')} · ${nq} ${t('bulk_prices')} · ${nl} ${t('bulk_leads')}`),
+      h('div', { class: 'small b' }, `${f.items.length} ${t('bulk_found')} · ${no} ${t('my_props')} · ${nq} ${t('bulk_prices')} · ${nl} ${t('bulk_leads')}`),
+      nown ? h('div', { class: 'authmsg ok' }, `${nown} ${t('bulk_own_found')}${ndup ? ` (${ndup} ${t('wa_dup')})` : ''}`) : null,
       h('div', { class: 'chips scroll' },
-        h('button', { class: 'chip', onclick: () => setAll(() => true) }, t('select_all')),
+        h('button', { class: 'chip', onclick: () => setAll((x) => !x.dup) }, t('select_all')),
+        nown ? h('button', { class: 'chip', onclick: () => setAll((x) => !!x.own && !x.dup) }, t('bulk_only_mine')) : null,
         h('button', { class: 'chip', onclick: () => setAll((x) => !!x.quote) }, t('bulk_only_prices')),
-        h('button', { class: 'chip', onclick: () => setAll((x) => !x.quote && !!x.p.phone) }, t('bulk_only_leads')),
+        h('button', { class: 'chip', onclick: () => setAll((x) => !x.own && !x.quote && !!x.p.phone) }, t('bulk_only_leads')),
         h('button', { class: 'chip', onclick: () => setAll(() => false) }, t('select_none'))),
       f.items.length ? f.items.map((x) => h('label', { class: 'pt row' + (x.on ? '' : ' out') },
         h('input', { type: 'checkbox', checked: x.on, onchange: (e) => { x.on = e.target.checked; api.redraw(); } }),
         h('div', { class: 'grow' },
-          h('div', { class: 'small b' }, [x.quote ? `${areaName(areaById(x.quote.area_id), getLang())} · ${t(x.quote.ptype)} · ${rate(x.quote.price_sqft, defaultUnit(x.quote.ptype))}/${unitLabel(defaultUnit(x.quote.ptype))}` : t('bulk_lead_only'), x.p.phone && '📞 ' + x.p.phone].filter(Boolean).join(' · ')),
+          h('div', { class: 'small b' }, x.own ? ['🏠 ' + t('my_props'), x.own.title, x.own.price && moneyShort(x.own.price), x.dup && t('wa_dup')].filter(Boolean).join(' · ')
+            : [x.quote ? `${areaName(areaById(x.quote.area_id), getLang())} · ${t(x.quote.ptype)} · ${rate(x.quote.price_sqft, defaultUnit(x.quote.ptype))}/${unitLabel(defaultUnit(x.quote.ptype))}` : t('bulk_lead_only'), x.p.phone && '📞 ' + x.p.phone].filter(Boolean).join(' · ')),
           h('div', { class: 'xs muted' }, [x.who, x.date].filter(Boolean).join(' · ')),
-          h('div', { class: 'xs' }, x.text.slice(0, 160))))) : h('div', { class: 'muted' }, t('bulk_none')),
+          h('div', { class: 'xs clamp3' }, x.text.slice(0, 200))))) : h('div', { class: 'muted' }, t('bulk_none')),
       h('div', { class: 'grid2 bulkbar' },
         h('button', { class: 'btn', onclick: () => { f.items = null; api.redraw(); } }, t('back')),
         h('button', { class: 'btn gold', onclick: async (ev) => {
           const btn = ev.currentTarget; if (btn.disabled) return; btn.disabled = true; btn.textContent = t('please_wait');
-          let q = 0, l = 0;
+          let q = 0, l = 0, mine = { n: 0, dup: 0 };
           const leads = cfg.get(LEADS_KEY, []);
-          for (const x of f.items.filter((y) => y.on)) {
+          try { mine = await saveOwnListings(f.items.filter((y) => y.on && y.own).map((y) => y.own)); } catch (e) { fail(e); }
+          for (const x of f.items.filter((y) => y.on && !y.own)) {
             const br = S.data.brokers.find((b) => (x.p.phone && tel(b.phone) === tel(x.p.phone)) || (x.who && b.name && b.name.toLowerCase() === x.who.toLowerCase()));
             if (x.quote) { try { await saveRec('price_points', { ...x.quote, kind: 'market', furnished: x.p.furnished ?? null, source: 'whatsapp', broker_id: br ? br.id : null, note: `${x.who ? x.who + ': ' : ''}${x.text.slice(0, 140)}`, observed_on: x.date }); q++; } catch (e) { fail(e); } }
             if (x.p.phone && !leads.some((o) => o.phone === x.p.phone && o.text === x.text)) { leads.unshift({ id: 'w' + Date.now() + x.i, date: x.date, text: x.text.slice(0, 300), phone: x.p.phone, area_id: x.p.area_id, ptype: x.p.ptype, name: x.p.name, source: 'WhatsApp' + (x.who ? ': ' + x.who : '') }); l++; }
           }
-          cfg.set(LEADS_KEY, leads.slice(0, 1000)); S.fits = null; sh.close(); toast(`${q} ${t('bulk_prices')} · ${l} ${t('bulk_leads')} ✓`); render();
-        } }, t('save')))];
-  });
+          cfg.set(LEADS_KEY, leads.slice(0, 1000)); S.fits = null; sh.close();
+          toast(`${mine.n} ${t('my_props')} · ${q} ${t('bulk_prices')} · ${l} ${t('bulk_leads')}${mine.dup ? ` · ${mine.dup} ${t('wa_dup')}` : ''}${cloud.ready ? ' · ☁ ✓' : ''}`);
+          if (mine.n) { S.tab = 'properties'; S.propView = 'mine'; }
+          render();
+        } }, `${t('save')} (${on.length})`))];
+  }, { full: true });
 }
 
 // ---------- Inquiries ----------
@@ -771,35 +793,125 @@ function propTitle(p, lang = getLang()) {
 const EN_M = { m_comparison: 'Market comparison', m_income: 'Rent capitalisation', m_residual: 'Land residual', m_agri: 'Agricultural model' };
 const EN = { flat: 'Flat', bungalow: 'Bungalow', shop: 'Shop', office: 'Office', plot: 'Plot', land: 'Land', industrial: 'Industrial', u_sqft: 'sq ft', u_sqm: 'sq m', u_var: 'sq yd', u_vigha: 'vigha', u_acre: 'acre', u_hectare: 'hectare' };
 function propCard(p) {
-  const a = areaById(p.area_id), ph = tel(p.owner_phone);
+  const a = areaById(p.area_id), ph = tel(p.owner_phone), r = propRate(p), unit = p.size_unit || defaultUnit(p.ptype);
+  const yld = p.rent && p.price && p.deal !== 'rent' ? (p.rent * 12 / p.price) * 100 : null;
   const img = h('div', { class: 'thumb' });
   if (p.photos?.[0]) store.fileUrl(p.photos[0]).then((u) => { if (u) img.style.backgroundImage = `url(${u})`; });
-  return h('article', { class: 'card' },
+  const st = p.status && p.status !== 'available' ? h('span', { class: 'badge ' + (p.status === 'sold' ? 'bad' : 'warn') }, t('st_' + p.status)) : null;
+  return h('article', { class: 'card tap', onclick: (e) => { if (e.target.closest('a,button,input,select')) return; propertyForm(p); } },
     h('div', { class: 'prow' }, p.photos?.[0] ? img : null, h('div', { class: 'grow' },
-      h('div', { class: 'tag' }, [t(p.deal || 'sale'), a ? areaName(a, getLang()) : p.area_text].filter(Boolean).join(' · ')),
-      h('div', { class: 'title' }, propTitle(p)),
-      h('div', { class: 'b' }, p.price ? moneyShort(p.price) : '—', p.price && p.size ? h('span', { class: 'muted small' }, ` · ${money(p.price / p.size)} / ${unitLabel(p.size_unit || 'sqft')}`) : null),
-      (p.brokers || []).length ? h('div', { class: 'xs goldtext b' }, t('other_brokers') + ': ' + p.brokers.map((x) => (brokerOf(x.broker_id) || {}).name).filter(Boolean).join(', ')) : null,
+      h('div', { class: 'between top' }, h('div', { class: 'tag grow' }, [t(p.deal || 'sale'), a ? areaName(a, getLang()) : null, p.posted_on && fmtDate(p.posted_on, { day: 'numeric', month: 'short' })].filter(Boolean).join(' · ')), st),
+      h('div', { class: 'title' }, p.title || propTitle(p)),
+      p.title ? h('div', { class: 'small muted' }, propTitle(p)) : null,
+      p.address ? h('div', { class: 'xs muted' }, '📍 ' + p.address) : null,
+      h('div', { class: 'b' }, p.price ? moneyShort(p.price) : t('price_on_ask'), r ? h('span', { class: 'muted small' }, ` · ${rate(r, unit)} / ${unitLabel(unit)}`) : null),
+      p.rent ? h('div', { class: 'xs goldtext b' }, `${t('rent')}: ${money(p.rent)}/${t('month')}${yld ? ` · ${t('yield')} ${yld.toFixed(1)}%` : ''}`) : null,
+      (p.brokers || []).length ? h('div', { class: 'xs goldtext b' }, '🤝 ' + p.brokers.map((x) => (brokerOf(x.broker_id) || {}).name).filter(Boolean).join(', ')) : null,
       h('div', { class: 'small muted' }, [p.owner_name, p.furnished === true ? t('furnished') : p.furnished === false ? t('unfurnished') : null, p.floor && `${t('floor')} ${p.floor}`, p.facing].filter(Boolean).join(' · ')))),
     h('div', { class: 'grid3' },
-      ph ? h('a', { class: 'btn green', href: 'tel:+91' + ph }, t('call')) : h('span', {}),
-      a ? gmapsBtn(null, null, [p.address, a.en.replace(/\s*\(.*\)/, ''), a.district, 'Gujarat'].filter(Boolean).join(', ')) : h('button', { class: 'btn', onclick: () => shareCard(p).catch(fail) }, t('share_card')),
-      h('button', { class: 'btn', onclick: () => propertyForm(p) }, t('edit'))),
-    aiBtn(() => askAI(getLang() === 'en' ? 'property' : 'મિલકત', [`${propTitle(p, 'en-card')} for ${p.deal === 'rent' ? 'rent' : 'sale'}`, p.price && `Price: Rs ${Number(p.price).toLocaleString('en-IN')}`, p.price && p.size && `Rate: Rs ${Math.round(p.price / p.size)} per ${EN['u_' + (p.size_unit || 'sqft')]}`, p.floor && `Floor: ${p.floor}`, p.facing && `Facing: ${p.facing}`, p.furnished != null && (p.furnished ? 'Furnished' : 'Unfurnished'), p.notes && `Notes: ${p.notes}`, ...areaFacts(a, p.ptype || 'flat')]), 'btn ai sm'));
+      ph ? h('a', { class: 'btn green', href: 'tel:+91' + ph }, t('call')) : h('button', { class: 'btn', onclick: () => shareCard(p).catch(fail) }, t('share_card')),
+      p.lat != null ? gmapsBtn(p.lat, p.lng) : a ? gmapsBtn(null, null, [p.address, a.en.replace(/\s*\(.*\)/, ''), a.district, 'Gujarat'].filter(Boolean).join(', ')) : h('span', {}),
+      h('button', { class: 'btn', onclick: () => openValue(p) }, '₹ ', t('model_price'))),
+    aiBtn(() => askAI(getLang() === 'en' ? 'property' : 'મિલકત', [`${p.title ? p.title + ' – ' : ''}${propTitle(p, 'en-card')} for ${p.deal === 'rent' ? 'rent' : 'sale'}`, p.address && `Address: ${p.address}`, p.price && `Asking price: Rs ${Number(p.price).toLocaleString('en-IN')}`, r && `Rate: Rs ${Math.round(r)} per sq ft`, p.rent && `Current rent: Rs ${Number(p.rent).toLocaleString('en-IN')} per month`, p.floor && `Floor: ${p.floor}`, p.facing && `Facing: ${p.facing}`, p.furnished != null && (p.furnished ? 'Furnished' : 'Unfurnished'), p.notes && `Notes: ${p.notes.slice(0, 800)}`, ...areaFacts(a, p.ptype || 'flat')]), 'btn ai sm'));
+}
+function openValue(p) {
+  const pos = propPos(p); if (!pos) return toast(t('need_area'), true);
+  const pt = p.ptype || 'flat', size = p.size ? toSqft(p.size, p.size_unit || defaultUnit(pt), vigha()) / sqftPer(defaultUnit(pt), vigha()) : null;
+  openDetail('value', { lat: pos.lat, lng: pos.lng, label: p.title || propTitle(p), ptype: pt, area: p.area_id, size, rent: p.deal === 'rent' ? p.price : p.rent || null });
+}
+// Where a listing sits on the map: its own pin, else its area's centre (spread a little so pins don't stack; marked approximate).
+function propPos(p) {
+  if (p.lat != null && p.lng != null) return { lat: +p.lat, lng: +p.lng, exact: true };
+  const a = areaById(p.area_id); if (!a || a.lat == null) return null;
+  const hsh = parseInt(hashStr(String(p.id)).slice(0, 4), 36) || 0, ang = (hsh % 360) * Math.PI / 180, r = 0.0025 + (hsh % 7) * 0.0006;
+  return { lat: a.lat + Math.sin(ang) * r, lng: a.lng + Math.cos(ang) * r, exact: false };
+}
+const propRate = (p) => (p.price && p.size ? p.price / toSqft(p.size, p.size_unit || defaultUnit(p.ptype), vigha()) : null);
+const propText = (p) => [p.title, p.address, p.notes, p.owner_name, p.owner_phone, areaName(areaById(p.area_id), 'en'), areaName(areaById(p.area_id), 'gu'), t(p.ptype || ''), ...(p.brokers || []).map((x) => (brokerOf(x.broker_id) || {}).name)].filter(Boolean).join(' ').toLowerCase();
+function propFilter(F) {
+  const q = (F.q || '').trim().toLowerCase(), lo = N(F.min) != null ? N(F.min) * 1e5 : null, hi = N(F.max) != null ? N(F.max) * 1e5 : null;
+  const out = S.data.properties.filter((p) => !isGone(p)
+    && (F.deal === 'all' || (p.deal || 'sale') === F.deal)
+    && (F.ptype === 'all' || p.ptype === F.ptype)
+    && (!F.area || p.area_id === F.area)
+    && (!F.broker || (F.broker === 'none' ? !(p.brokers || []).length : (p.brokers || []).some((x) => x.broker_id === F.broker)))
+    && (F.status === 'all' || (p.status || 'available') === F.status)
+    && (lo == null || (p.price && p.price >= lo)) && (hi == null || (p.price && p.price <= hi))
+    && (!q || q.split(/\s+/).every((w) => propText(p).includes(w))));
+  const by = { new: (x, y) => String(y.posted_on || y.created_at).localeCompare(String(x.posted_on || x.created_at)), low: (x, y) => (x.price || 9e15) - (y.price || 9e15), high: (x, y) => (y.price || 0) - (x.price || 0), rate: (x, y) => (propRate(x) || 9e15) - (propRate(y) || 9e15) }[F.sort] || (() => 0);
+  return out.sort(by);
 }
 function viewProps() {
-  const list = S.data.properties.slice().sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
   const segBar = seg([['mine', t('my_props')], ['projects', t('projects')], ['leads', t('leads')]], S.propView || 'mine', (v) => { S.propView = v; render(); });
   if (S.propView === 'projects') return [h('header', { class: 'hdr' }, h('h1', { class: 'grow' }, t('properties'))), segBar, ...viewProjects()];
   if (S.propView === 'leads') return [h('header', { class: 'hdr' }, h('h1', { class: 'grow' }, t('properties'))), segBar, ...viewLeads()];
+  const F = (S.propF ||= { q: '', deal: 'all', ptype: 'all', area: null, broker: null, status: 'available', min: '', max: '', sort: 'new', map: false, n: 40 });
+  const alive = S.data.properties.filter((p) => !isGone(p));
+  const areas = [...new Set(alive.map((p) => p.area_id).filter(Boolean))].map(areaById).filter(Boolean).sort((x, y) => x.en.localeCompare(y.en));
+  const brokerIds = [...new Set(alive.flatMap((p) => (p.brokers || []).map((x) => x.broker_id)))].filter((id) => brokerOf(id));
+  const box = h('div', { class: 'stack' }), count = h('div', { class: 'xs muted' });
+  const drawList = () => {
+    const list = propFilter(F);
+    const priced = list.filter((p) => p.price);
+    count.textContent = `${list.length} / ${alive.length} ${t('my_props')}${priced.length ? ` · ${moneyShort(Math.min(...priced.map((p) => p.price)))} – ${moneyShort(Math.max(...priced.map((p) => p.price)))}` : ''}`;
+    box.replaceChildren(...(list.length ? list.slice(0, F.n).map(propCard) : [h('div', { class: 'empty' }, alive.length ? t('no_match') : t('no_prop'))]),
+      list.length > F.n ? h('button', { class: 'btn', onclick: () => { F.n += 60; drawList(); } }, '+ ', list.length - F.n) : '');
+    if (F.map) drawPropMap(list);
+  };
+  const search = h('input', { type: 'search', placeholder: t('search_props'), value: F.q, autocomplete: 'off', autocorrect: 'off', spellcheck: 'false', enterkeyhint: 'search',
+    oninput: (e) => { F.q = e.target.value; F.n = 40; clearTimeout(S.mqT); S.mqT = setTimeout(drawList, 180); }, onkeydown: (e) => { if (e.key === 'Enter') e.target.blur(); } });
+  const numBox = (k, ph) => h('input', { class: 'input', inputmode: 'decimal', placeholder: ph, value: F[k], oninput: (e) => { F[k] = e.target.value; clearTimeout(S.mqT); S.mqT = setTimeout(drawList, 300); } });
+  const active = F.deal !== 'all' || F.ptype !== 'all' || F.area || F.broker || F.status !== 'available' || F.min || F.max || F.q;
+  setTimeout(drawList, 0);
   return [
-    h('header', { class: 'hdr' }, h('h1', { class: 'grow' }, t('properties')), h('span', { class: 'muted small' }, list.length || '')),
+    h('header', { class: 'hdr' }, h('h1', { class: 'grow' }, t('properties')), h('span', { class: 'muted small' }, alive.length || '')),
     segBar,
+    h('div', { class: 'grid3' },
+      h('button', { class: 'btn gold', onclick: () => propertyForm({}) }, icon('plus', 18), t('new_property')),
+      h('button', { class: 'btn', onclick: bulkPaste }, '📋 ', t('paste_wa')),
+      h('button', { class: 'btn green', onclick: () => voiceBox(t('speak_add'), (text) => { const p = parseEntry(text); propertyForm(fromParse(p, text)); }) }, icon('mic', 18), t('speak'))),
+    h('div', { class: 'stickybar' },
+      h('label', { class: 'searchbox flat' }, icon('search', 18), search, F.q ? h('button', { class: 'iconbtn sm', 'aria-label': t('clear'), onclick: () => { F.q = ''; search.value = ''; drawList(); } }, icon('x', 16)) : null)),
+    chips([['all', t('all')], ['sale', t('sale')], ['rent', t('rent')], ...PTYPES.filter((x) => alive.some((p) => p.ptype === x)).map((x) => [x, t(x)])], F.ptype !== 'all' ? F.ptype : F.deal, (v) => { if (['all', 'sale', 'rent'].includes(v)) { F.deal = v; F.ptype = 'all'; } else F.ptype = F.ptype === v ? 'all' : v; render(); }, 'scroll'),
     h('div', { class: 'grid2' },
-      h('button', { class: 'btn green tall', onclick: () => voiceBox(t('speak_add'), (text) => { const p = parseEntry(text); propertyForm(fromParse(p, text)); }) }, icon('mic', 20), t('speak_add')),
-      h('button', { class: 'btn gold tall', onclick: () => propertyForm({}) }, icon('plus', 20), t('new_property'))),
-    list.length ? list.map(propCard) : h('div', { class: 'empty' }, t('no_prop')),
+      h('select', { class: 'input', 'aria-label': t('area'), onchange: (e) => { F.area = e.target.value || null; render(); } },
+        h('option', { value: '' }, '📍 ' + t('all_areas')), areas.map((a) => h('option', { value: a.id, selected: F.area === a.id }, `${areaName(a, getLang())} (${alive.filter((p) => p.area_id === a.id).length})`))),
+      h('select', { class: 'input', 'aria-label': t('brokers'), onchange: (e) => { F.broker = e.target.value || null; render(); } },
+        h('option', { value: '' }, '🤝 ' + t('all_brokers')), h('option', { value: 'none', selected: F.broker === 'none' }, t('direct_only')),
+        brokerIds.map((id) => h('option', { value: id, selected: F.broker === id }, brokerOf(id).name)))),
+    h('div', { class: 'grid3' }, numBox('min', t('min_lakh')), numBox('max', t('max_lakh')),
+      h('select', { class: 'input', 'aria-label': t('sort'), onchange: (e) => { F.sort = e.target.value; drawList(); } },
+        [['new', t('sort_new')], ['low', t('sort_low')], ['high', t('sort_high')], ['rate', t('sort_rate')]].map(([v, l]) => h('option', { value: v, selected: F.sort === v }, l)))),
+    h('div', { class: 'chips scroll' },
+      h('button', { class: 'chip' + (F.map ? ' on' : ''), onclick: () => { F.map = !F.map; render(); } }, '🗺 ', t('map')),
+      [['available', t('st_available')], ['sold', t('st_sold')], ['all', t('all')]].map(([v, l]) => h('button', { class: 'chip' + (F.status === v ? ' on' : ''), onclick: () => { F.status = v; render(); } }, l)),
+      active ? h('button', { class: 'chip', onclick: () => { S.propF = { ...F, q: '', deal: 'all', ptype: 'all', area: null, broker: null, status: 'available', min: '', max: '' }; render(); } }, '✕ ', t('clear_filters')) : null),
+    count,
+    F.map ? h('div', { id: 'mmap', style: 'height:400px;flex:none;border-radius:18px;overflow:hidden;margin:4px 0 8px' }) : null,
+    F.map ? h('div', { class: 'xs muted' }, t('mmap_help')) : null,
+    box,
   ];
+}
+function drawPropMap(list) {
+  const L = window.L, el = document.getElementById('mmap'); if (!L || !el) return;
+  if (S.mmap && S.mmap._container !== el) { S.mmap.remove(); S.mmap = null; }
+  if (!S.mmap) {
+    S.mmap = L.map(el, { zoomControl: false }).setView([SURAT.lat, SURAT.lng], 11);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(S.mmap);
+    S.mmapLayer = L.layerGroup().addTo(S.mmap);
+  }
+  const esc = (x) => String(x || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  S.mmapLayer.clearLayers(); const pts = [];
+  for (const p of list) {
+    const pos = propPos(p); if (!pos) continue; pts.push([pos.lat, pos.lng]);
+    const html = `<div class="pin small${pos.exact ? ' sel' : ''}"><span>${esc(t(p.ptype || 'flat'))}</span><b>${p.price ? esc(moneyShort(p.price)) : '—'}</b></div>`;
+    const m = L.marker([pos.lat, pos.lng], { icon: L.divIcon({ className: 'pinwrap', html, iconSize: null }) }).addTo(S.mmapLayer);
+    const pop = h('div', { class: 'stack tight' }, h('b', {}, p.title || propTitle(p)), h('div', { class: 'xs' }, [areaName(areaById(p.area_id), getLang()), p.address].filter(Boolean).join(' · ')),
+      h('div', { class: 'xs muted' }, pos.exact ? t('pin_exact') : t('pin_approx')), h('button', { class: 'btn sm', onclick: () => propertyForm(p) }, t('details')));
+    m.bindPopup(pop);
+  }
+  if (pts.length) S.mmap.fitBounds(pts, { padding: [30, 30], maxZoom: 15 });
+  setTimeout(() => S.mmap && S.mmap.invalidateSize(), 60);
 }
 function fromParse(p, text) {
   const o = { area_id: p.area_id, ptype: p.ptype, deal: p.deal === 'rent' ? 'rent' : 'sale', bhk: p.bhk, size: p.size, size_unit: p.size_unit, price: p.price, owner_name: p.name, owner_phone: p.phone, notes: text };
@@ -833,22 +945,36 @@ function propertyForm(init) {
     h('div', { class: 'muted small' }, t('nothing_required')),
     chips(PTYPES.map((p) => [p, t(p)]), f.ptype, (v) => { f.ptype = v; if (!f.size) f.size_unit = defaultUnit(v); api.redraw(); }, 'wrap'),
     seg([['sale', t('sale')], ['rent', t('rent')]], f.deal, (v) => { f.deal = v; api.redraw(); }),
+    field(t('prop_title'), inp(f, 'title', { placeholder: 'Corner row house near Honey Park' })),
     areaBtn(f, 'area_id', api.redraw),
+    field(t('address'), inp(f, 'address', { placeholder: 'Society / road / landmark' })),
+    h('div', { class: 'between' },
+      h('span', { class: 'xs muted' }, f.lat != null ? `📍 ${(+f.lat).toFixed(5)}, ${(+f.lng).toFixed(5)}` : t('pin_none')),
+      h('button', { type: 'button', class: 'linkbtn', onclick: () => { const a = areaById(f.area_id) || SURAT; pinPicker(t('set_pin'), f.lat != null ? { lat: +f.lat, lng: +f.lng, exact: true } : { lat: a.lat, lng: a.lng }, (pos) => { f.lat = +pos.lat.toFixed(6); f.lng = +pos.lng.toFixed(6); api.redraw(); }); } }, '📍 ', t('set_pin'))),
+    h('input', { class: 'input', placeholder: t('maps_link_ph'), onchange: async (e) => {
+      const v = e.target.value.trim(); if (!v) return;
+      try { const c = coordsFromText(v) || (isMapsUrl(firstUrl(v) || '') ? await resolveMapsLink(firstUrl(v)) : null); if (!c) return toast(t('link_no_coords'), true); f.lat = +(+c.lat).toFixed(6); f.lng = +(+c.lng).toFixed(6); api.redraw(); } catch (err) { fail(err); }
+    } }),
     h('div', { class: 'grid2' }, field(t('price'), numInp(f, 'price')),
       field(t('size'), h('div', { class: 'join' }, numInp(f, 'size'), h('select', { class: 'input', 'aria-label': t('per'), value: f.size_unit, onchange: (e) => { f.size_unit = e.target.value; } }, UNITS.map((u) => h('option', { value: u }, unitLabel(u))))))),
     h('div', { class: 'grid2' }, field(t('owner_name'), inp(f, 'owner_name')), field(t('owner_phone'), inp(f, 'owner_phone', { inputmode: 'tel' }))),
     h('div', { class: 'grid3' }, field(t('bhk'), numInp(f, 'bhk')), field(t('floor'), inp(f, 'floor')), field(t('facing'), inp(f, 'facing'))),
     seg([['', t('any')], ['no', t('unfurnished')], ['yes', t('furnished')]], f.furnished === true ? 'yes' : f.furnished === false ? 'no' : '', (v) => { f.furnished = v === 'yes' ? true : v === 'no' ? false : undefined; api.redraw(); }),
+    f.deal !== 'rent' ? field(t('current_rent'), numInp(f, 'rent', { placeholder: t('per_month') })) : null,
+    seg([['available', t('st_available')], ['hold', t('st_hold')], ['sold', t('st_sold')]], f.status || 'available', (v) => { f.status = v; api.redraw(); }),
     brokerRows(f, api.redraw),
     fileRow('photos', 'image/*', t('photos')), fileRow('docs', 'image/*,application/pdf', t('docs')),
     field(t('notes'), h('textarea', { class: 'input area', rows: 2, value: f.notes || '', oninput: (e) => { f.notes = e.target.value; } })),
     h('button', { class: 'btn gold', onclick: async () => {
       try {
-        await saveRec('properties', { id: f.id, created_at: f.created_at, ptype: f.ptype || null, deal: f.deal, area_id: f.area_id || null, price: N(f.price), size: N(f.size), size_unit: f.size_unit, bhk: N(f.bhk), floor: f.floor || null, facing: f.facing || null, furnished: f.furnished ?? null, owner_name: f.owner_name || null, owner_phone: tel(f.owner_phone) || null, notes: f.notes || null, photos: f.photos, docs: f.docs, brokers: cleanBrokers(f.brokers) });
-        sh.close(); toast(t('saved')); render();
+        const rec = { id: f.id, created_at: f.created_at, ptype: f.ptype || null, deal: f.deal, area_id: f.area_id || null, price: N(f.price), size: N(f.size), size_unit: f.size_unit, bhk: N(f.bhk), floor: f.floor || null, facing: f.facing || null, furnished: f.furnished ?? null, owner_name: f.owner_name || null, owner_phone: tel(f.owner_phone) || null, notes: f.notes || null, photos: f.photos, docs: f.docs, brokers: cleanBrokers(f.brokers),
+          title: (f.title || '').trim() || null, address: (f.address || '').trim() || null, lat: f.lat ?? null, lng: f.lng ?? null, rent: f.deal === 'rent' ? null : N(f.rent), status: f.status || 'available', source: f.source || null, source_key: f.source_key || null, posted_on: f.posted_on || new Date().toISOString().slice(0, 10) };
+        if (!f.id && rec.source_key && ownDup(rec)) { sh.close(); toast(t('wa_dup')); return; }
+        await saveRec('properties', rec); syncOwnEvidence();
+        sh.close(); toast(t('saved') + (cloud.ready ? ' · ☁' : '')); render();
       } catch (e) { fail(e); }
     } }, t('save')),
-    f.id && h('button', { class: 'btn danger', onclick: async () => { if (await ask(t('confirm_del'))) { await delRec('properties', f.id).catch(fail); sh.close(); render(); } } }, t('del')),
+    f.id && canDelete() && h('button', { class: 'btn danger', onclick: async () => { if (await ask(t('confirm_del'))) { await delRec('properties', f.id).catch(fail); syncOwnEvidence(); sh.close(); render(); } } }, t('del')),
   ]);
 }
 
@@ -864,7 +990,7 @@ async function brandFooter(x, W, y, H) {
   const tx = 48 + H - 60 + 32, f = (w, sz, fam) => { x.font = `${w} ${sz}px ${fam || 'Georgia, "Times New Roman", serif'}`; };
   x.textAlign = 'left'; x.fillStyle = '#E8C979'; f(700, 52); x.fillText('AMI REALTORS', tx, y + 92);
   x.fillStyle = '#F3ECE1'; f(600, 32, '-apple-system, Arial, sans-serif'); x.fillText(`${BRAND.person} · ${bizPhone()}`, tx, y + 144, W - tx - 40);
-  x.fillStyle = '#D9C49A'; f(400, 28, '"Noto Sans Gujarati", "Gujarati Sangam MN", sans-serif'); x.fillText(BRAND.motto_gu, tx, y + 190, W - tx - 40);
+  x.fillStyle = '#D9C49A'; f(500, 28, '-apple-system, Arial, sans-serif'); x.fillText('Property · Trust · Value · Chowk Bazaar, Surat', tx, y + 190, W - tx - 40);
 }
 async function shareCard(p) {
   const W = 1080, H = 1350, c = h('canvas', { width: W, height: H }), x = c.getContext('2d'), a = areaById(p.area_id);
@@ -951,6 +1077,7 @@ function settings() {
 // ---------- shell ----------
 function render() {
   if (S.map && (S.tab !== 'map' || S.detail)) { S.map.remove(); S.map = null; }
+  if (S.mmap) { S.mmap.remove(); S.mmap = null; }
   if (S.dmap) { S.dmap.remove(); S.dmap = null; }
   if (S.pmap) { S.pmap.remove(); S.pmap = null; }
   const view = S.detail ? viewDetail() : { today: viewToday, map: viewMap, prices: viewPrices, customers: viewCustomers, properties: viewProps, more: viewMore }[S.tab]();
@@ -1049,6 +1176,84 @@ function viewToday() {
   ];
 }
 
+// ---------- Dad's own listings: a post carrying only our own numbers (or sent by us) is "Mari Milkat" ----------
+// Never a post that carries somebody else's number: that is another broker's or owner's property.
+const ownPhones = () => new Set([...String(BRAND.phones).split(/[\/,]/), ...String(bizPhone()).split(/[\/,]/), ...(S.members || []).map((m) => m.phone), ...cfg.get('myphones', [])].map(tel).filter((x) => x.length === 10));
+const OWN_NAME = /ami\s*realtors|dr\.?\s*dharmesh|dharmesh\s*mehta/i;
+const NOT_LISTING = /daily\s*dose|quiz|poll:|did\s*you\s*know|real\s*estate\s*tip|knowledge|ટિપ્સ|જાણકારી|સમાચાર|જ્ઞાનકોશ|ડાયરી|diary|encyclopedia|requirement|required|wanted|જરૂરિયાત|જરૂર છે|જોઈએ છે/i;
+function isOwnPost(m, p) {
+  const phones = allPhones(m.text), own = ownPhones();
+  if (phones.some((x) => !own.has(x))) return false;          // someone else's number inside → not ours
+  const mine = phones.some((x) => own.has(x)) || OWN_NAME.test(m.who || '') || /^\u200e?you$/i.test(m.who || '') || OWN_NAME.test(m.text) || (cfg.get('mywaname', '') && m.who === cfg.get('mywaname', ''));
+  if (!mine || NOT_LISTING.test(m.text) || WANT.test(m.text) && !GIVE.test(m.text)) return false;
+  return !!(p.ptype && (p.price || p.size || p.rate || GIVE.test(m.text) || RENTW.test(m.text)));
+}
+const hashStr = (s) => { let x = 5381; for (const c of s) x = ((x << 5) + x + c.codePointAt(0)) >>> 0; return x.toString(36); };
+const textKey = (s) => normDigits(String(s || '')).toLowerCase().replace(/<this message was edited>/g, '').replace(/[^a-z0-9઀-૿]+/g, '').slice(0, 160);
+const cleanLine = (s) => String(s || '').replace(/[^\p{L}\p{N}\p{M}\s.,&()+\/:'₹×–-]/gu, ' ').replace(/\s+/g, ' ').trim();
+const JUNK_TITLE = /^(?:urgent|hot|new|for sale|sale|premium|exclusive|profitable deal|ફાયદાનો સોદો|નમસ્તે.*|namaste.*|description\s*:?|ami realtors.*|office address.*|property (?:details|highlights)\s*:?|location\s*:?.*|contact.*|call.*)$/i;
+const MONEY = String.raw`(\d+(?:[.,]\d+)*)\s*(crores?|cr\.?|karod|કરોડ|lakhs?|lacs?|lac|લાખ)?`;
+// Asking price of our own ad: a labelled price first ("Price: ₹2.61 Crore"), then a lone amount. Never a rent or a per-unit rate.
+function ownPrice(text, size, unit) {
+  const tx = normDigits(text), mult = (u) => (!u ? 1 : /cr|કરોડ|karod/i.test(u) ? 1e7 : 1e5), val = (m) => parseFloat(m[1].replace(/,/g, '')) * mult(m[2]);
+  const per = tx.match(new RegExp('₹?\\s*' + MONEY + String.raw`\s*(?:\/-)?\s*(?:\/|per|પ્રતિ)\s*(વાર|var|vaar|sq\.?\s*y(?:ar)?ds?|ચો(?:રસ)?\.?\s*ફૂ(?:ટ)?|sq\.?\s*f(?:ee|oo)?t|sqft|ચો\.?\s*મી|sq\.?\s*m(?:tr|eter)?)`, 'i'));
+  if (per) {
+    const r = val(per), u = /વાર|var|vaar|y/i.test(per[3]) ? 'var' : /મી|m/i.test(per[3]) && !/ft|ફૂ/i.test(per[3]) ? 'sqm' : 'sqft';
+    return size && unit ? Math.round(rateToSqft(r, u, vigha()) * toSqft(size, unit, vigha())) : null;
+  }
+  const lab = tx.match(new RegExp(String.raw`(?:asking\s*price|sale\s*price|price|કિંમત|ભાવ|rate|વેચાણ\s*કિંમત|amount)\s*[:：-]?\s*(?:rs\.?|₹)?\s*` + MONEY, 'i'));
+  if (lab && lab[2]) return val(lab);
+  const all = [...tx.matchAll(new RegExp(String.raw`(?<![\d.])(\d+(?:[.,]\d+)*)\s*(crores?|cr\.?|karod|કરોડ|lakhs?|lacs?|lac|લાખ)(?![a-z])`, 'gi'))].filter((m) => !/rent|ભાડ|આવક|income/i.test(tx.slice(Math.max(0, m.index - 30), m.index)));
+  return all.length === 1 ? val(all[0]) : all.length > 1 && lab ? val(lab) : null;
+}
+function ownListing(m, p) {
+  const text = String(m.text || '').replace(/<This message was edited>/g, '').trim();
+  const lines = text.split(/\n+/).map(cleanLine).filter((l) => l.length > 3 && !/^https?:/i.test(l) && !JUNK_TITLE.test(l));
+  const loc = text.match(/(?:location|address|adress|લોકેશન|સ્થળ|વિસ્તાર|સરનામું)\s*[:：-]\s*([^\n]{3,120})/i);
+  const rentM = normDigits(text).match(/(?:rent(?:al)?(?:\s*income)?|ભાડું|ભાડાની\s*આવક)[^\d₹\n]{0,25}₹?\s*(\d[\d,]{3,})/i);
+  const o = fromParse(p, text);
+  const price = ownPrice(text, N(o.size), o.size_unit || defaultUnit(o.ptype));
+  const good = (l) => /bhk|flat|ફ્લેટ|bungalow|banglo|બંગલ|row\s*house|રો\s*હાઉસ|plot|પ્લોટ|shop|દુકાન|office|ઓફિસ|land|જમીન|shed|શેડ|industrial|commercial|કોમર્શિયલ|var|વાર|sq/i.test(l);
+  const title = (lines.find(good) || lines[0] || propTitle(o)).slice(0, 80);
+  return { ptype: o.ptype || null, deal: /ભાડે\s*(?:આપવા|આપવાનો)|for\s*rent|to\s*let/i.test(text) && !/sale|વેચ/i.test(text) ? 'rent' : 'sale',
+    area_id: o.area_id || null, title, address: loc ? cleanLine(loc[1]).slice(0, 120) : null, price: price && price >= 2e5 ? price : null, size: N(o.size), size_unit: o.size_unit || (o.size ? defaultUnit(o.ptype) : null), bhk: N(o.bhk),
+    furnished: o.furnished ?? null, rent: rentM ? N(rentM[1].replace(/,/g, '')) : null, notes: text.slice(0, 3000), source: 'WhatsApp' + (m.group ? ': ' + m.group : ''), status: 'available',
+    source_key: 'wa-' + (m.date || '') + '-' + hashStr(textKey(text)), posted_on: m.date || new Date().toISOString().slice(0, 10), photos: [], docs: [], brokers: [], owner_name: null, owner_phone: null };
+}
+// Same ad again? Dad re-posts with small edits, so compare the words, not the exact text.
+const wordSet = (s) => new Set(normDigits(String(s || '')).toLowerCase().replace(/<this message was edited>/g, '').split(/[^a-z0-9઀-૿]+/).filter((w) => w.length > 1).slice(0, 80));
+function similar(a, b) {
+  const A = wordSet(a), B = wordSet(b); if (A.size < 4 || B.size < 4) return textKey(a) === textKey(b);
+  let n = 0; for (const w of A) if (B.has(w)) n++;
+  return n / Math.min(A.size, B.size) >= 0.75 && n / Math.max(A.size, B.size) >= 0.5;
+}
+// Already in Mari Milkat? Same post key, or the same text (Dad re-posts the same ad every few weeks).
+function ownDup(rec) {
+  const k = textKey(rec.notes);
+  return S.data.properties.find((x) => !isGone(x) && (x.source_key === rec.source_key || (k.length > 40 && textKey(x.notes) === k) || (x.notes && similar(x.notes, rec.notes))
+    || (rec.ptype && x.ptype === rec.ptype && (String(x.posted_on || '').slice(0, 10) === rec.posted_on
+      || ((rec.price && Number(x.price) === rec.price && (!rec.area_id || !x.area_id || x.area_id === rec.area_id)) || (rec.area_id && x.area_id === rec.area_id && rec.size && Number(x.size) === rec.size && x.size_unit === rec.size_unit))))));
+}
+async function saveOwnListings(recs) {
+  let n = 0, dup = 0; const done = [];
+  for (const r of recs) {
+    if (done.some((d) => similar(d, r.notes)) || ownDup(r)) { dup++; continue; }
+    done.push(r.notes); await saveRec('properties', r); n++;
+  }
+  syncOwnEvidence(); return { n, dup };
+}
+// Dad's own asking prices become price evidence for the model (marked as asking prices, never mixed up with deals).
+function syncOwnEvidence() {
+  const pts = [];
+  for (const p of S.data.properties) {
+    if (isGone(p) || p.deal === 'rent' || !p.price || !p.size || !p.area_id) continue;
+    const unit = p.size_unit || defaultUnit(p.ptype), sq = toSqft(p.size, unit, vigha());
+    if (!sq || !p.ptype || (p.ptype === 'bungalow' && unit !== 'var')) continue;
+    const v = p.price / sq, pp = { id: 'own-' + p.id, area_id: p.area_id, ptype: p.ptype, kind: 'market', price_sqft: Math.round(v), source: 'listing', note: `Ami Realtors listing: ${p.title || propTitle(p)}`, observed_on: String(p.posted_on || p.created_at || '').slice(0, 10), furnished: p.furnished ?? null, pub: true, own: true };
+    if (inBounds(pp)) pts.push(pp);
+  }
+  S.data.price_points = S.data.price_points.filter((x) => !x.own).concat(pts); S.fits = null;
+}
 
 // ---------- WhatsApp message → customer + property (seller / landlord) or inquiry (buyer / tenant) ----------
 // Dad copies one message or many from WhatsApp, taps once, checks what the app understood, saves.
@@ -1062,18 +1267,19 @@ function waIntent(text) {
   if (give) return 'sell';
   return /budget|બજેટ/i.test(text) ? 'buy' : 'sell';
 }
-const WA_KINDS = [['sell', 'wa_sell'], ['buy', 'wa_buy'], ['rentout', 'wa_rentout'], ['rentwant', 'wa_rentwant']];
+const WA_KINDS = [['mine', 'wa_mine'], ['sell', 'wa_sell'], ['buy', 'wa_buy'], ['rentout', 'wa_rentout'], ['rentwant', 'wa_rentwant']];
 function waItems(text) {
   const msgs = splitChat(text).filter((m) => m.text && m.text.replace(/\s/g, '').length > 6);
   return msgs.map((m, i) => {
-    const p = parseEntry(m.text), kind = waIntent(m.text);
+    const p = parseEntry(m.text), own = isOwnPost(m, p), kind = own ? 'mine' : waIntent(m.text);
     if (!p.price && /rent/.test(kind)) { // "35000 rent", "ભાડું 18,000", "rent 25k"
       const r = normDigits(m.text).match(/(\d[\d,]{3,})\s*(?:rs\.?|₹|\/-)?\s*(?:rent|ભાડું|bhadu|per\s*month|p\.?m\.?|મહિને)|(?:rent|ભાડું|bhadu)\s*:?\s*(?:rs\.?|₹)?\s*(\d[\d,]{3,}|\d+\s*k\b)/i);
       if (r) { const v = (r[1] || r[2]).replace(/,/g, ''); p.price = /k$/i.test(v.trim()) ? parseFloat(v) * 1000 : Number(v); }
     }
     const sender = m.who && !/^\+?\d[\d\s-]+$/.test(m.who) ? m.who : '';
     const senderPh = m.who && /^\+?\d[\d\s-]{9,}$/.test(m.who) ? tel(m.who) : '';
-    return { i, on: true, kind, p, text: m.text.trim(), date: m.date, name: p.name || sender || '', phone: p.phone || senderPh || '' };
+    const ownPh = ownPhones().has(tel(p.phone));
+    return { i, m, on: !(NOT_LISTING.test(m.text)), kind, p, text: m.text.trim(), date: m.date, name: ownPh ? '' : p.name || sender || '', phone: ownPh ? '' : p.phone || senderPh || '' };
   });
 }
 function waLine(x) {
@@ -1081,6 +1287,7 @@ function waLine(x) {
   return [a && areaName(a, getLang()), p.bhk && p.bhk + ' BHK', p.ptype && t(p.ptype), p.size && `${p.size} ${unitLabel(p.size_unit || 'sqft')}`, p.price && moneyShort(p.price), p.rate && `${money(p.rate)}/${unitLabel(p.rate_unit || defaultUnit(p.ptype || 'flat'))}`, p.furnished === true ? t('furnished') : null].filter(Boolean).join(' · ');
 }
 async function waSave(x) {
+  if (x.kind === 'mine') { const r = await saveOwnListings([ownListing(x.m || { text: x.text, date: x.date }, x.p)]); return r; }
   const c = await upsertCustomer(x.name || null, x.phone || null);
   const p = x.p, note = `WhatsApp${x.date ? ' ' + x.date : ''}: ${x.text}`.slice(0, 1500);
   if (x.kind === 'sell' || x.kind === 'rentout') {
@@ -1101,7 +1308,8 @@ async function waImport() {
     if (!f.items || !f.items.length) return [
       h('div', { class: 'small muted' }, t('wa_import_help')),
       f.items && !f.items.length ? h('div', { class: 'authmsg bad' }, t('wa_nothing')) : null,
-      h('textarea', { class: 'input area', rows: 8, value: f.text, placeholder: 'Vesu 3BHK flat 1650 sqft 1.25 cr, Rameshbhai 98250xxxxx', oninput: (e) => { f.text = e.target.value; } }),
+      h('textarea', { class: 'input area', rows: 8, value: f.text, placeholder: 'Vesu 3BHK flat 1650 sqft 1.25 cr, Rameshbhai 98250xxxxx', oninput: (e) => { f.text = e.target.value; },
+        onpaste: (e) => setTimeout(() => { f.text = e.target.value; if (f.text.trim()) { f.items = waItems(f.text); api.redraw(); } }, 60) }),
       h('button', { class: 'btn gold big', onclick: () => { f.items = waItems(f.text); api.redraw(); } }, t('wa_read'))];
     const on = f.items.filter((x) => x.on);
     return [
@@ -1111,11 +1319,12 @@ async function waImport() {
           h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: x.on, onchange: (e) => { x.on = e.target.checked; api.redraw(); } }), h('span', { class: 'b small' }, waLine(x) || t('wa_no_details'))),
           h('button', { class: 'linkbtn xs', onclick: () => {
             const o = fromParse(x.p, x.text);
-            if (x.kind === 'sell' || x.kind === 'rentout') propertyForm({ ...o, deal: x.kind === 'rentout' ? 'rent' : 'sale', owner_name: x.name, owner_phone: x.phone, notes: x.text });
+            if (x.kind === 'mine') propertyForm(ownListing(x.m || { text: x.text, date: x.date }, x.p));
+            else if (x.kind === 'sell' || x.kind === 'rentout') propertyForm({ ...o, deal: x.kind === 'rentout' ? 'rent' : 'sale', owner_name: x.name, owner_phone: x.phone, notes: x.text });
             else inquiryForm({ name: x.name, phone: x.phone, area_id: x.p.area_id, ptype: x.p.ptype, deal: x.kind === 'rentwant' ? 'rent' : 'buy', budget: x.p.price, notes: x.text }, () => { x.on = false; x.done = true; api.redraw(); render(); });
           } }, t('edit'))),
         seg(WA_KINDS.map(([k, l]) => [k, t(l)]), x.kind, (v) => { x.kind = v; api.redraw(); }),
-        h('div', { class: 'grid2' },
+        x.kind === 'mine' ? null : h('div', { class: 'grid2' },
           h('input', { class: 'input', placeholder: t('name'), value: x.name, oninput: (e) => { x.name = e.target.value; } }),
           h('input', { class: 'input', placeholder: t('phone'), inputmode: 'tel', value: x.phone, oninput: (e) => { x.phone = e.target.value; } })),
         h('div', { class: 'xs muted clamp3' }, x.text))),
@@ -1126,9 +1335,9 @@ async function waImport() {
           const list = f.items.filter((x) => x.on);
           if (!list.length) return toast(t('select_first'), true);
           btn.disabled = true; btn.textContent = t('please_wait');
-          let np = 0, ni = 0;
-          for (const x of list) { try { await waSave(x); if (x.kind === 'sell' || x.kind === 'rentout') np++; else ni++; } catch (e) { fail(e); } }
-          sh.close(); render(); toast(`✓ ${np} ${t('wa_saved_props')} · ${ni} ${t('wa_saved_inq')}`);
+          let np = 0, ni = 0, nm = 0, nd = 0;
+          for (const x of list) { try { const r = await waSave(x); if (x.kind === 'mine') { nm += r.n; nd += r.dup; } else if (x.kind === 'sell' || x.kind === 'rentout') np++; else ni++; } catch (e) { fail(e); } }
+          sh.close(); render(); toast(`✓ ${nm ? `${nm} ${t('my_props')} · ` : ''}${nd ? `${nd} ${t('wa_dup')} · ` : ''}${np} ${t('wa_saved_props')} · ${ni} ${t('wa_saved_inq')}${cloud.ready ? ' · ☁' : ''}`);
         } }, `${t('save')} (${on.length})`))];
   }, { full: true });
 }
@@ -1283,17 +1492,47 @@ function brokerForm(init, after) {
 }
 function brokersSheet(onPick) {
   const sh = openSheet(t('brokers'), (api) => [
-    h('button', { class: 'btn gold', onclick: () => brokerForm({}, (b) => { if (onPick && b) { sh.close(); onPick(b); } else api.redraw(); }) }, icon('plus', 18), t('add')),
+    h('div', { class: 'grid2' },
+      h('button', { class: 'btn gold', onclick: () => brokerForm({}, (b) => { if (onPick && b) { sh.close(); onPick(b); } else api.redraw(); }) }, icon('plus', 18), t('add')),
+      h('button', { class: 'btn', onclick: () => brokerFromContacts((b) => { if (onPick && b) { sh.close(); onPick(b); } else api.redraw(); }) }, '📇 ', t('from_contacts'))),
     S.data.brokers.length ? S.data.brokers.slice().sort((a, b) => a.name.localeCompare(b.name)).map((b) => h('div', { class: 'card inset' },
       h('div', { class: 'between' }, h('button', { class: 'duetext grow', onclick: () => { if (onPick) { sh.close(); onPick(b); } else brokerForm(b, api.redraw); } }, h('div', { class: 'b' }, b.name), h('div', { class: 'xs muted' }, [b.firm, b.phone && '+91 ' + b.phone].filter(Boolean).join(' · '))),
         b.phone && h('a', { class: 'btn green', href: 'tel:+91' + b.phone }, t('call'))))) : h('div', { class: 'empty' }, '—'),
   ]);
 }
+// Pick a dalal straight from the phone's contacts (Android Chrome), or from a copied contact / number (iPhone),
+// then check the name and save. Already saved (same number)? Use that one.
+async function brokerFromContacts(onPick) {
+  const done = (b) => { if (b && onPick) onPick(b); };
+  const known = (ph) => S.data.brokers.find((b) => tel(b.phone) && tel(b.phone) === tel(ph));
+  try {
+    if (navigator.contacts && navigator.contacts.select) {
+      const list = await navigator.contacts.select(['name', 'tel'], { multiple: true });
+      for (const c of list || []) {
+        const ph = tel((c.tel || [])[0]), nm = ((c.name || [])[0] || '').trim();
+        const k = ph && known(ph); if (k) { done(k); continue; }
+        await new Promise((ok) => brokerForm({ name: nm, phone: ph }, (b) => { done(b); ok(); }));
+      }
+      return;
+    }
+  } catch { /* cancelled or not allowed: fall back to the clipboard */ }
+  let clip = '';
+  try { clip = navigator.clipboard && navigator.clipboard.readText ? (await navigator.clipboard.readText()) || '' : ''; } catch { clip = ''; }
+  const ph = allPhones(clip)[0] || '';
+  const k = ph && known(ph); if (k) { toast(`✓ ${k.name}`); return done(k); }
+  const nm = ph ? cleanLine(clip.replace(/(?:\+?91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}/g, ' ').split(/\n/)[0]).slice(0, 40) : '';
+  if (!ph) toast(t('contact_help'));
+  brokerForm({ name: nm, phone: ph }, done);
+}
 // Brokers attached to a property or deal, each with a share of the brokerage in percent.
 function brokerRows(f, redraw) {
   f.brokers = f.brokers || [];
   return h('div', { class: 'card inset' },
-    h('div', { class: 'between' }, h('span', { class: 'b' }, t('other_brokers')), h('button', { type: 'button', class: 'linkbtn', onclick: () => brokersSheet((b) => { if (!f.brokers.some((x) => x.broker_id === b.id)) f.brokers.push({ broker_id: b.id, share: '' }); redraw(); }) }, '+ ', t('add'))),
+    h('div', { class: 'between' }, h('span', { class: 'b' }, t('other_brokers')),
+      h('div', { class: 'chips' },
+        h('button', { type: 'button', class: 'linkbtn', onclick: () => brokerFromContacts((b) => { if (!f.brokers.some((x) => x.broker_id === b.id)) f.brokers.push({ broker_id: b.id, share: '' }); redraw(); }) }, '📇 ', t('from_contacts')),
+        h('button', { type: 'button', class: 'linkbtn', onclick: () => brokersSheet((b) => { if (!f.brokers.some((x) => x.broker_id === b.id)) f.brokers.push({ broker_id: b.id, share: '' }); redraw(); }) }, '+ ', t('add')))),
+    f.brokers.length ? null : h('div', { class: 'xs muted' }, t('broker_hint')),
     f.brokers.map((x, ix) => h('div', { class: 'join' }, h('div', { class: 'input pick' }, brokerOf(x.broker_id) ? brokerOf(x.broker_id).name : '—'),
       h('input', { class: 'input share', inputmode: 'decimal', placeholder: t('share_pct'), 'aria-label': t('share_pct'), value: x.share ?? '', oninput: (e) => { x.share = e.target.value; } }),
       h('button', { type: 'button', class: 'iconbtn', 'aria-label': t('del'), onclick: () => { f.brokers.splice(ix, 1); redraw(); } }, icon('x', 18)))));
@@ -1549,8 +1788,8 @@ function cgCalc() {
 // ---------- visiting card ----------
 async function shareBizCard() {
   try {
-    const b = await fetch('img/card.jpg').then((r) => r.blob()), file = new File([b], 'ami-realtors-dharmesh-mehta.jpg', { type: 'image/jpeg' });
-    const text = `Ami Realtors – ${BRAND.tag_gu}\n${BRAND.person} · ${BRAND.phones}\nChowk Bazaar, Surat`;
+    const b = await fetch('img/card_en.jpg').then((r) => r.blob()), file = new File([b], 'ami-realtors-dharmesh-mehta.jpg', { type: 'image/jpeg' });
+    const text = `Ami Realtors – Property · Trust · Value\n${BRAND.person} · ${BRAND.phones}\nChowk Bazaar, Surat\nVisiting card: ${CARD_URL()}`;
     if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], text }).catch(() => {});
     else window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
   } catch (e) { fail(e); }
@@ -1559,7 +1798,7 @@ async function shareBizCard() {
 function viewMore() {
   const row = (k, fn) => h('button', { class: 'row big', onclick: fn }, h('span', {}, t(k)), icon('chev', 18));
   return [h('header', { class: 'hdr' }, h('h1', { class: 'grow' }, t('more'))),
-    h('section', { class: 'card bizcard' }, h('img', { src: 'img/card.jpg', alt: 'Ami Realtors – Dharmesh Mehta' }),
+    h('section', { class: 'card bizcard' }, h('img', { src: 'img/card_en.jpg', alt: 'Ami Realtors – Dharmesh Mehta' }),
       h('div', { class: 'grid2' }, h('button', { class: 'btn gold', onclick: shareBizCard }, '📤 ', t('share_bizcard')), h('a', { class: 'btn green', href: 'tel:+91' + BRAND.phone1 }, t('call'), ' ', BRAND.phones.split(' / ')[0]))),
     h('section', { class: 'card' }, row('prices', () => openPrices(S.price.area, S.price.ptype)), row('bulk_paste', bulkPaste), row('brokers', () => brokersSheet()), row('commission', commission)),
     h('section', { class: 'card' }, row('emi_calc', emiCalc), row('stamp_calc', stampCalc), row('cg_calc', cgCalc)),
@@ -1822,7 +2061,8 @@ const niceName = (x) => String(x || '').toLowerCase().replace(/\s+/g, ' ').trim(
 const projName = (p) => niceName(p.name);
 // One builder, one or more of their projects → a message that names them and only their own projects.
 function builderMsg(p, list, custom) {
-  const en = getLang() === 'en', ps = list && list.length ? list : [p];
+  const en = true, // WhatsApp messages to builders and owners always go in English
+    ps = list && list.length ? list : [p];
   const who = niceName(p.promoter);
   const names = ps.map(projName), last = names.length > 1 ? names.pop() : null;
   const projTxt = last ? `${names.join(', ')} ${en ? 'and' : 'અને'} ${last}` : names[0];
@@ -1849,10 +2089,10 @@ function broadcastSheet(projects) {
   }
   const rows = [...groups.values()].map((x) => ({ ph: x.ph, key: x.ph + '|' + x.who, who: x.who || '—', sub: x.list.map(projName).join(', '), msg: (custom) => builderMsg(x.list[0], x.list, custom) }));
   const noPhone = projects.filter((p) => !tel(p.phone)).length;
-  cardQueue(t('bc_title'), rows, noPhone, getLang() === 'en' ? 'Write your own message. {builder} = builder name, {project} = their projects' : 'પોતાનો મેસેજ લખો. {builder} = બિલ્ડરનું નામ, {project} = તેમના પ્રોજેક્ટ', 'b', true);
+  cardQueue(t('bc_title'), rows, noPhone, 'Write your own message (English). {builder} = builder name, {project} = their projects', 'b', true);
 }
 function adMsg(l) {
-  const en = getLang() === 'en', what = String(l.text || '').slice(0, 90);
+  const en = true, what = String(l.text || '').slice(0, 90);
   return en
     ? `Namaste, I saw your property ad${l.source ? ' in ' + l.source.split(',')[0] : ''}${l.date ? ' (' + l.date + ')' : ''}: "${what}". I am Dharmesh Mehta from Ami Realtors, Chowk Bazaar, Surat (${BRAND.phones}). We have serious buyers – can we talk? Our visiting card: ${CARD_URL()}`
     : `નમસ્તે, ${l.source ? l.source.split(',')[0] + 'માં ' : ''}આપની મિલકતની જાહેરાત જોઈ: "${what}". હું ધર્મેશ મહેતા, અમી રિયલ્ટર્સ, ચોક બજાર, સુરત (${BRAND.phones}). અમારી પાસે ગંભીર ખરીદદારો છે – વાત કરી શકીએ? અમારું વિઝિટિંગ કાર્ડ: ${CARD_URL()}`;
@@ -1873,7 +2113,7 @@ function cardQueue(title, rows, skipped, placeholder, kind, preview) {
     return [
       h('div', { class: 'small muted' }, `${rows.length} ${t('bc_numbers')}${skipped > 0 ? ` · ${skipped} ${t('bc_nophone')}` : ''}`),
       h('div', { class: 'card inset' }, h('div', { class: 'b small' }, t('bc_card')),
-        h('div', { class: 'prow' }, h('img', { src: 'img/card.jpg', alt: '', class: 'cardthumb' }), h('div', { class: 'grow stack tight' }, h('button', { class: 'btn sm', onclick: shareBizCard }, icon('share', 16), t('bc_card_share')), h('div', { class: 'xs muted' }, t('bc_card_help'))))),
+        h('div', { class: 'prow' }, h('img', { src: 'img/card_en.jpg', alt: '', class: 'cardthumb' }), h('div', { class: 'grow stack tight' }, h('button', { class: 'btn sm', onclick: shareBizCard }, icon('share', 16), t('bc_card_share')), h('div', { class: 'xs muted' }, t('bc_card_help'))))),
       field(t('bc_msg'), h('textarea', { class: 'input area', rows: 4, placeholder, value: f.text, onchange: (e) => { f.text = e.target.value; api.redraw(); }, oninput: (e) => { f.text = e.target.value; } })),
       h('div', { class: 'between' }, h('span', { class: 'b' }, `${sent.size}/${rows.length} ${t('bc_done')}`), sent.size ? h('button', { class: 'linkbtn', onclick: () => { sent.clear(); cfg.set(day, []); api.redraw(); } }, t('bc_reset')) : null),
       h('div', { class: 'progress' }, h('span', { style: `width:${rows.length ? (sent.size / rows.length) * 100 : 0}%` })),
@@ -2489,6 +2729,7 @@ function startLive() {
     if (ev === 'DELETE') S.data[table] = a.filter((r) => r.id !== (old && old.id));
     else if (row && row.id) { const i = a.findIndex((r) => r.id === row.id); if (i >= 0) { if (String(a[i].updated_at) > String(row.updated_at)) return; a[i] = row; } else a.push(row); }
     if (table === 'price_points') S.fits = null;
+    if (table === 'properties') syncOwnEvidence();
     softRender();
   });
   document.addEventListener('visibilitychange', () => { if (!document.hidden && cloud.ready && !cloud.live) startLive(); });
