@@ -710,17 +710,24 @@ function bulkPaste() {
       h('textarea', { class: 'input area', rows: 10, placeholder: '[12/11/26, 10:42:15] Ramesh Broker: Vesu 3BHK 1650 sqft 1.25 cr 98250xxxxx', oninput: (e) => { f.text = e.target.value; } }),
       h('button', { class: 'btn gold', onclick: () => { f.items = bulkItems(f.text); api.redraw(); } }, t('bulk_read'))];
     const nq = f.items.filter((x) => x.on && x.quote).length, nl = f.items.filter((x) => x.on && !x.quote && x.p.phone).length;
+    const setAll = (fn) => { for (const x of f.items) x.on = fn(x); api.redraw(); };
     return [
       h('div', { class: 'small b' }, `${f.items.length} ${t('bulk_found')} · ${nq} ${t('bulk_prices')} · ${nl} ${t('bulk_leads')}`),
+      h('div', { class: 'chips scroll' },
+        h('button', { class: 'chip', onclick: () => setAll(() => true) }, t('select_all')),
+        h('button', { class: 'chip', onclick: () => setAll((x) => !!x.quote) }, t('bulk_only_prices')),
+        h('button', { class: 'chip', onclick: () => setAll((x) => !x.quote && !!x.p.phone) }, t('bulk_only_leads')),
+        h('button', { class: 'chip', onclick: () => setAll(() => false) }, t('select_none'))),
       f.items.length ? f.items.map((x) => h('label', { class: 'pt row' + (x.on ? '' : ' out') },
         h('input', { type: 'checkbox', checked: x.on, onchange: (e) => { x.on = e.target.checked; api.redraw(); } }),
         h('div', { class: 'grow' },
           h('div', { class: 'small b' }, [x.quote ? `${areaName(areaById(x.quote.area_id), getLang())} · ${t(x.quote.ptype)} · ${rate(x.quote.price_sqft, defaultUnit(x.quote.ptype))}/${unitLabel(defaultUnit(x.quote.ptype))}` : t('bulk_lead_only'), x.p.phone && '📞 ' + x.p.phone].filter(Boolean).join(' · ')),
           h('div', { class: 'xs muted' }, [x.who, x.date].filter(Boolean).join(' · ')),
           h('div', { class: 'xs' }, x.text.slice(0, 160))))) : h('div', { class: 'muted' }, t('bulk_none')),
-      h('div', { class: 'grid2' },
+      h('div', { class: 'grid2 bulkbar' },
         h('button', { class: 'btn', onclick: () => { f.items = null; api.redraw(); } }, t('back')),
-        h('button', { class: 'btn gold', onclick: async () => {
+        h('button', { class: 'btn gold', onclick: async (ev) => {
+          const btn = ev.currentTarget; if (btn.disabled) return; btn.disabled = true; btn.textContent = t('please_wait');
           let q = 0, l = 0;
           const leads = cfg.get(LEADS_KEY, []);
           for (const x of f.items.filter((y) => y.on)) {

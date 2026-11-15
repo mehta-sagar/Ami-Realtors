@@ -236,3 +236,8 @@ h1.sm { font-size: 20px; line-height: 1.2; overflow: hidden; text-overflow: elli
 .msgbar { display: flex; gap: 12px; margin-top: 6px; } .srcs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .chatbar { position: sticky; bottom: 0; display: grid; grid-template-columns: 1fr auto; gap: 8px; background: var(--bg); padding-top: 6px; }
 .chatbar .input { min-height: 46px; resize: none; }
+.sheet-body > *, .stack > *, .chat > * { flex-shrink: 0; }
+.pt.row { align-items: flex-start; gap: 10px; padding: 10px; min-height: 0; border-bottom: 0; border-radius: 12px; }
+.pt.row input[type=checkbox] { width: 22px; height: 22px; margin-top: 2px; flex: none; accent-color: var(--green); }
+.pt.row .grow > div { overflow-wrap: anywhere; }
+.bulkbar { position: sticky; bottom: calc(-1 * (env(safe-area-inset-bottom) + 20px)); background: var(--bg); padding: 8px 0 calc(env(safe-area-inset-bottom) + 8px); z-index: 2; border-top: 1px solid var(--line); }
