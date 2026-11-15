@@ -33,44 +33,100 @@ export const cfg = {
   del(k) { localStorage.removeItem('ami.' + k); },
 };
 
-let sb = null, session = null;
+let sb = null, session = null, team = null, chan = null;
+// Built in so nobody has to paste keys: the publishable key is safe in an app (row-level security protects the data).
+export const SB_PUBLIC_KEY = 'sb_publishable_LBFkjCG99kfNQBPHuw_xxQ_bBdmIw-u';
 export const cloud = {
   get ready() { return !!(sb && session); },
   get email() { return session?.user?.email || ''; },
+  get uid() { return session?.user?.id || null; },
+  get team() { return team; },
+  get isOwner() { return !team || !team.role || team.role === 'owner'; },
+  get client() { return sb; },
   async init() {
-    const url = cfg.get('sbUrl', DEFAULT_SB_URL), key = cfg.get('sbKey', '');
-    sb = null; session = null;
-    if (!url || !key || !window.supabase) return false;
+    const url = cfg.get('sbUrl', DEFAULT_SB_URL) || DEFAULT_SB_URL, key = cfg.get('sbKey', '') || SB_PUBLIC_KEY;
+    sb = null; session = null; team = null;
+    if (!window.supabase) return false;
     try {
-      sb = window.supabase.createClient(url, key);
+      sb = window.supabase.createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true } });
       session = (await sb.auth.getSession()).data.session;
       sb.auth.onAuthStateChange((_e, s) => { session = s; });
-    } catch (e) { console.warn(e); sb = null; }
+      if (session) await this.loadTeam();
+    } catch (e) { console.warn(e); }
     return this.ready;
   },
+  async loadTeam() {
+    try {
+      const { data, error } = await sb.rpc('team_me');
+      if (!error) team = data;
+      else if (/team_me|function|schema cache/i.test(error.message)) team = { missing: true }; // database not updated to v3 yet
+      else team = cfg.get('team', null) || { offline: true };
+    } catch { team = cfg.get('team', null) || { offline: true }; }
+    if (team) cfg.set('team', team);
+    return team;
+  },
   async signIn(email, password, create) {
-    if (!sb) throw new Error('Add the Supabase URL and anon key first');
+    if (!sb) await this.init();
+    if (!sb) throw new Error('Cloud library did not load. Check the internet and reopen the app.');
     const r = create ? await sb.auth.signUp({ email, password }) : await sb.auth.signInWithPassword({ email, password });
     if (r.error) throw r.error;
     session = r.data.session;
-    if (!session) throw new Error('Check your email to confirm the account, then sign in');
+    if (!session) throw new Error('CONFIRM_EMAIL');
+    await this.loadTeam();
   },
-  async signOut() { if (sb) await sb.auth.signOut(); session = null; },
+  async resetPassword(email) { const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin }); if (error) throw error; },
+  async createTeam(name, person) { const { data, error } = await sb.rpc('create_team', { p_name: name, p_person: person }); if (error) throw error; team = data; cfg.set('team', team); return team; },
+  async joinTeam(code, person) { const { data, error } = await sb.rpc('join_team', { p_code: code, p_person: person }); if (error) throw error; team = data; cfg.set('team', team); return team; },
+  async invite(role) { const { data, error } = await sb.rpc('make_invite', { p_role: role }); if (error) throw error; return data; },
+  async members() { const { data, error } = await sb.from('team_members').select('*').order('created_at'); if (error) throw error; return data; },
+  async setRole(userId, role) { const { error } = await sb.from('team_members').update({ role }).eq('user_id', userId).eq('team_id', team.team_id); if (error) throw error; },
+  async signOut() { this.unlisten(); if (sb) await sb.auth.signOut(); session = null; team = null; cfg.del('team'); },
+  // Live sync: every insert / update / delete by anyone in the team arrives here within a second or two.
+  listen(tables, onChange) {
+    this.unlisten();
+    if (!this.ready) return;
+    chan = sb.channel('ami-live');
+    for (const table of tables) chan.on('postgres_changes', { event: '*', schema: 'public', table }, (p) => onChange(table, p.eventType, p.new, p.old));
+    chan.subscribe((status) => { cloud.live = status === 'SUBSCRIBED'; if (cloud.onStatus) cloud.onStatus(status); });
+  },
+  unlisten() { if (chan && sb) { sb.removeChannel(chan); } chan = null; cloud.live = false; },
 };
 
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'x'.repeat(32).replace(/x/g, () => ((Math.random() * 16) | 0).toString(16)));
 const localList = async (table) => (await kvGet('tbl:' + table)) || [];
 
+// Saves keep working before the v3 database update: unknown columns are dropped and the save is retried.
+async function upsertLoose(table, row) {
+  // owner / team are set by the database (a teammate editing my customer must not take it over)
+  let r = { ...row }; delete r.owner; delete r.team_id; delete r.updated_by;
+  for (let i = 0; i < 6; i++) {
+    const { error } = await sb.from(table).upsert(r);
+    if (!error) return r;
+    const m = /'([a-z_]+)' column|column "?([a-z_]+)"? (?:of relation \S+ )?does not exist/i.exec(error.message || '');
+    const col = m && (m[1] || m[2]);
+    if (!col || !(col in r)) throw error;
+    delete r[col];
+  }
+  throw new Error('save failed');
+}
 export const store = {
   async list(table) {
     if (cloud.ready) {
-      let q = sb.from(table).select('*');
-      if (table === 'price_points') q = q.gte('observed_on', new Date(Date.now() - 180 * 864e5).toISOString().slice(0, 10));
-      if (table === 'news') q = q.order('published_on', { ascending: false }).limit(60);
-      if (table === 'market') q = q.order('day', { ascending: false }).limit(1);
-      const { data, error } = await q;
-      if (error) throw error;
-      return data;
+      try {
+        let q = sb.from(table).select('*');
+        if (table === 'price_points') q = q.gte('observed_on', new Date(Date.now() - 180 * 864e5).toISOString().slice(0, 10));
+        if (table === 'news') q = q.order('published_on', { ascending: false }).limit(60);
+        if (table === 'market') q = q.order('day', { ascending: false }).limit(1);
+        const { data, error } = await q;
+        if (error) throw error;
+        kvSet('cache:' + table, data).catch(() => {});
+        return data;
+      } catch (e) {
+        // offline: show the last copy from this phone
+        const c = await kvGet('cache:' + table).catch(() => null);
+        if (c) { cloud.offline = true; return c; }
+        throw e;
+      }
     }
     return localList(table);
   },
@@ -78,13 +134,12 @@ export const store = {
     const now = new Date().toISOString();
     const row = { ...rec, id: rec.id || uuid(), created_at: rec.created_at || now, updated_at: now };
     if (cloud.ready) {
-      const { error } = await sb.from(table).upsert(row);
-      if (error) throw error;
-    } else {
-      const rows = await localList(table), i = rows.findIndex((r) => r.id === row.id);
-      if (i >= 0) rows[i] = row; else rows.push(row);
-      await kvSet('tbl:' + table, rows);
+      const saved = await upsertLoose(table, row);
+      return { ...row, ...saved };
     }
+    const rows = await localList(table), i = rows.findIndex((r) => r.id === row.id);
+    if (i >= 0) rows[i] = row; else rows.push(row);
+    await kvSet('tbl:' + table, rows);
     return row;
   },
   async remove(table, id) {
@@ -123,6 +178,7 @@ export const store = {
     if (ref?.startsWith('local:')) await kvDel('file:' + ref.slice(6));
     else if (ref?.startsWith('sb:') && cloud.ready) await sb.storage.from('property-files').remove([ref.slice(3)]);
   },
+  async hasLocal() { for (const t of PRIVATE) if ((await localList(t)).length) return true; return false; },
   // One-time move of phone data into the cloud after first sign-in.
   async uploadLocal() {
     if (!cloud.ready) throw new Error('Sign in first');
@@ -137,8 +193,7 @@ export const store = {
             return blob ? this.putFile(blob, ref.slice(43)) : ref;
           }));
         }
-        const { error } = await sb.from(table).upsert(r);
-        if (error) throw error;
+        await upsertLoose(table, r);
         n++;
       }
       if (rows.length) await kvSet('tbl:' + table, []);

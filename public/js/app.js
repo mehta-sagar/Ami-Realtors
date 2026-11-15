@@ -2,7 +2,9 @@ import { t, getLang, setLang, money, moneyShort, fmtDate } from './i18n.js';
 import { AREAS, SURAT, areaById, areaName, km, searchAreas, findAreaInText } from './areas.js';
 import { UNITS, unitsFor, inBounds, PTYPES, sqftPer, toSqft, rateToSqft, rateFromSqft, defaultUnit, summarize, emi, DEFAULT_VIGHA_SQFT } from './units.js';
 import { parseEntry } from './parse.js';
-import { store, cloud, cfg, lock, DEFAULT_SB_URL } from './store.js';
+import { store, cloud, cfg, lock, DEFAULT_SB_URL, SB_PUBLIC_KEY, PRIVATE } from './store.js';
+import { resolveMapsLink, coordsFromText, firstUrl, isMapsUrl, roadsAround, facilitiesAround } from './geo.js';
+import { DEFAULT_INPUTS, adjustments, incomeValue, rentFromValue, residualLand, fsiFor, agriValue, reconcile as reconcileVals, CAP, VACANCY, OUTGO } from './valuation.js';
 
 const S = {
   tab: 'today', newsCat: 'all', inqFilter: 'all', mapType: 'flat', mapSel: null, map: null,
@@ -39,31 +41,83 @@ const SVG = {
   gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.900 4.900l2.100 2.100M17 17l2.100 2.100M4.900 19.100L7 17M17 7l2.100-2.100"/>',
   loc: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/>',
   search: '<circle cx="11" cy="11" r="6.500"/><path d="M16 16l4.500 4.500"/>',
-  chev: '<polyline points="9,5 16,12 9,19"/>', down: '<polyline points="6,9 12,15 18,9"/>', plus: '<path d="M12 5v14M5 12h14"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  chev: '<polyline points="9,5 16,12 9,19"/>', backarrow: '<polyline points="15,5 8,12 15,19"/>', share: '<path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M12 3v13M7 8l5-5 5 5"/>', trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>', calc: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M16 11h0M8 15h2M12 15h2M16 15h0M8 18h2M12 18h4"/>', link: '<path d="M10 14a4 4 0 0 0 5.700 0l3-3a4 4 0 0 0-5.700-5.700l-1 1M14 10a4 4 0 0 0-5.700 0l-3 3a4 4 0 0 0 5.700 5.700l1-1"/>', wa: '<path d="M4 20l1.300-4A8 8 0 1 1 8 19z"/><path d="M9 9.500c.5 2 2 3.500 4 4.500l1.300-1.200 2 1-.5 1.700c-3.500.3-7.500-3.500-7.300-7l1.700-.5 1 2z"/>', down: '<polyline points="6,9 12,15 18,9"/>', plus: '<path d="M12 5v14M5 12h14"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>',
 };
 const icon = (name, size = 24) => h('span', { class: 'ic', 'aria-hidden': 'true', html: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${SVG[name]}</svg>` });
 const MARK = '<path stroke-linejoin="round" d="M78.6 24.3 A40 40 0 1 0 70 83.4 L70 49.2"/><path d="M26 56 L52 34 L78 56"/><path d="M34 49.2 V87.5"/><path d="M34 67 H70"/>';
 const mark = (size, sw = 6) => h('span', { class: 'mark', role: 'img', 'aria-label': 'Ami Realtors', html: `<svg width="${size}" height="${size}" viewBox="0 0 100 100" fill="none" stroke="#E3B341" stroke-width="${sw}">${MARK}</svg>` });
 
 function toast(msg, bad) {
+  document.querySelectorAll('.toast').forEach((x) => x.remove());
   const el = h('div', { class: 'toast' + (bad ? ' bad' : ''), role: 'status' }, msg);
   document.body.append(el);
   setTimeout(() => el.remove(), 2600);
 }
+// In-app yes/no (the browser's own confirm box looks foreign and blocks the page).
+function ask(msg, okLabel) {
+  return new Promise((res) => {
+    let done = false;
+    const fin = (v) => { if (done) return; done = true; res(v); };
+    const sh = openSheet(t('please_confirm'), () => [h('div', { class: 'small' }, msg),
+      h('div', { class: 'grid2' }, h('button', { class: 'btn', onclick: () => { fin(false); sh.userClose(); } }, t('cancel')), h('button', { class: 'btn gold', onclick: () => { fin(true); sh.userClose(); } }, okLabel || t('yes')))],
+    { onClose: () => fin(false) });
+  });
+}
+function undoToast(msg, undo) {
+  document.querySelectorAll('.toast').forEach((x) => x.remove());
+  const el = h('div', { class: 'toast undo', role: 'status' }, h('span', {}, msg), h('button', { onclick: async () => { el.remove(); try { await undo(); toast(t('restored')); } catch (e) { fail(e); } } }, t('undo')));
+  document.body.append(el);
+  setTimeout(() => el.remove(), 10000);
+}
 const fail = (e) => { console.error(e); toast(t('error') + ': ' + (e.message || e), true); };
 
-function openSheet(title, build) {
+// ---------- navigation: every sheet and sub-screen is a history entry, so the phone's back gesture,
+// Android's back button and the on-screen ← all step back one level instead of leaving the app.
+const NAV = [];
+function navPush(undo) { const e = { undo, dead: false }; NAV.push(e); history.pushState({ ami: NAV.length }, ''); return e; }
+function navBack() { history.back(); }
+window.addEventListener('popstate', () => {
+  const e = NAV.pop(); if (!e) return;
+  if (e.dead) { if (NAV.length) history.back(); return; } // entry already closed in code: skip it
+  e.undo();
+});
+const sheets = [];
+function openSheet(title, build, opts = {}) {
   const body = h('div', { class: 'sheet-body' });
+  const depth = sheets.length;
   const wrap = h('div', { class: 'sheet-wrap', onclick: (e) => { if (e.target === wrap) close(); } },
-    h('div', { class: 'sheet', role: 'dialog', 'aria-label': title },
-      h('div', { class: 'sheet-hd' }, h('h2', {}, title), h('button', { class: 'iconbtn', 'aria-label': t('close'), onclick: () => close() }, icon('x'))),
+    h('div', { class: 'sheet' + (opts.full ? ' full' : ''), role: 'dialog', 'aria-label': title },
+      h('div', { class: 'sheet-grip' }),
+      h('div', { class: 'sheet-hd' },
+        h('button', { class: 'iconbtn back', 'aria-label': t('back'), onclick: () => close() }, icon('backarrow')),
+        h('h2', { class: 'grow' }, title),
+        depth ? h('button', { class: 'iconbtn', 'aria-label': t('close'), onclick: () => closeAll() }, icon('x')) : null),
       body));
-  function close() { wrap.remove(); }
-  const api = { close, body, redraw: () => { body.replaceChildren(...[].concat(build(api)).flat(9).filter(Boolean)); } };
+  let gone = false;
+  function remove() { if (gone) return; gone = true; wrap.classList.add('out'); setTimeout(() => wrap.remove(), 180); const i = sheets.indexOf(api); if (i >= 0) sheets.splice(i, 1); if (opts.onClose) opts.onClose(); }
+  // Closed by the user (✕, tap outside, back): go back one history step. Closed by code after a save: mark dead.
+  function close() { if (gone) return; if (NAV[NAV.length - 1] === entry) navBack(); else { entry.dead = true; remove(); } }
+  function closeCode() { if (gone) return; entry.dead = true; remove(); }
+  function closeAll() { for (const s of sheets.slice().reverse()) s.close(); }
+  const api = { close: closeCode, userClose: close, body, redraw: () => { const st = body.scrollTop; body.replaceChildren(...[].concat(build(api)).flat(9).filter(Boolean)); body.scrollTop = st; } };
+  const entry = navPush(remove);
+  sheets.push(api);
   api.redraw();
   document.body.append(wrap);
   return api;
 }
+// Sub-screens (area prices, project, ad, news article, trash...). Tabs are the roots.
+function goSub(change) {
+  const snap = { tab: S.tab, detail: S.detail, propView: S.propView, scroll: $('.screen') ? $('.screen').scrollTop : 0 };
+  change();
+  navPush(() => { Object.assign(S, { tab: snap.tab, detail: snap.detail, propView: snap.propView }); render(); const sc = $('.screen'); if (sc) sc.scrollTop = snap.scroll; });
+  render();
+  const sc = $('.screen'); if (sc) sc.scrollTop = 0;
+}
+const openDetail = (kind, data) => goSub(() => { S.detail = { kind, data }; });
+const backHdr = (title, sub, extra) => h('header', { class: 'hdr sub' },
+  h('button', { class: 'iconbtn back', 'aria-label': t('back'), onclick: navBack }, icon('backarrow')),
+  h('div', { class: 'grow' }, h('h1', { class: 'sm' }, title), sub && h('div', { class: 'muted small' }, sub)), extra || null);
 
 const field = (label, input) => h('label', { class: 'field' }, h('span', {}, label), input);
 const inp = (o, key, attrs = {}) => h('input', { class: 'input', value: o[key] ?? '', oninput: (e) => { o[key] = e.target.value; }, ...attrs });
@@ -95,7 +149,8 @@ async function load() {
   }
   // Public data written by the daily agent ships with the site as plain files.
   const pub = async (f) => { try { const r = await fetch('data/' + f + '.json', { cache: 'no-store' }); return r.ok ? await r.json() : []; } catch { return []; } };
-  const [news, market, prices, insights, tags, leads, pprices] = await Promise.all([pub('news'), pub('market'), pub('prices'), pub('insights'), pub('tags'), pub('leads'), pub('project_prices')]);
+  const [news, market, prices, insights, tags, leads, pprices, refs] = await Promise.all([pub('news'), pub('market'), pub('prices'), pub('insights'), pub('tags'), pub('leads'), pub('project_prices'), pub('refs')]);
+  S.refs = refs && !Array.isArray(refs) ? refs : {};
   S.leads = Array.isArray(leads) ? leads : []; S.projPrices = pprices && !Array.isArray(pprices) ? pprices : {};
   loadProjects().then(() => { if (S.tab === 'prices' || S.tab === 'properties') render(); });
   addMyAreas(); S.villagesLoaded = false; loadVillages(); loadRiver();
@@ -120,7 +175,9 @@ function viewMap() {
       h('label', { class: 'searchbox' }, icon('search', 20),
         h('input', { id: 'mapq', placeholder: t('search_area'), 'aria-label': 'Search area', autocapitalize: 'none', autocomplete: 'off', enterkeyhint: 'search', oninput: mapSuggest, onkeydown: (e) => { if (e.key === 'Enter') mapSearch(e.target.value); } })),
       h('div', { id: 'mapsug', class: 'sug' }),
-      h('button', { class: 'locbtn', 'aria-label': t('my_location'), onclick: myLocation }, icon('loc', 20), h('span', {}, t('my_location'))),
+      h('div', { class: 'maprow' },
+        h('button', { class: 'locbtn', 'aria-label': t('my_location'), onclick: myLocation }, icon('loc', 20), h('span', {}, t('my_location'))),
+        h('button', { class: 'locbtn', 'aria-label': t('link_title'), onclick: linkSheet }, icon('link', 20), h('span', {}, t('link_short')))),
       chips([['flat', `${t('flat')} · ${t('u_sqft')}`], ['plot', `${t('plot')} · ${t('u_var')}`], ['land', `${t('land')} · ${t('u_vigha')}`], ['industrial', `${t('industrial')} · ${t('u_sqft')}`]], S.mapType, (v) => { S.mapType = v; render(); }, 'onmap scroll')),
     h('div', { id: 'mapcard' }),
   ];
@@ -307,7 +364,7 @@ async function loadPlaces() {
       if (!r.ok) continue;
       const j = await r.json();
       const known = new Set(AREAS.flatMap((a) => a.keys));
-      S.places = j.elements.map((e) => ({ en: e.tags['name:en'] || e.tags.name, gu: e.tags['name:gu'] || (/[઀-૿]/.test(e.tags.name) ? e.tags.name : ''), lat: e.lat, lng: e.lon, type: e.tags.place }))
+      S.places = j.elements.filter((e) => e.lat != null && e.tags && e.tags.name).map((e) => ({ en: e.tags['name:en'] || e.tags.name, gu: e.tags['name:gu'] || (/[઀-૿]/.test(e.tags.name) ? e.tags.name : ''), lat: e.lat, lng: e.lon, type: e.tags.place }))
         .filter((p) => !known.has((p.en || '').toLowerCase()));
       try { cfg.set(PLACES_KEY, { at: Date.now(), rows: S.places }); } catch { /* storage full: keep in memory only */ }
       if (S.map) drawPins();
@@ -401,9 +458,10 @@ function drawMapCard() {
       h('div', { class: 'between' }, h('span', { class: 'gold xs b' }, pa && pa.own ? t('market_rate') : t('nearby_estimate')), h('span', { class: 'title big' }, pa ? (pa.own ? '' : pa.conf === 'floor' ? '≥ ' : '≈ ') + rate(pa.value, pu) : t('no_price'))),
       pa ? h('div', { class: 'xs muted' }, srcLine(pa, pu)) : h('div', { class: 'xs muted' }, t('no_nearby')),
       allRows,
-      h('div', { class: 'grid2' }, gmapsBtn(sp.lat, sp.lng), h('button', { class: 'btn', onclick: () => savePlace(sp) }, '＋ ', t('save_place'))),
-      nProj ? h('button', { class: 'btn', onclick: () => { S.propView = 'projects'; S.projQ = { year: 'all', type: 'all', q: '', areas: projNear, n: 40 }; go('properties'); } }, `🏗 ${t('proj_near')}: ${nProj}`) : null,
-      near && near.d <= 8 && h('button', { class: 'btn gold', onclick: () => { S.spotAt = null; S.price.area = near.a.id; S.price.ptype = S.mapType; S.price.unit = null; S.price.grade = 'all'; S.tab = 'prices'; render(); } }, `${t('full_detail')}: ${areaName(near.a, getLang())}`)));
+      h('button', { class: 'btn gold', onclick: () => openDetail('value', { lat: sp.lat, lng: sp.lng, label: sp.label, ptype: pType, area: hint ? hint.id : null }) }, icon('calc', 18), t('valuation')),
+      h('div', { class: 'grid3' }, h('a', { class: 'btn sm', href: gmaps(sp.lat, sp.lng), target: '_blank', rel: 'noopener' }, '🗺 Maps'), h('button', { class: 'btn sm', onclick: () => savePlace(sp) }, '＋ ', t('save_short')), h('button', { class: 'btn sm', 'aria-label': t('close'), onclick: () => { S.spotAt = null; if (S.spot) { S.spot.remove(); S.spot = null; } drawMapCard(); } }, '✕')),
+      nProj ? h('button', { class: 'btn', onclick: () => goProjects({ areas: projNear }) }, `🏗 ${t('proj_near')}: ${nProj}`) : null,
+      near && near.d <= 8 && h('button', { class: 'btn gold', onclick: () => openPrices(near.a.id, S.mapType) }, `${t('full_detail')}: ${areaName(near.a, getLang())}`)));
   }
   const a = S.mapSel && areaById(S.mapSel);
   if (!a) return el.replaceChildren();
@@ -418,8 +476,8 @@ function drawMapCard() {
       h('div', { class: 'tile dark' }, h('div', { class: 'gold xs' }, est ? t('nearby_estimate') : t('market_rate')), h('div', { class: 'b' }, est ? '≈ ' + rate(est.value, unit) : rate(mk.median, unit)))),
     est && h('div', { class: 'xs muted' }, t('based_on'), ': ', knnLine(est, unit)),
     gmapsBtn(null, null, `${a.en.replace(/\s*\(.*\)/, '')}, ${a.district}, Gujarat`),
-    S.projects && S.projects.some((p) => p.area_id === a.id) && h('button', { class: 'btn', onclick: () => { S.propView = 'projects'; S.projQ = { year: 'all', type: 'all', q: '', area: a.id, n: 40 }; go('properties'); } }, `🏗 ${t('proj_near')}: ${S.projects.filter((p) => p.area_id === a.id).length}`),
-    h('button', { class: 'btn gold', onclick: () => { S.price.area = a.id; S.price.ptype = S.mapType; S.price.unit = null; S.price.grade = 'all'; S.tab = 'prices'; render(); } }, t('full_detail'))));
+    S.projects && S.projects.some((p) => p.area_id === a.id) && h('button', { class: 'btn', onclick: () => goProjects({ area: a.id }) }, `🏗 ${t('proj_near')}: ${S.projects.filter((p) => p.area_id === a.id).length}`),
+    h('button', { class: 'btn gold', onclick: () => openPrices(a.id, S.mapType) }, t('full_detail'))));
 }
 function mapSuggest(e) {
   const q = e.target.value.trim(), box = $('#mapsug');
@@ -440,6 +498,7 @@ function goPlace(p) {
 }
 async function mapSearch(q) {
   q = q.trim(); if (!q) return;
+  if (coordsFromText(q) || isMapsUrl(firstUrl(q))) return priceFromLink(q);
   const local = searchAreas(q);
   if (local.length) return goArea(local[0]);
   const pl = searchPlaces(q);
@@ -694,7 +753,7 @@ function propertyForm(init) {
     } });
     return h('div', { class: 'files' }, pick, h('button', { type: 'button', class: 'btn dashed', onclick: () => pick.click() }, '+ ', label),
       f[key].map((ref, ix) => {
-        const el = h('button', { type: 'button', class: 'thumb sm', 'aria-label': t('del'), onclick: async () => { if (confirm(t('confirm_del'))) { await store.removeFile(ref).catch(() => {}); f[key].splice(ix, 1); sh.redraw(); } } }, key === 'docs' ? 'DOC' : '');
+        const el = h('button', { type: 'button', class: 'thumb sm', 'aria-label': t('del'), onclick: async () => { if (await ask(t('confirm_del'))) { await store.removeFile(ref).catch(() => {}); f[key].splice(ix, 1); sh.redraw(); } } }, key === 'docs' ? 'DOC' : '');
         if (key === 'photos') store.fileUrl(ref).then((u) => { if (u) el.style.backgroundImage = `url(${u})`; });
         return el;
       }));
@@ -718,7 +777,7 @@ function propertyForm(init) {
         sh.close(); toast(t('saved')); render();
       } catch (e) { fail(e); }
     } }, t('save')),
-    f.id && h('button', { class: 'btn danger', onclick: async () => { if (confirm(t('confirm_del'))) { await delRec('properties', f.id).catch(fail); sh.close(); render(); } } }, t('del')),
+    f.id && h('button', { class: 'btn danger', onclick: async () => { if (await ask(t('confirm_del'))) { await delRec('properties', f.id).catch(fail); sh.close(); render(); } } }, t('del')),
   ]);
 }
 
@@ -789,12 +848,11 @@ function dealForm(init, after) {
     field(t('deal_value'), numInp(f, 'deal_value')), h('div', { class: 'grid2' }, field(t('brokerage_due'), numInp(f, 'brokerage_due')), field(t('brokerage_recv'), numInp(f, 'brokerage_received'))),
     brokerRows(f, api.redraw),
     h('button', { class: 'btn gold', onclick: async () => { try { await saveRec('deals', { id: f.id, created_at: f.created_at, title: f.title || null, client: f.client || null, deal_date: f.deal_date || null, deal_value: N(f.deal_value), brokerage_due: N(f.brokerage_due), brokerage_received: N(f.brokerage_received), brokers: cleanBrokers(f.brokers) }); sh.close(); after(); } catch (e) { fail(e); } } }, t('save')),
-    f.id && h('button', { class: 'btn danger', onclick: async () => { if (confirm(t('confirm_del'))) { await delRec('deals', f.id).catch(fail); sh.close(); after(); } } }, t('del'))]);
+    f.id && h('button', { class: 'btn danger', onclick: async () => { if (await ask(t('confirm_del'))) { await delRec('deals', f.id).catch(fail); sh.close(); after(); } } }, t('del'))]);
 }
 function settings() {
-  const f = { vigha: vigha(), bizPhone: cfg.get('bizPhone', ''), sbUrl: cfg.get('sbUrl', DEFAULT_SB_URL), sbKey: cfg.get('sbKey', ''), email: cloud.email, password: '', pin: '' };
+  const f = { vigha: vigha(), bizPhone: cfg.get('bizPhone', ''), pin: '' };
   const sh = openSheet(t('settings'), (api) => {
-    const auth = async (create) => { try { cfg.set('sbUrl', f.sbUrl.trim()); cfg.set('sbKey', f.sbKey.trim()); await cloud.init(); await cloud.signIn(f.email.trim(), f.password, create); await load(); api.redraw(); render(); toast(t('cloud_on')); } catch (e) { fail(e); } };
     return [
       h('h3', {}, t('language')), seg([['gu', 'ગુજરાતી'], ['en', 'English']], getLang(), (v) => { setLang(v); sh.close(); render(); settings(); }),
       field(t('vigha_size'), numInp(f, 'vigha', { onchange: () => { cfg.set('vigha', N(f.vigha) || DEFAULT_VIGHA_SQFT); render(); } })),
@@ -809,31 +867,44 @@ function settings() {
       lock.hasPin ? [h('button', { class: 'btn', onclick: () => { lock.clear(); api.redraw(); } }, t('remove_pin')),
         lock.hasFace ? h('div', { class: 'small goldtext b' }, t('faceid_on')) : (window.PublicKeyCredential && h('button', { class: 'btn green', onclick: async () => { try { await lock.enableFace(); api.redraw(); } catch (e) { fail(e); } } }, t('enable_faceid')))]
         : h('div', { class: 'join' }, inp(f, 'pin', { type: 'password', inputmode: 'numeric', maxlength: 4, placeholder: t('pin_4'), autocomplete: 'off' }), h('button', { class: 'btn green', onclick: async () => { if (!/^\d{4}$/.test(f.pin)) return toast(t('pin_4'), true); await lock.setPin(f.pin); f.pin = ''; api.redraw(); } }, t('set_pin'))),
-      h('h3', {}, t('cloud')), h('div', { class: 'small ' + (cloud.ready ? 'goldtext b' : 'muted') }, cloud.ready ? `${t('cloud_on')} · ${cloud.email}` : t('cloud_off')),
-      cloud.ready ? [h('button', { class: 'btn green', onclick: async () => { try { const n = await store.uploadLocal(); await load(); render(); toast(`${t('done')} (${n})`); } catch (e) { fail(e); } } }, t('upload_local')),
-        h('button', { class: 'btn', onclick: async () => { await cloud.signOut(); await load(); api.redraw(); render(); } }, t('sign_out'))]
-        : [field(t('sb_url'), inp(f, 'sbUrl', { autocapitalize: 'none' })), field(t('sb_key'), inp(f, 'sbKey', { autocapitalize: 'none', autocomplete: 'off' })),
-          h('div', { class: 'grid2' }, field(t('email'), inp(f, 'email', { type: 'email', autocapitalize: 'none' })), field(t('password'), inp(f, 'password', { type: 'password' }))),
-          h('div', { class: 'grid2' }, h('button', { class: 'btn green', onclick: () => auth(false) }, t('sign_in')), h('button', { class: 'btn', onclick: () => auth(true) }, t('sign_up')))],
+      h('h3', {}, t('cloud')),
+      h('div', { class: 'small goldtext b' }, `${cloud.live ? '🟢 ' + t('live_on') : '🟡 ' + t('live_off')} · ${cloud.email}`),
+      cloud.team && !cloud.team.missing && h('div', { class: 'small' }, `${cloud.team.team_name} · ${t('role_' + cloud.team.role)}`),
+      h('button', { class: 'btn green', onclick: async () => { try { const n = await store.uploadLocal(); await load(); render(); toast(`${t('done')} (${n})`); } catch (e) { fail(e); } } }, t('upload_local')),
+      h('button', { class: 'btn', onclick: async () => { if (await ask(t('sign_out') + '?')) { await cloud.signOut(); location.reload(); } } }, t('sign_out')),
     ];
   });
 }
 
 // ---------- shell ----------
 function render() {
-  if (S.map && S.tab !== 'map') { S.map.remove(); S.map = null; }
+  if (S.map && (S.tab !== 'map' || S.detail)) { S.map.remove(); S.map = null; }
+  if (S.dmap) { S.dmap.remove(); S.dmap = null; }
   if (S.pmap) { S.pmap.remove(); S.pmap = null; }
-  const view = { today: viewToday, map: viewMap, prices: viewPrices, customers: viewCustomers, properties: viewProps, more: viewMore }[S.tab]();
-  $('#app').replaceChildren(h('main', { class: 'screen ' + S.tab }, view), tabbar());
-  if (S.tab === 'map') initMap();
-  if (S.tab === 'properties' && S.propView === 'projects' && S.projQ && S.projQ.mapOn && S.projects && S.projects.length) initProjMap();
+  const view = S.detail ? viewDetail() : { today: viewToday, map: viewMap, prices: viewPrices, customers: viewCustomers, properties: viewProps, more: viewMore }[S.tab]();
+  $('#app').replaceChildren(h('main', { class: 'screen ' + (S.detail ? 'detail' : S.tab) }, view), tabbar());
+  if (S.tab === 'map' && !S.detail) initMap();
+  if (S.detail && S.detail.after) S.detail.after();
+  if (!S.detail && S.tab === 'properties' && S.propView === 'projects' && S.projQ && S.projQ.mapOn && S.projects && S.projects.length) initProjMap();
 }
 function tabbar() {
   const cur = S.tab === 'prices' ? 'map' : S.tab;
   return h('nav', { class: 'tabbar', 'aria-label': 'Tabs' }, ['today', 'map', 'customers', 'properties', 'more'].map((k) =>
-    h('button', { class: k === cur ? 'on' : '', 'aria-current': k === cur ? 'page' : null, onclick: () => { S.tab = k; render(); } }, icon(k), h('span', {}, t(k)))));
+    h('button', { class: k === cur ? 'on' : '', 'aria-current': k === cur ? 'page' : null, onclick: () => go(k) }, icon(k), h('span', {}, t(k)))));
 }
-const go = (tab) => { S.tab = tab; render(); };
+// Tab bar = the roots: closes every sheet and sub-screen.
+function go(tab) {
+  for (const sh of sheets.slice().reverse()) sh.close();
+  for (const e of NAV) e.dead = true;
+  if (S.tab === tab && !S.detail) { const sc = $('.screen'); if (sc) sc.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+  S.tab = tab; S.detail = null; render();
+}
+function openPrices(areaId, ptype) {
+  goSub(() => { S.spotAt = null; S.price.area = areaId; if (ptype) S.price.ptype = ptype; S.price.unit = null; S.price.grade = 'all'; S.tab = 'prices'; S.detail = null; });
+}
+function goProjects(q) {
+  goSub(() => { S.tab = 'properties'; S.propView = 'projects'; S.projOnly = null; S.projQ = { year: 'all', type: 'all', q: '', area: null, n: 40, ...q }; S.detail = null; });
+}
 
 // ---------- customers (CRM) ----------
 const ST = ['new', 'visit', 'nego', 'token', 'dastavej', 'closed', 'lost'];
@@ -857,9 +928,9 @@ async function ensureCustomers() {
 }
 function dueItems() {
   const end = new Date(); end.setHours(23, 59, 59);
-  const fu = S.data.inquiries.filter((i) => !['closed', 'lost'].includes(i.status) && i.followup_at && new Date(i.followup_at) <= end)
+  const fu = S.data.inquiries.filter((i) => !isGone(i) && !['closed', 'lost'].includes(i.status) && i.followup_at && new Date(i.followup_at) <= end)
     .map((i) => ({ at: i.followup_at, title: `${t('followup')}: ${inqName(i)}`, sub: inqLine(i), inq: i }));
-  const tk = S.data.tasks.filter((x) => !x.done && (!x.due_at || new Date(x.due_at) <= end)).map((x) => ({ at: x.due_at, title: x.title, sub: custOf(x.customer_id) ? custLabel(custOf(x.customer_id)) : '', task: x }));
+ const tk = S.data.tasks.filter((x) => !isGone(x) && !x.done && (!x.due_at || new Date(x.due_at) <= end)).map((x) => ({ at: x.due_at, title: x.title, sub: custOf(x.customer_id) ? custLabel(custOf(x.customer_id)) : '', task: x }));
   return [...fu, ...tk].sort((a, b) => String(a.at || '').localeCompare(String(b.at || '')));
 }
 function dueRow(d, after) {
@@ -889,17 +960,18 @@ function viewToday() {
       h('button', { class: 'iconbtn', 'aria-label': t('settings'), onclick: settings }, icon('gear'))),
     m && h('div', { class: 'grid4' }, [['gold', m.gold_10g, moneyShort], ['silver', m.silver_kg, moneyShort], ['sensex', m.sensex, (x) => Number(x).toLocaleString('en-IN')], ['home_loan', m.home_loan_rate, (x) => x + '%']]
       .map(([k, v, f]) => h('div', { class: 'tile' }, h('div', { class: 'muted xs' }, t(k)), h('div', { class: 'b' }, v == null ? '—' : f(v))))),
+    h('button', { class: 'hero linkhero', onclick: linkSheet }, h('span', { class: 'hero-ic' }, '📍'), h('div', { class: 'grow' }, h('div', { class: 'hero-t' }, t('link_title')), h('div', { class: 'xs' }, t('link_sub'))), icon('chev', 18)),
     !pushOn() && h('button', { class: 'btn gold', onclick: async () => { await enablePush(); render(); } }, '🔔 ', t('push_enable')),
     h('section', { class: 'card' },
       h('div', { class: 'between' }, h('h2', {}, t('todo_today')), h('button', { class: 'linkbtn', onclick: () => taskForm({}, render) }, '+ ', t('task'))),
       due.length ? due.map((d) => dueRow(d, render)) : h('div', { class: 'muted small' }, t('no_followups'))),
     h('div', { class: 'rowhd' }, h('h2', {}, t('news'))),
     chips(cats.map((c) => [c, c === 'all' ? t('all') : t('cat_' + c)]), S.newsCat, (c) => { S.newsCat = c; render(); }, 'scroll'),
-    news.length ? news.map((n) => h('article', { class: 'card' },
+    news.length ? news.map((n) => h('article', { class: 'card tap', onclick: (e) => { if (!e.target.closest('a,button')) openDetail('news', n); } },
       h('div', { class: 'tag' }, t('cat_' + n.category), ' · ', fmtDate(n.published_on, { day: 'numeric', month: 'short' })),
       h('div', { class: 'title' }, (en ? n.title_en || n.title_gu : n.title_gu || n.title_en) || ''),
-      (en ? n.summary_en || n.summary_gu : n.summary_gu || n.summary_en) && h('div', { class: 'small' }, en ? n.summary_en || n.summary_gu : n.summary_gu || n.summary_en),
-      h('div', { class: 'between small muted' }, h('span', {}, n.source || ''), h('span', {}, n.url && h('a', { href: n.url, target: '_blank', rel: 'noopener' }, t('read_full')), ' ', reportBtn('news', `${n.published_on} · ${n.title_en || n.title_gu} · ${n.url || ''}`)))))
+      (en ? n.summary_en || n.summary_gu : n.summary_gu || n.summary_en) && h('div', { class: 'small clamp3' }, en ? n.summary_en || n.summary_gu : n.summary_gu || n.summary_en),
+      h('div', { class: 'between small muted' }, h('span', {}, n.source || ''), h('span', { class: 'goldtext b' }, t('read_full'), ' ›'))))
       : h('div', { class: 'empty' }, t('no_news')),
   ];
 }
@@ -910,7 +982,7 @@ function viewCustomers() {
   const body = h('div', { class: 'stack' });
   const drawList = () => {
     const s = (S.crmQ || '').trim().toLowerCase();
-    const rows = S.data.customers.filter((c) => !s || (c.name || '').toLowerCase().includes(s) || (c.phone || '').includes(s)).sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
+ const rows = S.data.customers.filter((c) => !isGone(c) && (!s || (c.name || '').toLowerCase().includes(s) || (c.phone || '').includes(s))).sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
     body.replaceChildren(...(rows.length ? rows.map((c) => {
       const open = S.data.inquiries.filter((i) => i.customer_id === c.id).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0];
       return h('button', { class: 'card rowcard white', onclick: () => customerSheet(c) },
@@ -919,7 +991,7 @@ function viewCustomers() {
     }) : [h('div', { class: 'empty' }, t('no_inq'))]));
   };
   const board = () => h('div', { class: 'board' }, ST.map((s) => {
-    const items = S.data.inquiries.filter((i) => (i.status || 'new') === s).sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
+    const items = S.data.inquiries.filter((i) => !isGone(i) && (i.status || 'new') === s).sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
     return h('section', { class: 'kcol' }, h('div', { class: 'between' }, h('span', { class: 'b' }, t('st_' + s)), h('span', { class: 'muted small' }, items.length)),
       items.map((i) => h('div', { class: 'card kcard' },
         h('button', { class: 'duetext', onclick: () => { const c = custOf(i.customer_id); if (c) customerSheet(c); } }, h('div', { class: 'b' }, inqName(i)), h('div', { class: 'xs muted' }, inqLine(i))),
@@ -927,7 +999,7 @@ function viewCustomers() {
   }));
   if (S.crmView !== 'pipeline') drawList();
   return [
-    h('header', { class: 'hdr' }, h('h1', { class: 'grow' }, t('customers')), h('span', { class: 'muted small' }, S.data.customers.length || '')),
+    h('header', { class: 'hdr' }, h('h1', { class: 'grow' }, t('customers')), h('span', { class: 'muted small' }, S.data.customers.filter((c) => !isGone(c)).length || '')),
     h('section', { class: 'hero col' }, h('label', { class: 'gold small', for: 'pasteNum' }, t('paste_hint')),
       h('div', { class: 'pasterow' },
         h('input', { id: 'pasteNum', class: 'input', inputmode: 'tel', placeholder: '+91', oninput: (e) => { q.v = e.target.value; } }),
@@ -953,7 +1025,7 @@ function customerSheet(c) {
   const sh = openSheet(custLabel(c), (api) => {
     c = custOf(c.id) || c;
     const ph = tel(c.phone), redo = () => { api.redraw(); render(); };
-    const inqs = S.data.inquiries.filter((i) => i.customer_id === c.id).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+    const inqs = S.data.inquiries.filter((i) => !isGone(i) && i.customer_id === c.id).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     const acts = S.data.activities.filter((a) => a.customer_id === c.id).sort((a, b) => String(b.at).localeCompare(String(a.at)));
     const tasks = S.data.tasks.filter((x) => x.customer_id === c.id && !x.done);
     const log = async (type, text) => { try { await saveRec('activities', { customer_id: c.id, type, text: text || null, at: new Date().toISOString() }); await saveRec('customers', { ...c }); api.redraw(); } catch (e) { fail(e); } };
@@ -980,9 +1052,11 @@ function customerForm(init, after) {
   const sh = openSheet(t('customers'), () => [
     h('div', { class: 'grid2' }, field(t('name'), inp(f, 'name')), field(t('phone'), inp(f, 'phone', { inputmode: 'tel' }))),
     field(t('alt_phone'), inp(f, 'alt_phone', { inputmode: 'tel' })),
+    cloud.ready && cloud.isOwner && (S.members || []).length > 1 && field(t('assigned_to'), h('select', { class: 'input', value: f.assigned_to || '', onchange: (e) => { f.assigned_to = e.target.value || null; } },
+      h('option', { value: '' }, '—'), S.members.map((m) => h('option', { value: m.user_id }, m.name || m.email)))),
     field(t('notes'), h('textarea', { class: 'input area', rows: 3, value: f.notes || '', oninput: (e) => { f.notes = e.target.value; } })),
-    h('button', { class: 'btn gold', onclick: async () => { try { await saveRec('customers', { id: f.id, created_at: f.created_at, name: f.name || null, phone: tel(f.phone) || null, alt_phone: tel(f.alt_phone) || null, notes: f.notes || null }); sh.close(); after(false); } catch (e) { fail(e); } } }, t('save')),
-    f.id && h('button', { class: 'btn danger', onclick: async () => { if (!confirm(t('confirm_del'))) return; try { for (const i of S.data.inquiries.filter((x) => x.customer_id === f.id)) await delRec('inquiries', i.id); await delRec('customers', f.id); sh.close(); after(true); } catch (e) { fail(e); } } }, t('del')),
+    h('button', { class: 'btn gold', onclick: async () => { try { await saveRec('customers', { id: f.id, created_at: f.created_at, name: f.name || null, phone: tel(f.phone) || null, alt_phone: tel(f.alt_phone) || null, notes: f.notes || null, ...(f.assigned_to !== undefined ? { assigned_to: f.assigned_to || null } : {}) }); sh.close(); after(false); } catch (e) { fail(e); } } }, t('save')),
+    f.id && canDelete() && h('button', { class: 'btn danger', onclick: async () => { if (!await ask(t('confirm_trash'))) return; try { const c = custOf(f.id) || f; await trashCustomer(c); sh.close(); after(true); undoToast(t('moved_trash'), async () => { await restoreCustomer(custOf(f.id) || c); render(); }); } catch (e) { fail(e); } } }, icon('trash', 18), t('to_trash')),
   ]);
 }
 function inquiryForm(init, after) {
@@ -1004,10 +1078,10 @@ function inquiryForm(init, after) {
         const row = await saveRec('inquiries', { id: f.id, created_at: f.created_at, customer_id: c.id, name: c.name || f.name || null, phone: c.phone || tel(f.phone) || null, area_id: f.area_id || null, ptype: f.ptype || null, deal: f.deal, budget: N(f.budget), notes: f.notes || null, status: f.status, followup_at: f.followup_at ? new Date(f.followup_at).toISOString() : null });
         if (isNew) await saveRec('activities', { customer_id: c.id, type: 'inquiry', text: inqLine(row) || null, at: new Date().toISOString() });
         sh.close(); toast(t('saved')); (after || render)();
-        if (row.followup_at && row.followup_at !== had && confirm(t('add_cal') + '?')) ics(row);
+        if (row.followup_at && row.followup_at !== had && await ask(t('add_cal') + '?')) ics(row);
       } catch (e) { fail(e); }
     } }, t('save')),
-    f.id && h('button', { class: 'btn danger', onclick: async () => { if (confirm(t('confirm_del'))) { await delRec('inquiries', f.id).catch(fail); sh.close(); (after || render)(); } } }, t('del')),
+    f.id && h('button', { class: 'btn danger', onclick: async () => { if (await ask(t('confirm_del'))) { await delRec('inquiries', f.id).catch(fail); sh.close(); (after || render)(); } } }, t('del')),
   ]);
 }
 // Ready WhatsApp messages. {name} is replaced with the customer's name.
@@ -1046,7 +1120,7 @@ function brokerForm(init, after) {
     h('div', { class: 'grid2' }, field(t('name'), inp(f, 'name')), field(t('phone'), inp(f, 'phone', { inputmode: 'tel' }))),
     field(t('firm'), inp(f, 'firm')), field(t('notes'), inp(f, 'notes')),
     h('button', { class: 'btn gold', onclick: async () => { if (!(f.name || '').trim()) return toast(t('name'), true); try { const row = await saveRec('brokers', { id: f.id, created_at: f.created_at, name: f.name.trim(), phone: tel(f.phone) || null, firm: f.firm || null, notes: f.notes || null }); sh.close(); after(row); } catch (e) { fail(e); } } }, t('save')),
-    f.id && h('button', { class: 'btn danger', onclick: async () => { if (confirm(t('confirm_del'))) { await delRec('brokers', f.id).catch(fail); sh.close(); after(null); } } }, t('del')),
+    f.id && h('button', { class: 'btn danger', onclick: async () => { if (await ask(t('confirm_del'))) { await delRec('brokers', f.id).catch(fail); sh.close(); after(null); } } }, t('del')),
   ]);
 }
 function brokersSheet(onPick) {
@@ -1144,10 +1218,11 @@ function viewPrices() {
       h('div', { class: 'between small' }, h('span', { class: 'b' }, rate(p.price_sqft, unit), p.kind !== 'market' ? ` · ${t(p.kind)}` : '', out ? ` (${t('outlier')})` : '', old === 'bad' ? ` (${t('check_quote')})` : old === 'bld' ? ` (${t('fc_bld_tag')})` : old ? ` (${t('old_quote')})` : ''),
         h('span', {}, p.grade && h('span', { class: 'gbadge g-' + p.grade }, t('g_' + p.grade)), ' ', h('span', { class: 'muted' }, fmtDate(p.observed_on, { day: 'numeric', month: 'short', year: '2-digit' })))),
       h('div', { class: 'between xs muted' }, h('span', {}, t('src_' + (p.source || 'other')), p.broker_id && brokerOf(p.broker_id) ? ' · ' + brokerOf(p.broker_id).name : '', p.note ? ' · ' + p.note : ''),
-        h('span', {}, p.source_url && h('a', { href: p.source_url, target: '_blank', rel: 'noopener' }, t('link')), ' ', reportBtn('price', `${a.en} · ${p.ptype} · ${p.kind} · ₹${Math.round(p.price_sqft)}/sqft · ${p.observed_on} · ${p.source_url || p.note || ''}`), ' ', !p.pub && (p.owner || !cloud.ready) && h('button', { class: 'linkbtn xs', onclick: async () => { if (confirm(t('confirm_del'))) { await delRec('price_points', p.id).catch(fail); rd(); } } }, t('del')))));
+        h('span', {}, p.source_url && h('a', { href: p.source_url, target: '_blank', rel: 'noopener' }, t('link')), ' ', reportBtn('price', `${a.en} · ${p.ptype} · ${p.kind} · ₹${Math.round(p.price_sqft)}/sqft · ${p.observed_on} · ${p.source_url || p.note || ''}`), ' ', !p.pub && (p.owner || !cloud.ready) && h('button', { class: 'linkbtn xs', onclick: async () => { if (await ask(t('confirm_del'))) { await delRec('price_points', p.id).catch(fail); rd(); } } }, t('del')))));
   };
   return [
     h('header', { class: 'hdr' },
+      h('button', { class: 'iconbtn back', 'aria-label': t('back'), onclick: navBack }, icon('backarrow')),
       h('button', { class: 'grow areahd', onclick: () => pickArea((x) => { P.area = x.id; rd(); }) }, h('h1', {}, areaName(a, getLang()), icon('down', 20)),
         h('div', { class: 'muted small' }, `${a.district} · ${getLang() === 'en' ? Math.round(km(SURAT.lat, SURAT.lng, a.lat, a.lng)) + ' km from Surat' : 'સુરતથી ' + Math.round(km(SURAT.lat, SURAT.lng, a.lat, a.lng)) + ' કિમી'}${last ? ' · ' + t('updated') + ' ' + fmtDate(last, { day: 'numeric', month: 'short' }) : ''}`)),
       h('select', { class: 'input sel', 'aria-label': t('type'), value: P.ptype, onchange: (e) => { P.ptype = e.target.value; P.unit = null; rd(); } }, PTYPES.map((p) => h('option', { value: p }, t(p))))),
@@ -1172,7 +1247,9 @@ function viewPrices() {
     insightCard(a, mk, unit),
     factsCard(a, mk, j),
     projectsHere(a),
-    landLinks(a),
+    h('button', { class: 'btn gold', onclick: () => openDetail('value', { lat: a.lat, lng: a.lng, label: areaName(a, getLang()), ptype: P.ptype, area: a.id }) }, icon('calc', 18), t('valuation')),
+    h('section', { class: 'card' }, h('h2', {}, t('nearby')), nearbyBlock(a.lat, a.lng)),
+    h('section', { class: 'card' }, h('h2', {}, t('land_records')), areaLinks(a)),
   ];
 }
 // ---------- quick facts for every area (computed, so no area is left blank) ----------
@@ -1197,11 +1274,6 @@ function factsCard(a, mk, j) {
     pc.map(([k, txt]) => h('div', { class: 'pc ' + k }, h('div', { class: 'small' }, (k === 'pro' ? '+ ' : '− ') + txt))),
     h('div', { class: 'xs muted' }, t('facts_note')));
 }
-function landLinks(a) {
-  const L = [['l_anyror', 'https://anyror.gujarat.gov.in/'], ['l_bhunaksha', 'https://bhunakshaanyror.gujarat.gov.in/'], ['l_garvi', 'https://garvi.gujarat.gov.in/'], ['l_gujrera', 'https://gujrera.gujarat.gov.in/'], ['l_bisag', 'https://bisag-n.gov.in/'], ['l_rnb', 'https://rnb.gujarat.gov.in/'], ['l_marugujarat', 'https://www.marugujarat.in/']];
-  return h('section', { class: 'card' }, h('h2', {}, t('land_records')), h('div', { class: 'xs muted' }, a.en, ' · ', a.district),
-    L.map(([k, u]) => h('a', { class: 'row', href: u, target: '_blank', rel: 'noopener' }, h('span', {}, t(k)), icon('chev', 16))));
-}
 // ---------- area pros and cons ----------
 const TAGS = ['metro', 'smc_limit', 'tp', 'drainage', 'water'];
 function areaPoints(a) {
@@ -1215,7 +1287,7 @@ function insightCard(a, mk, unit) {
   const list = (kind) => { const xs = pts.filter((p) => p.kind === kind); return xs.length ? xs.map((p) => h('div', { class: 'pc ' + kind },
     h('div', { class: 'small' }, p.text),
     h('div', { class: 'between xs muted' }, h('span', {}, p.own ? t('own_note') : [p.source, p.date && fmtDate(p.date, { day: 'numeric', month: 'short', year: '2-digit' })].filter(Boolean).join(' · ')),
-      h('span', {}, p.url && h('a', { href: p.url, target: '_blank', rel: 'noopener' }, t('link')), !p.own && ' ', !p.own && reportBtn('insight', `${a.en} · ${p.kind} · ${p.en} · ${p.url || ''}`), p.own && h('button', { class: 'linkbtn xs', onclick: async () => { if (confirm(t('confirm_del'))) { await delRec('area_notes', p.own.id).catch(fail); render(); } } }, t('del')))))) : h('div', { class: 'muted small' }, '—'); };
+      h('span', {}, p.url && h('a', { href: p.url, target: '_blank', rel: 'noopener' }, t('link')), !p.own && ' ', !p.own && reportBtn('insight', `${a.en} · ${p.kind} · ${p.en} · ${p.url || ''}`), p.own && h('button', { class: 'linkbtn xs', onclick: async () => { if (await ask(t('confirm_del'))) { await delRec('area_notes', p.own.id).catch(fail); render(); } } }, t('del')))))) : h('div', { class: 'muted small' }, '—'); };
   const shown = TAGS.filter((k) => tags[k]);
   return h('section', { class: 'card' },
     h('div', { class: 'between' }, h('h2', {}, t('pros_cons')), h('button', { class: 'linkbtn', onclick: () => noteForm(a) }, '+ ', t('own_note'))),
@@ -1330,9 +1402,10 @@ function viewMore() {
   return [h('header', { class: 'hdr' }, h('h1', { class: 'grow' }, t('more'))),
     h('section', { class: 'card bizcard' }, h('img', { src: 'img/card.jpg', alt: 'Ami Realtors – Dharmesh Mehta' }),
       h('div', { class: 'grid2' }, h('button', { class: 'btn gold', onclick: shareBizCard }, '📤 ', t('share_bizcard')), h('a', { class: 'btn green', href: 'tel:+91' + BRAND.phone1 }, t('call'), ' ', BRAND.phones.split(' / ')[0]))),
-    h('section', { class: 'card' }, row('prices', () => go('prices')), row('bulk_paste', bulkPaste), row('brokers', () => brokersSheet()), row('commission', commission)),
+    h('section', { class: 'card' }, row('prices', () => openPrices(S.price.area, S.price.ptype)), row('bulk_paste', bulkPaste), row('brokers', () => brokersSheet()), row('commission', commission)),
     h('section', { class: 'card' }, row('emi_calc', emiCalc), row('stamp_calc', stampCalc), row('cg_calc', cgCalc)),
-    h('section', { class: 'card' }, row('reports', reportsSheet), row('settings', settings))];
+    h('section', { class: 'card' }, row('link_title', linkSheet), row('sources_title', () => openDetail('sources')), row('trash', () => openDetail('trash'))),
+    h('section', { class: 'card' }, cloud.ready && row('team', () => openDetail('team')), row('reports', reportsSheet), row('settings', settings), cloud.ready && row('sign_out', async () => { if (await ask(t('sign_out') + '?')) { await cloud.signOut(); location.reload(); } }))];
 }
 
 // ---------- report a wrong price, news item, project or ad ----------
@@ -1361,7 +1434,6 @@ function reportsSheet() {
 }
 
 // ---------- new projects (GujRERA, all registered projects due 2025-2030) ----------
-const SB_PUBLIC_KEY = 'sb_publishable_LBFkjCG99kfNQBPHuw_xxQ_bBdmIw-u';
 const PROJ_KEY = 'projects.v2';
 async function loadProjects(force) {
   const c = cfg.get(PROJ_KEY, null);
@@ -1418,48 +1490,85 @@ function expectedRate(p) {
   const lo = (base.lo ?? base.value * 0.9) * k, hi = (base.hi ?? base.value * 1.1) * k;
   return { pt, value: base.value * k, lo, hi, prem: Math.round(prem * 100), base: base.value, own: !!base.own };
 }
-function projCard(p) {
-  const ph = tel(p.phone), PP = S.projPrices || {}, pp = PP[p.rera] || PP['name:' + String(p.name).toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()] || {};
+// Quoted price (builder / portal) or, if none, the expected launch range from the model.
+function projPrice(p) {
+  const PP = S.projPrices || {}, pp = PP[p.rera] || PP['name:' + String(p.name).toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()] || {};
   const from = p.price_from || pp.from, to = p.price_to || pp.to, rsq = pp.rate_sqft;
-  return h('article', { class: 'card' },
-    h('div', { class: 'tag' }, [t('p_' + (p.ptype || 'residential')), projArea(p)].filter(Boolean).join(' · ')),
-    h('div', { class: 'title' }, p.name),
-    h('div', { class: 'small' }, `${t('builder')}: ${p.promoter}`),
-    p.address && h('div', { class: 'xs muted' }, '📍 ', p.address, p.lat ? ' · ' + t('rera_loc') : ''),
-    h('div', { class: 'between small' }, h('span', { class: 'b' }, `${t('possession')}: ${fmtDate(p.end_month + '-01', { month: 'short', year: 'numeric' })}`), h('span', { class: 'xs muted' }, `${t('rera')} ${(p.rera.match(/[RCMP]AA\d+/) || [p.rera])[0]}`)),
-    rsq && !from ? h('div', { class: 'small b' }, `${t('quoted')}: ${rate(rsq, 'sqft')} / ${unitLabel('sqft')} · ${pp.note || ''}`, pp.url && h('a', { class: 'xs', href: pp.url, target: '_blank', rel: 'noopener' }, ' ', t('link'))) : from ? h('div', { class: 'small b' }, `${t('quoted')}: ${moneyShort(from)}${to && to !== from ? ' – ' + moneyShort(to) : ''}${pp.note || p.price_note ? ' · ' + (pp.note || p.price_note) : ''}`, (pp.url || p.price_url) && h('a', { class: 'xs', href: pp.url || p.price_url, target: '_blank', rel: 'noopener' }, ' ', t('link')))
-      : (() => { const e = expectedRate(p); if (!e) return h('div', { class: 'small muted' }, t('price_na')); const u = defaultUnit(e.pt);
-        return h('div', {}, h('div', { class: 'small b' }, `${t('expected')}: ₹ ${Math.round(rateFromSqft(e.lo, u, vigha())).toLocaleString('en-IN')} – ${Math.round(rateFromSqft(e.hi, u, vigha())).toLocaleString('en-IN')} / ${unitLabel(u)}`),
-          h('div', { class: 'xs muted' }, `${e.own ? t('area_rate') : t('model_price')} ${rate(e.base, u)} + ${t('new_premium')} ${e.prem}% · ${t('ask_builder')}`)); })(),
-    h('div', { class: 'grid3' },
-      ph ? h('a', { class: 'btn green', href: 'tel:+91' + ph }, t('call')) : h('span', {}),
-      ph ? h('a', { class: 'btn', href: 'https://wa.me/91' + ph, target: '_blank', rel: 'noopener' }, 'WhatsApp') : h('span', {}),
-      reportBtn('project', `${p.name} · ${p.rera}`)),
-    h('div', { class: 'grid2' },
-      (() => { const pin = projPos(p); return pin ? gmapsBtn(pin.lat, pin.lng) : h('a', { class: 'btn', href: gmaps(null, null, [p.name, p.promoter, p.locality || (areaById(p.area_id) || {}).en, p.district || 'Surat'].filter(Boolean).join(', ')), target: '_blank', rel: 'noopener' }, '🔍 ', t('gsearch')); })(),
-      h('button', { class: 'btn', onclick: () => { const a = areaById(p.area_id) || SURAT, pin = projPin(p); pinPicker(p.name, pin ? { ...pin, exact: true } : { lat: a.lat, lng: a.lng }, (pos) => { const all = cfg.get(PROJPIN_KEY, {}); all[p.rera] = { lat: +pos.lat.toFixed(6), lng: +pos.lng.toFixed(6) }; cfg.set(PROJPIN_KEY, all); toast(t('saved')); render(); }); } }, projPin(p) ? '📌 ' + t('pin_move') : '📍 ' + t('pin_set'))));
+  if (rsq && !from) return { kind: 'quoted', text: `${rate(rsq, 'sqft')} / ${unitLabel('sqft')}`, note: pp.note, url: pp.url };
+  if (from) return { kind: 'quoted', text: `${moneyShort(from)}${to && to !== from ? ' – ' + moneyShort(to) : ''}`, note: pp.note || p.price_note, url: pp.url || p.price_url };
+  const e = expectedRate(p); if (!e) return null;
+  const u = defaultUnit(e.pt);
+  return { kind: 'expected', e, text: `₹ ${Math.round(rateFromSqft(e.lo, u, vigha())).toLocaleString('en-IN')} – ${Math.round(rateFromSqft(e.hi, u, vigha())).toLocaleString('en-IN')} / ${unitLabel(u)}`, note: `${e.own ? t('area_rate') : t('model_price')} ${rate(e.base, u)} + ${t('new_premium')} ${e.prem}%` };
+}
+const reraNo = (p) => (String(p.rera).match(/[RCMP]AA\d+/) || [p.rera])[0];
+function projCard(p) {
+  const ph = tel(p.phone), pr = projPrice(p), Q = S.projQ || {};
+  const selOn = !!S.bsel;
+  const pick = selOn && h('input', { type: 'checkbox', class: 'pick-cb', checked: S.bsel.has(p.rera), 'aria-label': t('select'), onclick: (e) => e.stopPropagation(), onchange: (e) => { if (e.target.checked) S.bsel.add(p.rera); else S.bsel.delete(p.rera); updSelBar(); } });
+  return h('article', { class: 'card tap' + (selOn && S.bsel.has(p.rera) ? ' picked' : ''), onclick: (e) => { if (e.target.closest('a,button,input')) return; if (selOn) { const cb = e.currentTarget.querySelector('.pick-cb'); cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); e.currentTarget.classList.toggle('picked', cb.checked); return; } openDetail('project', p); } },
+    h('div', { class: 'between top' },
+      h('div', { class: 'grow' },
+        h('div', { class: 'tag' }, [t('p_' + (p.ptype || 'residential')), projArea(p)].filter(Boolean).join(' · ')),
+        h('div', { class: 'title' }, p.name),
+        h('div', { class: 'small muted' }, p.promoter)),
+      pick || icon('chev', 18)),
+    h('div', { class: 'between small' },
+      h('span', {}, pr ? h('span', { class: 'b' + (pr.kind === 'expected' ? ' goldtext' : '') }, (pr.kind === 'expected' ? t('expected') + ': ' : '') + pr.text) : h('span', { class: 'muted' }, t('price_na'))),
+      h('span', { class: 'xs muted' }, fmtDate(p.end_month + '-01', { month: 'short', year: 'numeric' }))),
+    !selOn && h('div', { class: 'grid3' },
+      ph ? h('a', { class: 'btn green sm', href: 'tel:+91' + ph }, t('call')) : h('span', {}),
+      ph ? h('a', { class: 'btn sm', href: waLink(ph, builderMsg(p)), target: '_blank', rel: 'noopener' }, icon('wa', 16), 'WhatsApp') : h('span', {}),
+      h('button', { class: 'btn sm', onclick: () => openDetail('project', p) }, t('details'))));
 }
 function viewProjects() {
   if (!S.projects) { loadProjects().then(render); return [h('div', { class: 'empty' }, t('loading'))]; }
   if (!S.projects.length) return [h('div', { class: 'empty' }, t('proj_offline')), h('button', { class: 'btn', onclick: () => { S.projects = null; loadProjects(true).then(render); } }, t('retry'))];
   const Q = S.projQ ||= { year: 'all', type: 'all', q: '', area: null, n: 40 };
-  const list = S.projOnly ? S.projects.filter((p) => S.projOnly.includes(p.rera)) : projFilter(Q);
   const years = ['all', '2025', '2026', '2027', '2028', '2029', '2030'];
+  const count = h('div', { class: 'xs muted' }), box = h('div', { class: 'stack' }), clear = h('div', {});
+  const cur = () => (S.projOnly ? S.projects.filter((p) => S.projOnly.includes(p.rera)) : projFilter(Q));
+  // Only the list redraws while typing, so the search box keeps focus and the keyboard stays open.
+  const drawList = (first) => {
+    const list = cur();
+    count.textContent = `${list.length} ${t('proj_count')} · ${t('proj_src')}`;
+    clear.replaceChildren(!list.length ? h('button', { class: 'btn gold', onclick: () => { S.projQ = { year: 'all', type: 'all', q: '', area: null, n: 40, mapOn: Q.mapOn }; render(); } }, '✕ ', t('clear_filters')) : '');
+    box.replaceChildren(...list.slice(0, Q.n).map(projCard), list.length > Q.n ? h('button', { class: 'btn', onclick: () => { Q.n += 60; drawList(); } }, '+ ', list.length - Q.n) : '');
+    if (!first && S.pmap) { S.pmap.remove(); S.pmap = null; initProjMap(); }
+    updSelBar();
+  };
+  S.drawProjList = drawList;
+  const search = h('input', { type: 'search', placeholder: t('search_proj'), value: Q.q, autocomplete: 'off', autocorrect: 'off', autocapitalize: 'none', spellcheck: 'false', enterkeyhint: 'search',
+    oninput: (e) => { Q.q = e.target.value; Q.n = 40; S.projOnly = null; clearTimeout(S.pqT); S.pqT = setTimeout(drawList, 180); },
+    onkeydown: (e) => { if (e.key === 'Enter') e.target.blur(); } });
+  setTimeout(() => drawList(true), 0);
   return [
-    h('label', { class: 'searchbox flat' }, icon('search', 18), h('input', { placeholder: t('search_proj'), value: Q.q, oninput: (e) => { Q.q = e.target.value; Q.n = 40; clearTimeout(S.pqT); S.pqT = setTimeout(render, 250); } })),
-    S.projOnly && h('button', { class: 'chip on', onclick: () => { S.projOnly = null; render(); } }, `🏗 ${S.projOnly.length} ${t('proj_count')}`, ' ✕'),
-    Q.area && h('button', { class: 'chip on', onclick: () => { Q.area = null; render(); } }, areaName(areaById(Q.area), getLang()), ' ✕'),
-    Q.areas && h('button', { class: 'chip on', onclick: () => { Q.areas = null; render(); } }, Q.areas.map((id) => areaName(areaById(id), getLang())).filter(Boolean).slice(0, 4).join(', '), ' ✕'),
-    chips(years.map((y) => [y, y === 'all' ? t('all') : y]), Q.year, (v) => { Q.year = v; Q.n = 40; render(); }, 'scroll'),
-    chips(['all', 'residential', 'plotted', 'mixed', 'commercial'].map((k) => [k, k === 'all' ? t('all') : t('p_' + k)]), Q.type, (v) => { Q.type = v; Q.n = 40; render(); }, 'scroll'),
-    h('div', { class: 'between' }, h('div', { class: 'xs muted' }, `${list.length} ${t('proj_count')} · ${t('proj_src')}`),
-      h('button', { class: 'chip' + (Q.mapOn ? ' on' : ''), onclick: () => { Q.mapOn = !Q.mapOn; render(); } }, '🗺 ', t('map'))),
+    h('div', { class: 'stickybar' },
+      h('label', { class: 'searchbox flat' }, icon('search', 18), search,
+        Q.q ? h('button', { class: 'iconbtn sm', 'aria-label': t('clear'), onclick: () => { Q.q = ''; search.value = ''; drawList(); search.focus(); } }, icon('x', 16)) : null),
+      S.projOnly && h('button', { class: 'chip on', onclick: () => { S.projOnly = null; render(); } }, `🏗 ${S.projOnly.length} ${t('proj_count')}`, ' ✕'),
+      Q.area && h('button', { class: 'chip on', onclick: () => { Q.area = null; render(); } }, areaName(areaById(Q.area), getLang()), ' ✕'),
+      Q.areas && h('button', { class: 'chip on', onclick: () => { Q.areas = null; render(); } }, Q.areas.map((id) => areaName(areaById(id), getLang())).filter(Boolean).slice(0, 4).join(', '), ' ✕'),
+      chips(years.map((y) => [y, y === 'all' ? t('all') : y]), Q.year, (v) => { Q.year = v; Q.n = 40; render(); }, 'scroll'),
+      chips(['all', 'residential', 'plotted', 'mixed', 'commercial'].map((k) => [k, k === 'all' ? t('all') : t('p_' + k)]), Q.type, (v) => { Q.type = v; Q.n = 40; render(); }, 'scroll')),
+    h('div', { class: 'between' }, count,
+      h('div', { class: 'chips' },
+        h('button', { class: 'chip' + (S.bsel ? ' on' : ''), onclick: () => { S.bsel = S.bsel ? null : new Set(); render(); } }, '✓ ', t('select')),
+        h('button', { class: 'chip' + (Q.mapOn ? ' on' : ''), onclick: () => { Q.mapOn = !Q.mapOn; render(); } }, '🗺 ', t('map')))),
+    S.bsel && h('div', { class: 'card inset selbar' },
+      h('div', { class: 'between' }, h('span', { class: 'b', id: 'selcount' }, ''),
+        h('div', { class: 'chips' },
+          h('button', { class: 'chip', onclick: () => { for (const p of cur()) S.bsel.add(p.rera); drawList(); } }, t('select_all')),
+          h('button', { class: 'chip', onclick: () => { S.bsel.clear(); drawList(); } }, t('select_none')))),
+      h('button', { class: 'btn gold', onclick: () => { const sel = S.projects.filter((p) => S.bsel.has(p.rera)); if (!sel.length) return toast(t('select_first'), true); broadcastSheet(sel); } }, icon('wa', 18), t('bc_send'))),
     Q.mapOn ? h('div', { id: 'pmap', class: 'pmap', style: 'height:380px;flex:none;border-radius:18px;overflow:hidden;margin:6px 0 10px' }) : null,
     Q.mapOn ? h('div', { class: 'xs muted' }, t('proj_nopin')) : null,
-    !list.length && h('button', { class: 'btn gold', onclick: () => { S.projQ = { year: 'all', type: 'all', q: '', area: null, n: 40, mapOn: Q.mapOn }; render(); } }, '✕ ', t('clear_filters')),
-    list.slice(0, Q.n).map(projCard),
-    list.length > Q.n && h('button', { class: 'btn', onclick: () => { Q.n += 60; render(); } }, '+ ', list.length - Q.n),
+    clear, box,
   ];
+}
+function updSelBar() {
+  const el = document.getElementById('selcount'); if (!el || !S.bsel) return;
+  const n = S.bsel.size, ph = new Set(S.projects.filter((p) => S.bsel.has(p.rera) && tel(p.phone)).map((p) => tel(p.phone))).size;
+  el.textContent = `${n} ${t('selected')} · ${ph} ${t('bc_builders')}`;
 }
 // Projects map: clustered like Google Maps. Nearby projects merge into one "+N" bubble; tap it to zoom in.
 // Only what is on screen is drawn, and the grid is rebuilt on every pan/zoom, so 1,500+ projects stay light.
@@ -1509,7 +1618,7 @@ function initProjMap() {
 function projectsHere(a) {
   if (!S.projects) return null;
   const n = S.projects.filter((p) => p.area_id === a.id).length;
-  return n ? h('button', { class: 'btn', onclick: () => { S.propView = 'projects'; S.projQ = { year: 'all', type: 'all', q: '', area: a.id, n: 40 }; go('properties'); } }, `${t('projects')}: ${n}`) : null;
+  return n ? h('button', { class: 'btn', onclick: () => goProjects({ area: a.id }) }, `${t('projects')}: ${n}`) : null;
 }
 
 // ---------- newspaper "for sale" ads (leads) ----------
@@ -1520,14 +1629,414 @@ function viewLeads() {
     h('div', { class: 'small muted' }, t('leads_note')),
     h('button', { class: 'btn', onclick: bulkPaste }, '📋 ', t('bulk_paste')),
     h('button', { class: 'btn gold', onclick: () => voiceBox(t('add_lead'), (text) => { const p = parseEntry(text); const l = { id: 'l' + Date.now(), date: new Date().toISOString().slice(0, 10), text, phone: p.phone, area_id: p.area_id, ptype: p.ptype, name: p.name, source: t('src_own') }; cfg.set(LEADS_KEY, [l, ...cfg.get(LEADS_KEY, [])]); render(); }) }, icon('plus', 18), t('add_lead')),
-    all.length ? all.map((l) => { const ph = tel(l.phone); return h('article', { class: 'card' },
+    all.length ? all.map((l) => { const ph = tel(l.phone); return h('article', { class: 'card tap', onclick: (e) => { if (!e.target.closest('a,button')) openDetail('lead', l); } },
       h('div', { class: 'tag' }, [l.source, l.date && fmtDate(l.date, { day: 'numeric', month: 'short' }), areaById(l.area_id) && areaName(areaById(l.area_id), getLang())].filter(Boolean).join(' · ')),
       h('div', { class: 'small' }, l.text),
       h('div', { class: 'grid3' },
         ph ? h('a', { class: 'btn green', href: 'tel:+91' + ph }, t('call')) : h('span', {}),
         h('button', { class: 'btn', onclick: () => inquiryForm({ name: l.name, phone: ph, area_id: l.area_id, ptype: l.ptype, deal: 'buy', notes: `${t('lead_seller')} · ${l.source || ''}: ${l.text}` }, render) }, t('to_inquiry')),
-        reportBtn('lead', `${l.source || ''} ${l.date || ''}: ${String(l.text).slice(0, 80)}`))); })
+        h('button', { class: 'btn', onclick: () => openDetail('lead', l) }, t('details')))); })
       : h('div', { class: 'empty' }, t('no_leads')),
+  ];
+}
+
+// =====================================================================================================
+// Detail screens: project, paper ad, news article, valuation, trash, data sources
+// =====================================================================================================
+function viewDetail() {
+  const d = S.detail;
+  const fn = { project: viewProjectDetail, lead: viewLeadDetail, news: viewNewsDetail, value: viewValuation, trash: viewTrash, sources: viewSources, team: viewTeam }[d.kind];
+  return fn ? fn(d.data) : [backHdr('—')];
+}
+const waLink = (ph, text) => 'https://wa.me/' + (ph ? '91' + tel(ph) : '') + (text ? '?text=' + encodeURIComponent(text) : '');
+const CARD_URL = () => location.origin + '/card.html';
+function builderMsg(p) {
+  const en = getLang() === 'en';
+  return en
+    ? `Namaste, I am Dharmesh Mehta from Ami Realtors, Chowk Bazaar, Surat (${BRAND.phones}). We have buyers looking in ${projArea(p) || 'your area'}. Please share the price list, floor plans and brokerage terms for ${p.name}. Our visiting card: ${CARD_URL()}`
+    : `નમસ્તે, હું ધર્મેશ મહેતા, અમી રિયલ્ટર્સ, ચોક બજાર, સુરત (${BRAND.phones}). ${projArea(p) || 'આપના વિસ્તાર'}માં અમારી પાસે ગ્રાહકો છે. ${p.name} પ્રોજેક્ટનું પ્રાઇસ લિસ્ટ, પ્લાન અને બ્રોકરેજની શરતો મોકલશો. અમારું વિઝિટિંગ કાર્ડ: ${CARD_URL()}`;
+}
+// ---------- many builders at once: one tap per builder, card + message already filled ----------
+// WhatsApp lets no app send to many chats by itself, so this is a queue: Send → WhatsApp opens with the
+// text ready → tap send there → come back → next one is already highlighted.
+function broadcastSheet(projects) {
+  const byPhone = new Map();
+  for (const p of projects) { const ph = tel(p.phone); if (!ph) continue; const x = byPhone.get(ph) || { ph, builder: p.promoter, projects: [] }; x.projects.push(p); byPhone.set(ph, x); }
+  const rows = [...byPhone.values()];
+  const sent = new Set(cfg.get('bc.sent.' + new Date().toISOString().slice(0, 10), []));
+  const f = { text: '', withName: true };
+  const msgFor = (x) => {
+    const names = x.projects.map((p) => p.name).slice(0, 3).join(', ');
+    const base = f.text.trim() || builderMsg(x.projects[0]);
+    return f.text.trim() ? `${base}\n\n${getLang() === 'en' ? 'Projects' : 'પ્રોજેક્ટ'}: ${names}\n${CARD_URL()}` : base.replace(x.projects[0].name, names);
+  };
+  openSheet(t('bc_title'), (api) => {
+    const next = rows.find((x) => !sent.has(x.ph));
+    return [
+      h('div', { class: 'small muted' }, `${rows.length} ${t('bc_builders')} · ${projects.length - rows.reduce((s, x) => s + x.projects.length, 0)} ${t('bc_nophone')}`),
+      h('div', { class: 'card inset' }, h('div', { class: 'b small' }, t('bc_card')),
+        h('div', { class: 'prow' }, h('img', { src: 'img/card.jpg', alt: '', class: 'cardthumb' }), h('div', { class: 'grow stack tight' }, h('button', { class: 'btn sm', onclick: shareBizCard }, icon('share', 16), t('bc_card_share')), h('div', { class: 'xs muted' }, t('bc_card_help'))))),
+      field(t('bc_msg'), h('textarea', { class: 'input area', rows: 4, placeholder: builderMsg(projects[0] || { name: '', promoter: '' }), oninput: (e) => { f.text = e.target.value; } })),
+      h('div', { class: 'between' }, h('span', { class: 'b' }, `${sent.size}/${rows.length} ${t('bc_done')}`), sent.size ? h('button', { class: 'linkbtn', onclick: () => { sent.clear(); cfg.set('bc.sent.' + new Date().toISOString().slice(0, 10), []); api.redraw(); } }, t('bc_reset')) : null),
+      h('div', { class: 'progress' }, h('span', { style: `width:${rows.length ? (sent.size / rows.length) * 100 : 0}%` })),
+      rows.map((x) => {
+        const done = sent.has(x.ph), isNext = x === next;
+        return h('div', { class: 'card inset bcrow' + (done ? ' done' : '') + (isNext ? ' next' : '') },
+          h('div', { class: 'between' }, h('div', { class: 'grow' }, h('div', { class: 'b small' }, x.builder || '—'), h('div', { class: 'xs muted' }, '+91 ' + x.ph + ' · ' + x.projects.map((p) => p.name).join(', '))),
+            h('a', { class: 'btn ' + (done ? '' : 'green') + ' sm', href: waLink(x.ph, msgFor(x)), target: '_blank', rel: 'noopener', onclick: () => { sent.add(x.ph); cfg.set('bc.sent.' + new Date().toISOString().slice(0, 10), [...sent]); setTimeout(api.redraw, 400); } }, done ? '✓ ' + t('bc_again') : icon('wa', 16), done ? '' : t('send'))));
+      }),
+    ];
+  }, { full: true });
+}
+
+// ---------- shared pieces for detail screens ----------
+const kmTxt = (d) => (d == null ? '—' : d < 1 ? Math.round(d * 1000) + ' m' : d.toFixed(1) + (getLang() === 'en' ? ' km' : ' કિમી'));
+// Area price block: market, jantri, model for one property type
+function areaPriceBlock(a, ptype, lat, lng) {
+  const unit = defaultUnit(ptype), mk = stats(a.id, ptype, 'market', null), j = stats(a.id, ptype, 'jantri');
+  const m = lat != null ? priceAt(lat, lng, ptype, a) : (mk.median != null ? { value: mk.median, own: a } : knn(a.lat, a.lng, ptype, a.id));
+  return h('div', { class: 'grid3' },
+    h('div', { class: 'tile' }, h('div', { class: 'muted xs' }, t('market_rate')), h('div', { class: 'b' }, mk.median != null ? (mk.used > 1 && mk.min !== mk.max ? `${rate(mk.min, unit).replace('₹ ', '')}–${rate(mk.max, unit).replace('₹ ', '')}` : rate(mk.median, unit)) : '—')),
+    h('div', { class: 'tile' }, h('div', { class: 'muted xs' }, t('jantri')), h('div', { class: 'b' }, rate(j.median, unit))),
+    h('div', { class: 'tile dark' }, h('div', { class: 'gold xs' }, m && m.own ? t('here_rate') : t('model_price')), h('div', { class: 'b' }, m ? (m.own ? '' : '≈ ') + rate(m.value, unit) : '—')),
+    h('div', { class: 'xs muted span3' }, `${t(ptype)} · ₹ / ${unitLabel(unit)}`));
+}
+function prosConsBlock(a) {
+  const pts = areaPoints(a), en = getLang() === 'en';
+  const pro = pts.filter((p) => p.kind === 'pro').slice(0, 6), con = pts.filter((p) => p.kind === 'con').slice(0, 6);
+  const row = (p, k) => h('div', { class: 'pc ' + k }, h('div', { class: 'small' }, p.text), (p.source || p.url) && h('div', { class: 'xs muted' }, p.source || '', p.url ? [' · ', h('a', { href: p.url, target: '_blank', rel: 'noopener' }, t('link'))] : ''));
+  if (!pro.length && !con.length) return h('div', { class: 'muted small' }, en ? 'No pros/cons recorded for this area yet.' : 'આ વિસ્તાર માટે હજુ ફાયદા/ગેરફાયદા નોંધાયા નથી.');
+  return [h('h3', {}, t('pros')), pro.length ? pro.map((p) => row(p, 'pro')) : h('div', { class: 'muted small' }, '—'), h('h3', {}, t('cons')), con.length ? con.map((p) => row(p, 'con')) : h('div', { class: 'muted small' }, '—')];
+}
+const FAC = [['school', '🏫'], ['hospital', '🏥'], ['market', '🛒'], ['bank', '🏦'], ['bus', '🚌'], ['park', '🌳'], ['worship', '🛕'], ['fuel', '⛽']];
+// Roads + facilities around a point, filled in when OpenStreetMap answers.
+function nearbyBlock(lat, lng) {
+  const roads = h('div', { class: 'stack tight' }, h('div', { class: 'muted small shimmer' }, t('loading'))), fac = h('div', { class: 'stack tight' }, h('div', { class: 'muted small shimmer' }, t('loading')));
+  roadsAround(lat, lng, cfg).then((r) => roads.replaceChildren(...roadRows(r))).catch(() => roads.replaceChildren(h('div', { class: 'muted small' }, t('osm_fail'))));
+  facilitiesAround(lat, lng, cfg).then((f) => fac.replaceChildren(...FAC.map(([k, e]) => {
+    const xs = f[k] || []; if (!xs.length) return h('div', { class: 'between small' }, h('span', {}, e, ' ', t('fac_' + k)), h('span', { class: 'muted' }, t('fac_none')));
+    const top = xs[0];
+    return h('div', { class: 'between small' }, h('span', {}, e, ' ', t('fac_' + k), h('span', { class: 'xs muted' }, ` · ${xs.length} ${t('within_2km')}`)), h('span', { class: 'b ellip' }, `${(getLang() !== 'en' && top.gu) || top.name || ''} ${kmTxt(top.d)}`));
+  }))).catch(() => fac.replaceChildren(h('div', { class: 'muted small' }, t('osm_fail'))));
+  return [h('h3', {}, '🛣 ', t('roads')), roads, h('h3', {}, '📍 ', t('facilities')), fac, h('div', { class: 'xs muted' }, t('osm_note'))];
+}
+function roadRows(r) {
+  const rows = [];
+  const row = (k, v, sub) => h('div', { class: 'between small' }, h('span', {}, k), h('span', { class: 'b' }, v, sub ? h('span', { class: 'xs muted' }, ' ' + sub) : ''));
+  rows.push(row(t('r_front'), r.front ? `${r.front.width} m` : '—', r.front ? `${t('rc_' + r.front.cls) || r.front.cls}${r.front.name ? ' · ' + r.front.name : ''}${r.front.tagged ? '' : ' · ' + t('r_est')}` : ''));
+  rows.push(row(t('r_highway'), r.highway ? kmTxt(r.highway.d) : '> ' + kmTxt(6), r.highway ? r.highway.ref : ''));
+  rows.push(row(t('r_state'), r.state ? kmTxt(r.state.d) : '> ' + kmTxt(2.5), r.state ? r.state.ref : ''));
+  rows.push(row(t('r_rail'), r.rail ? kmTxt(r.rail.d) : '> ' + kmTxt(3), r.rail ? r.rail.name : ''));
+  if (r.metro) rows.push(row(t('r_metro'), kmTxt(r.metro.d), r.metro.name));
+  return rows;
+}
+// Exact official pages for this area: TP scheme PDF, DP sheet, jantri lookup path, land records, RERA.
+function areaLinks(a, extra = {}) {
+  const L = S.refs || {}, en = getLang() === 'en';
+  const out = [];
+  const link = (label, url, sub, kind = '') => out.push(h('a', { class: 'row linkrow ' + kind, href: url, target: '_blank', rel: 'noopener' }, h('div', { class: 'grow' }, h('div', { class: 'small b' }, label), sub && h('div', { class: 'xs muted' }, sub)), icon('link', 16)));
+  const tps = (L.tp || []).filter((x) => (x.areas || []).includes(a.id));
+  for (const tp of tps.slice(0, 4)) link(`${t('l_tp')} ${tp.no} ${tp.name}`, tp.url, `${tp.status ? t('tp_' + tp.status) + ' · ' : ''}SMC · PDF${tp.page ? ' · ' + t('page') + ' ' + tp.page : ''}`, 'pdf');
+  const jr = (L.jantri || {})[a.id];
+  if (jr) link(`${t('jantri')}: ${areaName(a, getLang())}`, jr.url, `${jr.note || ''}${jr.page ? ' · ' + t('page') + ' ' + jr.page : ''}${jr.date ? ' · ' + jr.date : ''}`, 'pdf');
+  else link(`${t('jantri')}: ${t('l_garvi_lookup')}`, 'https://garvi.gujarat.gov.in/', `${t('l_path')}: ${t('l_jantri_path')} → ${a.district} → ${a.taluka || (a.district === 'Surat' ? 'Surat City / Choryasi' : '')} → ${a.en}`);
+  const dp = (L.dp || {})[a.id];
+  if (dp) link(`${t('l_dp')} – ${t('sheet')} ${dp.sheet}`, dp.url, 'SUDA DP-2035 · JPG');
+  else if (a.district === 'Surat') link(t('l_dp_index'), 'https://www.sudaonline.org/wp-content/uploads/2020/11/INDAX-MAP.jpg', 'SUDA DP-2035 · ' + (en ? 'find the sheet letter for this area' : 'આ વિસ્તારનો શીટ અક્ષર જુઓ'));
+  link(t('l_anyror'), a.village || a.taluka ? 'https://anyror.gujarat.gov.in/LandRecordRural.aspx' : 'https://anyror.gujarat.gov.in/emilkat/GeneralReport_IDB.aspx', `${t('l_path')}: ${a.village || a.taluka ? `VF-7/12 → ${a.district} → ${a.taluka || ''} → ${a.en}` : (en ? 'Urban property card → Surat → ' : 'શહેરી પ્રોપર્ટી કાર્ડ → સુરત → ') + a.en}`);
+  link(t('l_index2'), 'https://garvi.gujarat.gov.in/', `${t('l_path')}: ${en ? 'Index-2 / Property search → Sub-registrar Surat → year → document no.' : 'ઇન્ડેક્સ-2 / પ્રોપર્ટી સર્ચ → સબ-રજિસ્ટ્રાર સુરત → વર્ષ → દસ્તાવેજ નં.'}`);
+  if (extra.rera) link(`GujRERA: ${extra.rera}`, 'https://gujrera.gujarat.gov.in/project-search', `${t('l_path')}: ${en ? 'Project search → paste' : 'પ્રોજેક્ટ સર્ચ → પેસ્ટ કરો'} ${extra.rera}`);
+  link(t('l_tp_all'), 'https://www.suratmunicipal.gov.in/Departments/TownPlanningAllTPSchemes', 'SMC');
+  return h('div', { class: 'list' }, out);
+}
+const copyBtn = (text) => h('button', { class: 'linkbtn xs', onclick: async () => { try { await navigator.clipboard.writeText(text); toast(t('copied')); } catch { /* old phone */ } } }, t('copy'));
+
+// ---------- project detail ----------
+function viewProjectDetail(p) {
+  const a = areaById(p.area_id), pos = projPos(p), pr = projPrice(p), ph = tel(p.phone);
+  const pt = p.ptype === 'plotted' ? 'plot' : p.ptype === 'commercial' ? 'shop' : 'flat';
+  const at = pos || a;
+  return [
+    backHdr(p.name, `${p.promoter}${projArea(p) ? ' · ' + projArea(p) : ''}`),
+    h('section', { class: 'card hero-card' },
+      h('div', { class: 'tag' }, [t('p_' + (p.ptype || 'residential')), `${t('possession')} ${fmtDate(p.end_month + '-01', { month: 'short', year: 'numeric' })}`].join(' · ')),
+      pr ? [h('div', { class: 'xs gold b' }, pr.kind === 'expected' ? t('expected') : t('quoted')), h('div', { class: 'title big' }, pr.text), pr.note && h('div', { class: 'xs muted' }, pr.note, pr.url ? [' · ', h('a', { href: pr.url, target: '_blank', rel: 'noopener' }, t('link'))] : '')] : h('div', { class: 'muted' }, t('price_na')),
+      h('div', { class: 'between xs' }, h('span', { class: 'muted' }, `RERA ${reraNo(p)}`), copyBtn(p.rera)),
+      p.address && h('div', { class: 'small' }, '📍 ', p.address),
+      h('div', { class: 'grid3' },
+        ph ? h('a', { class: 'btn green', href: 'tel:+91' + ph }, t('call')) : h('span', {}),
+        ph ? h('a', { class: 'btn', href: waLink(ph, builderMsg(p)), target: '_blank', rel: 'noopener' }, icon('wa', 16), 'WhatsApp') : h('span', {}),
+        pos ? gmapsBtn(pos.lat, pos.lng) : h('a', { class: 'btn', href: gmaps(null, null, [p.name, p.promoter, p.locality || (a || {}).en, 'Surat'].filter(Boolean).join(', ')), target: '_blank', rel: 'noopener' }, '🔍 ', t('gsearch'))),
+      h('div', { class: 'grid2' },
+        h('button', { class: 'btn', onclick: () => { const c = a || SURAT, pin = projPin(p); pinPicker(p.name, pin ? { ...pin, exact: true } : { lat: c.lat, lng: c.lng }, (ps) => { const all = cfg.get(PROJPIN_KEY, {}); all[p.rera] = { lat: +ps.lat.toFixed(6), lng: +ps.lng.toFixed(6) }; cfg.set(PROJPIN_KEY, all); toast(t('saved')); render(); }); } }, projPin(p) ? '📌 ' + t('pin_move') : '📍 ' + t('pin_set')),
+        at && h('button', { class: 'btn gold', onclick: () => openDetail('value', { lat: at.lat, lng: at.lng, label: p.name, ptype: pt, area: p.area_id }) }, icon('calc', 18), t('valuation')))),
+    a && h('section', { class: 'card' }, h('div', { class: 'between' }, h('h2', {}, t('locality'), ': ', areaName(a, getLang())), h('button', { class: 'linkbtn', onclick: () => openPrices(a.id, pt) }, t('full_detail'))),
+      areaPriceBlock(a, pt, pos && pos.lat, pos && pos.lng)),
+    a && h('section', { class: 'card' }, h('h2', {}, t('pros_cons')), prosConsBlock(a)),
+    at && h('section', { class: 'card' }, h('h2', {}, t('nearby')), nearbyBlock(at.lat, at.lng)),
+    h('section', { class: 'card' }, h('h2', {}, t('sources')), areaLinks(a || { id: '', en: p.locality || 'Surat', district: p.district || 'Surat' }, { rera: p.rera })),
+    h('div', { class: 'center' }, reportBtn('project', `${p.name} · ${p.rera}`)),
+  ];
+}
+
+// ---------- paper ad / lead detail ----------
+function viewLeadDetail(l) {
+  const a = areaById(l.area_id), ph = tel(l.phone), p = parseEntry(l.text || '');
+  const ptype = l.ptype || p.ptype || 'flat', unit = defaultUnit(ptype);
+  const size = p.size ? toSqft(p.size, p.size_unit || defaultUnit(ptype), vigha()) : null;
+  const ask = p.price && size ? p.price / size : p.rate ? rateToSqft(p.rate, p.rate_unit || unit, vigha()) : null;
+  const mkt = a ? priceAt(a.lat, a.lng, ptype, a) : null;
+  const rent = /ભાડે|rent/i.test(l.text || '') && !/જોઈએ/.test(l.text || '');
+  return [
+    backHdr(l.source ? l.source.split(',')[0] : t('leads'), [l.date && fmtDate(l.date, { day: 'numeric', month: 'short', year: 'numeric' }), a && areaName(a, getLang())].filter(Boolean).join(' · ')),
+    h('section', { class: 'card hero-card' },
+      h('div', { class: 'tag' }, [t(ptype), rent ? t('rent') : t('sale')].join(' · ')),
+      h('div', { class: 'title' }, l.text),
+      h('div', { class: 'xs muted' }, l.source || ''),
+      ph && h('div', { class: 'between' }, h('span', { class: 'b' }, '📞 +91 ' + ph), copyBtn(ph)),
+      h('div', { class: 'grid3' },
+        ph ? h('a', { class: 'btn green', href: 'tel:+91' + ph }, t('call')) : h('span', {}),
+        ph ? h('a', { class: 'btn', href: waLink(ph, getLang() === 'en' ? `Namaste, I saw your ad (${l.source || 'newspaper'}). Is it still available? – Dharmesh Mehta, Ami Realtors (${BRAND.phones})` : `નમસ્તે, આપની જાહેરાત (${l.source || 'છાપું'}) જોઈ. મિલકત હજુ ઉપલબ્ધ છે? – ધર્મેશ મહેતા, અમી રિયલ્ટર્સ (${BRAND.phones})`), target: '_blank', rel: 'noopener' }, icon('wa', 16), 'WhatsApp') : h('span', {}),
+        h('button', { class: 'btn', onclick: () => inquiryForm({ name: l.name, phone: ph, area_id: l.area_id, ptype, deal: 'buy', notes: `${t('lead_seller')} · ${l.source || ''}: ${l.text}` }, render) }, t('to_inquiry'))),
+      a && h('button', { class: 'btn gold', onclick: () => openDetail('value', { lat: a.lat, lng: a.lng, label: areaName(a, getLang()), ptype, area: a.id, size: size || null, rent: rent && p.price ? p.price : null }) }, icon('calc', 18), t('valuation'))),
+    (ask || p.price) && h('section', { class: 'card' }, h('h2', {}, t('ad_vs_market')),
+      p.price && h('div', { class: 'between small' }, h('span', {}, t('asking')), h('span', { class: 'b' }, moneyShort(p.price))),
+      ask && h('div', { class: 'between small' }, h('span', {}, t('asking_rate')), h('span', { class: 'b' }, rate(ask, unit) + ' / ' + unitLabel(unit))),
+      ask && mkt && h('div', { class: 'between small' }, h('span', {}, mkt.own ? t('market_rate') : t('model_price')), h('span', { class: 'b' }, rate(mkt.value, unit))),
+      ask && mkt && h('div', { class: 'pc ' + (ask <= mkt.value * 1.05 ? 'pro' : 'con') }, h('div', { class: 'small b' }, `${pct(ask, mkt.value)} ${t('vs_market')}`))),
+    a && h('section', { class: 'card' }, h('div', { class: 'between' }, h('h2', {}, t('locality'), ': ', areaName(a, getLang())), h('button', { class: 'linkbtn', onclick: () => openPrices(a.id, ptype) }, t('full_detail'))), areaPriceBlock(a, ptype)),
+    a && h('section', { class: 'card' }, h('h2', {}, t('pros_cons')), prosConsBlock(a)),
+    a && h('section', { class: 'card' }, h('h2', {}, t('nearby')), h('div', { class: 'xs muted' }, t('near_area_centre')), nearbyBlock(a.lat, a.lng)),
+    a && h('section', { class: 'card' }, h('h2', {}, t('sources')), areaLinks(a)),
+    h('div', { class: 'center' }, reportBtn('lead', `${l.source || ''} ${l.date || ''}: ${String(l.text).slice(0, 80)}`)),
+  ];
+}
+
+// ---------- news article: full Gujarati write-up kept in the card ----------
+function newsText(n) {
+  const en = getLang() === 'en';
+  return {
+    title: (en ? n.title_en || n.title_gu : n.title_gu || n.title_en) || '',
+    body: (en ? n.body_en || n.summary_en : n.body_gu || n.summary_gu) || (en ? n.summary_gu : n.summary_en) || '',
+    points: (en ? n.points_en : n.points_gu) || [],
+  };
+}
+function newsShareText(n) {
+  const x = newsText(n);
+  return `*${x.title}*\n\n${x.body}${x.points.length ? '\n\n' + x.points.map((p) => '• ' + p).join('\n') : ''}\n\n${t('source')}: ${n.source || ''}${n.url ? ' ' + n.url : ''}\n— ${BRAND.name}, ${BRAND.person} (${BRAND.phones})`;
+}
+function viewNewsDetail(n) {
+  const x = newsText(n);
+  return [
+    backHdr(t('cat_' + n.category), fmtDate(n.published_on, { day: 'numeric', month: 'long', year: 'numeric' })),
+    h('article', { class: 'card article' },
+      h('h2', { class: 'atitle' }, x.title),
+      h('div', { class: 'xs muted' }, n.source || ''),
+      ...String(x.body).split(/\n{2,}/).map((para) => h('p', {}, para)),
+      x.points.length ? h('ul', { class: 'apoints' }, x.points.map((p) => h('li', {}, p))) : null,
+      n.area_ids && n.area_ids.length ? h('div', { class: 'chips wrap' }, n.area_ids.map((id) => areaById(id) && h('button', { class: 'chip', onclick: () => openPrices(id) }, areaName(areaById(id), getLang())))) : null),
+    h('div', { class: 'grid2' },
+      h('a', { class: 'btn green', href: 'https://wa.me/?text=' + encodeURIComponent(newsShareText(n)), target: '_blank', rel: 'noopener' }, icon('wa', 18), t('share_wa')),
+      n.url ? h('a', { class: 'btn', href: n.url, target: '_blank', rel: 'noopener' }, t('original')) : h('span', {})),
+    h('div', { class: 'xs muted center' }, t('news_note')),
+    h('div', { class: 'center' }, reportBtn('news', `${n.published_on} · ${n.title_en || n.title_gu} · ${n.url || ''}`)),
+  ];
+}
+
+// ---------- valuation: every method side by side for one spot ----------
+function viewValuation(d) {
+  const V = S.val && S.val.key === `${d.lat},${d.lng}` ? S.val : (S.val = { key: `${d.lat},${d.lng}`, ptype: d.ptype || S.mapType || 'flat', size: d.size ? Math.round(d.size) : '', rent: d.rent || '', inp: { ...DEFAULT_INPUTS }, roads: null, more: false, cap: null, mult: 5 });
+  const inp = V.inp, pt = V.ptype, unit = defaultUnit(pt);
+  const hint = d.area ? areaById(d.area) : null;
+  const box = h('div', { class: 'stack' });
+  const redraw = () => box.replaceChildren(...valuationBody(d, V, hint));
+  const again = () => { if (S.detail && S.detail.kind === 'value' && S.val === V) { const y = $('.screen').scrollTop; render(); $('.screen').scrollTop = y; } };
+  if (!V.roads && !V.loading) {
+    V.loading = true;
+    roadsAround(d.lat, d.lng, cfg).then((r) => {
+      V.roads = r;
+      if (inp.road_m == null && r.front) inp.road_m = r.front.width;
+      if (inp.hw_km == null && r.highway) inp.hw_km = r.highway.d;
+      if (r.highway && r.highway.d <= 0.05) inp.highway_frontage = true;
+      if (inp.metro_km == null && r.metro) inp.metro_km = r.metro.d;
+      again();
+    }).catch(() => { V.roads = { failed: true }; again(); });
+  }
+  // municipal reach: inside SMC roughly within 12 km of Chowk, SUDA up to ~25 km, otherwise gram panchayat (editable)
+  if (!V.authSet) { const dk = coreKm(d.lat, d.lng); inp.authority = dk <= 11 ? 'smc' : dk <= 25 ? 'suda' : 'gp'; inp.tp = dk <= 11 ? 'final' : dk <= 25 ? 'draft' : 'none'; if (dk > 25) { inp.sewer = 'no'; inp.water = 'no'; } V.authSet = true; }
+  redraw();
+  return [backHdr(t('valuation'), `${d.label || `${(+d.lat).toFixed(5)}, ${(+d.lng).toFixed(5)}`}`), box];
+}
+function valuationBody(d, V, hint) {
+  const inp = V.inp, pt = V.ptype, unit = defaultUnit(pt), rd = () => { const y = $('.screen').scrollTop; render(); $('.screen').scrollTop = y; };
+  const base = priceAt(d.lat, d.lng, pt, hint);
+  const adj = adjustments(pt, inp);
+  const a = hint || AREAS.filter((x) => !x.ind && sameBank(d.lat, d.lng, x)).map((x) => ({ x, d: km(d.lat, d.lng, x.lat, x.lng) })).sort((p, q) => p.d - q.d)[0]?.x;
+  const ja = jantriAt(d.lat, d.lng, pt === 'land' ? 'land' : pt);
+  const parts = [];
+  // 1 market comparison
+  const comp = base ? base.value * (1 + adj.total) : null;
+  if (comp) parts.push({ key: 'm_comparison', value: comp, w: base.own ? 3 : 2 });
+  // 2 income
+  const cap = V.cap ?? CAP[pt];
+  const inc = N(V.rent) && cap ? incomeValue({ rent: N(V.rent), cap, vacancy: VACANCY[pt] ?? 5, outgo: OUTGO[pt] ?? 15 }) : null;
+  const sizeSqft = N(V.size) ? N(V.size) : null;
+  if (inc && sizeSqft) parts.push({ key: 'm_income', value: inc.value / sizeSqft, w: ['shop', 'office', 'industrial'].includes(pt) ? 3 : 1 });
+  // 3 residual (plots)
+  let resid = null;
+  if (pt === 'plot' && sizeSqft) {
+    const flat = priceAt(d.lat, d.lng, 'flat', hint), fsi = fsiFor(inp.road_m || 12);
+    const jp = jantriAt(d.lat, d.lng, 'plot');
+    if (flat) resid = residualLand({ plotSqft: sizeSqft, fsi: fsi.base, saleRate: flat.value * 1.1, jantriSqft: jp ? jp.j : 0 });
+    if (resid && resid.perSqft > 0) parts.push({ key: 'm_residual', value: resid.perSqft, w: 1 });
+  }
+  // 4 agriculture
+  let agri = null;
+  if (pt === 'land') {
+    const vj = ja && ja.a && ja.a.village ? ja.j * 10.7639 : null;
+    agri = agriValue({ jantriSqm: vj, multiple: V.mult, inp, marketSqft: base ? base.value : null });
+    if (agri) parts.push({ key: 'm_agri', value: agri.value, w: 2 });
+  }
+  const fin = reconcileVals(parts);
+  const r = (v) => rate(v, unit), tot = (v) => (sizeSqft ? moneyShort(v * sizeSqft) : '');
+  const sel = (key, opts) => h('select', { class: 'input', value: String(inp[key]), onchange: (e) => { inp[key] = e.target.value; rd(); } }, opts.map(([v, l]) => h('option', { value: v }, l)));
+  const yn = [['yes', t('yes')], ['no', t('no')]];
+  const sizeUnitLbl = unitLabel('sqft');
+  const methodRow = (p) => h('div', { class: 'mrow' }, h('div', {}, h('div', { class: 'b small' }, t(p.key)), h('div', { class: 'xs muted' }, t(p.key + '_how'))), h('div', { class: 'num' }, r(p.value), sizeSqft ? h('div', { class: 'xs muted' }, tot(p.value)) : ''));
+  return [
+    chips(PTYPES.map((p) => [p, t(p)]), pt, (v) => { V.ptype = v; rd(); }, 'scroll'),
+    h('section', { class: 'card hero-card' },
+      h('div', { class: 'xs gold b' }, t('val_final')),
+      h('div', { class: 'title big' }, fin ? `${r(fin.value)} / ${unitLabel(unit)}` : t('no_price')),
+      fin && h('div', { class: 'small' }, `${t('range')}: ${r(fin.lo).replace('₹ ', '₹ ')} – ${r(fin.hi).replace('₹ ', '')}`),
+      fin && sizeSqft && h('div', { class: 'title' }, `${t('total')}: ${moneyShort(fin.value * sizeSqft)}`, h('span', { class: 'xs muted' }, ` (${moneyShort(fin.lo * sizeSqft)} – ${moneyShort(fin.hi * sizeSqft)})`)),
+      h('div', { class: 'grid2' },
+        field(`${t('size')} (${sizeUnitLbl})`, h('input', { class: 'input', inputmode: 'decimal', value: V.size, onchange: (e) => { V.size = e.target.value; rd(); } })),
+        field(`${t('rent_month')} ₹`, h('input', { class: 'input', inputmode: 'decimal', value: V.rent, onchange: (e) => { V.rent = e.target.value; rd(); } }))),
+      pt === 'land' && h('div', { class: 'xs muted' }, `1 ${t('u_vigha')} = ${vigha().toLocaleString('en-IN')} ${sizeUnitLbl}`)),
+    h('section', { class: 'card' }, h('h2', {}, t('val_methods')),
+      parts.length ? parts.map(methodRow) : h('div', { class: 'muted small' }, t('val_need')),
+      base && h('div', { class: 'xs muted' }, `${t('m_base')}: ${base.own ? t('own_short') + ' ' + areaName(base.own, getLang()) : knnLine(base, unit)}`),
+      inc && h('div', { class: 'card inset' }, h('div', { class: 'b small' }, t('m_income')),
+        result(t('inc_gross'), money(inc.gross)), result(t('inc_noi'), money(inc.noi)), result(`${t('inc_cap')} ${cap}% → YP ${inc.yp.toFixed(1)}`, money(inc.value), true),
+        h('div', { class: 'grid2' }, field(t('inc_cap') + ' %', h('input', { class: 'input', inputmode: 'decimal', value: cap, onchange: (e) => { V.cap = N(e.target.value); rd(); } })),
+          h('div', { class: 'xs muted' }, t('inc_note')))),
+      !inc && comp && CAP[pt] ? h('div', { class: 'xs muted' }, `${t('inc_expected')}: ${money(rentFromValue(comp * (sizeSqft || 1000), pt))} / ${t('month')} ${sizeSqft ? '' : '(1,000 ' + sizeUnitLbl + ')'} @ ${CAP[pt]}%`) : null,
+      resid && h('div', { class: 'card inset' }, h('div', { class: 'b small' }, t('m_residual')),
+        result(t('res_gdv'), moneyShort(resid.gdv)), result(t('res_cost'), moneyShort(resid.cons + resid.softs + resid.fin + resid.premium)), result(t('res_profit'), moneyShort(resid.prof)), result(t('res_land'), moneyShort(resid.land), true),
+        h('div', { class: 'xs muted' }, t('res_note'))),
+      agri && h('div', { class: 'card inset' }, h('div', { class: 'b small' }, t('m_agri')),
+        result(agri.fromJantri ? `${t('jantri')} × ${agri.multiple}` : t('market_rate'), r(agri.base)),
+        agri.adj.map((x) => result(t(x.key) + (x.note ? ' (' + x.note + ')' : ''), x.abs ? r(x.abs) : `${x.pct > 0 ? '+' : ''}${Math.round(x.pct * 100)}%`)),
+        result(t('m_agri'), r(agri.value), true),
+        h('div', { class: 'grid2' }, field(t('agri_mult'), h('input', { class: 'input', inputmode: 'decimal', value: V.mult, onchange: (e) => { V.mult = N(e.target.value) || 5; rd(); } })), h('div', { class: 'xs muted' }, t('agri_note'))))),
+    h('section', { class: 'card' }, h('h2', {}, t('val_adjust')),
+      adj.list.length ? adj.list.map((x) => result(t(x.key) + (x.note ? ` (${x.note})` : ''), `${x.pct > 0 ? '+' : ''}${Math.round(x.pct * 1000) / 10}%`)) : h('div', { class: 'muted small' }, t('adj_none')),
+      adj.list.length ? result(t('total'), `${adj.total > 0 ? '+' : ''}${Math.round(adj.total * 1000) / 10}%`, true) : null,
+      V.roads && !V.roads.failed ? h('div', { class: 'stack tight' }, roadRows(V.roads)) : h('div', { class: 'xs muted shimmer' }, V.roads && V.roads.failed ? t('osm_fail') : t('loading'))),
+    h('section', { class: 'card' }, h('h2', {}, t('val_inputs')), h('div', { class: 'xs muted' }, t('val_inputs_help')),
+      h('div', { class: 'grid2' },
+        field(t('r_front') + ' (m)', h('input', { class: 'input', inputmode: 'decimal', value: inp.road_m ?? '', onchange: (e) => { inp.road_m = N(e.target.value); rd(); } })),
+        field(t('r_highway') + ' (km)', h('input', { class: 'input', inputmode: 'decimal', value: inp.hw_km ?? '', onchange: (e) => { inp.hw_km = N(e.target.value); rd(); } }))),
+      h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: inp.highway_frontage, onchange: (e) => { inp.highway_frontage = e.target.checked; rd(); } }), t('adj_hw_front')),
+      h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: inp.corner, onchange: (e) => { inp.corner = e.target.checked; rd(); } }), t('adj_corner')),
+      h('div', { class: 'grid3' }, field('⚡ ' + t('i_elec'), sel('electricity', yn)), field('💧 ' + t('i_water'), sel('water', yn)), field('🚽 ' + t('i_sewer'), sel('sewer', yn))),
+      h('div', { class: 'grid2' }, field(t('i_auth'), sel('authority', [['smc', 'SMC'], ['suda', 'SUDA'], ['gp', t('i_gp')]])), field('TP', sel('tp', [['final', t('tp_final')], ['draft', t('tp_draft')], ['none', t('tp_none')]]))),
+      pt === 'shop' && field(t('i_shop_front'), sel('shop_front', [['main', t('i_main')], ['inner', t('i_inner')], ['upper', t('i_upper')]])),
+      ['flat', 'office'].includes(pt) && h('div', { class: 'grid2' }, field(t('floor'), h('input', { class: 'input', inputmode: 'numeric', value: inp.floor, onchange: (e) => { inp.floor = e.target.value; rd(); } })), field(t('i_age'), h('input', { class: 'input', inputmode: 'numeric', value: inp.age, onchange: (e) => { inp.age = e.target.value; rd(); } }))),
+      ['bungalow', 'shop', 'industrial'].includes(pt) && field(t('i_age'), h('input', { class: 'input', inputmode: 'numeric', value: inp.age, onchange: (e) => { inp.age = e.target.value; rd(); } })),
+      pt === 'land' && [
+        h('div', { class: 'grid2' }, field(t('i_access'), sel('access', [['pakka', t('i_pakka')], ['kachha', t('i_kachha')], ['none', t('i_noroad')]])), field(t('i_irrig'), sel('irrigation', [['rainfed', t('i_rain')], ['bore', t('i_bore')], ['canal', t('i_canal')]]))),
+        h('div', { class: 'grid2' }, field(t('i_tenure'), sel('tenure', [['old', t('i_old')], ['new', t('i_new')]])), field(t('i_na'), sel('na', [['agri', t('i_agri')], ['zone', t('i_zone')], ['na', 'NA']]))),
+        field(t('i_soil'), sel('soil', [['normal', t('i_soil_ok')], ['khar', t('i_khar')]])),
+        h('div', { class: 'xs muted' }, t('agri_rule'))]),
+    h('div', { class: 'grid2' },
+      h('button', { class: 'btn', onclick: () => { openDetail('sources'); } }, t('how_calc')),
+      a ? h('button', { class: 'btn', onclick: () => openPrices(a.id, pt) }, t('full_detail')) : h('span', {})),
+    h('div', { class: 'xs muted' }, t('val_disclaimer')),
+  ];
+}
+
+// ---------- Google Maps link from WhatsApp → price at that exact spot ----------
+async function priceFromLink(text) {
+  if (!text || !text.trim()) return toast(t('link_paste'), true);
+  toast(t('link_reading'));
+  try {
+    const c = await resolveMapsLink(text.trim());
+    if (!c || c.lat == null) return toast(c && c.name ? `${t('link_noloc')}: ${c.name}` : t('link_bad'), true);
+    S.spotAt = { lat: c.lat, lng: c.lng, label: c.name || null, fromLink: true };
+    for (const sh of sheets.slice().reverse()) sh.close();
+    S.detail = null;
+    if (S.tab !== 'map') { S.tab = 'map'; render(); }
+    if (S.map) { S.map.setView([c.lat, c.lng], 17); showSpot(c.lat, c.lng, c.name || null, true); }
+  } catch { toast(t('link_fail'), true); }
+}
+function linkSheet() {
+  const f = { v: '' };
+  const sh = openSheet(t('link_title'), () => [
+    h('div', { class: 'small muted' }, t('link_help')),
+    h('textarea', { class: 'input area', rows: 3, placeholder: 'https://maps.app.goo.gl/…', oninput: (e) => { f.v = e.target.value; } }),
+    h('div', { class: 'grid2' },
+      h('button', { class: 'btn', onclick: async () => { try { f.v = await navigator.clipboard.readText(); sh.body.querySelector('textarea').value = f.v; } catch { toast(t('link_paste'), true); } } }, '📋 ', t('paste')),
+      h('button', { class: 'btn gold', onclick: () => priceFromLink(f.v) }, t('get_price')))]);
+}
+
+// ---------- trash (deleted customers stay 30 days) ----------
+const TRASH_DAYS = 30;
+const isGone = (r) => !!r.deleted_at;
+async function trashCustomer(c) {
+  const now = new Date().toISOString();
+  await saveRec('customers', { ...c, deleted_at: now });
+  for (const i of S.data.inquiries.filter((x) => x.customer_id === c.id)) await saveRec('inquiries', { ...i, deleted_at: now });
+  for (const x of S.data.tasks.filter((y) => y.customer_id === c.id && !y.done)) await saveRec('tasks', { ...x, deleted_at: now });
+}
+async function restoreCustomer(c) {
+  const at = c.deleted_at;
+  await saveRec('customers', { ...c, deleted_at: null });
+  for (const i of S.data.inquiries.filter((x) => x.customer_id === c.id && x.deleted_at === at)) await saveRec('inquiries', { ...i, deleted_at: null });
+  for (const x of S.data.tasks.filter((y) => y.customer_id === c.id && y.deleted_at === at)) await saveRec('tasks', { ...x, deleted_at: null });
+}
+async function purgeTrash() {
+  const cut = new Date(Date.now() - TRASH_DAYS * 864e5).toISOString();
+  for (const c of S.data.customers.filter((x) => x.deleted_at && x.deleted_at < cut)) {
+    try {
+      for (const tb of ['inquiries', 'activities', 'tasks']) for (const r of S.data[tb].filter((x) => x.customer_id === c.id)) await delRec(tb, r.id);
+      await delRec('customers', c.id);
+    } catch (e) { console.warn('purge', e); return; }
+  }
+}
+function viewTrash() {
+  const gone = S.data.customers.filter(isGone).sort((a, b) => String(b.deleted_at).localeCompare(String(a.deleted_at)));
+  const left = (c) => Math.max(0, TRASH_DAYS - Math.floor((Date.now() - new Date(c.deleted_at)) / 864e5));
+  return [
+    backHdr(t('trash'), t('trash_help')),
+    gone.length ? gone.map((c) => h('div', { class: 'card' },
+      h('div', { class: 'between' }, h('div', {}, h('div', { class: 'title' }, custLabel(c)), h('div', { class: 'xs muted' }, `${t('deleted_on')} ${fmtDate(c.deleted_at, { day: 'numeric', month: 'short' })} · ${left(c)} ${t('days_left')}`)),
+        h('button', { class: 'btn green sm', onclick: async () => { try { await restoreCustomer(c); toast(t('restored')); render(); } catch (e) { fail(e); } } }, t('restore'))))) : h('div', { class: 'empty' }, t('trash_empty')),
+  ];
+}
+
+// ---------- where every number comes from (data catalogue) ----------
+const SOURCES = [
+  ['src_jantri', 'Garvi (IGR Gujarat)', 'https://garvi.gujarat.gov.in/', 'src_jantri_p', 'src_jantri_c'],
+  ['src_dastavej', 'Garvi Index-2', 'https://garvi.gujarat.gov.in/', 'src_dast_p', 'src_dast_c'],
+  ['src_land', 'AnyROR / e-Dhara / iORA', 'https://anyror.gujarat.gov.in/', 'src_land_p', 'src_land_c'],
+  ['src_rera', 'GujRERA', 'https://gujrera.gujarat.gov.in/', 'src_rera_p', 'src_rera_c'],
+  ['src_tp', 'SMC Town Planning', 'https://www.suratmunicipal.gov.in/Departments/TownPlanningAllTPSchemes', 'src_tp_p', 'src_tp_c'],
+  ['src_dp', 'SUDA DP-2035', 'https://www.sudaonline.org/development-plans/dp-2035-sheet-dt-08-10-2020-corrigendum-9-11-2020/', 'src_dp_p', 'src_dp_c'],
+  ['src_gidc', 'GIDC allotment price', 'https://gidc.gujarat.gov.in/allotmentprice', 'src_gidc_p', 'src_gidc_c'],
+  ['src_portals', '99acres · MagicBricks · Housing · SquareYards', 'https://www.99acres.com/', 'src_portals_p', 'src_portals_c'],
+  ['src_paper', 'Sandesh · Gujarat Samachar e-paper', 'https://sandesh.com/epaper/surat', 'src_paper_p', 'src_paper_c'],
+  ['src_osm', 'OpenStreetMap', 'https://www.openstreetmap.org/', 'src_osm_p', 'src_osm_c'],
+  ['src_own', 'Ami Realtors (own deals, WhatsApp groups)', null, 'src_own_p', 'src_own_c'],
+];
+function viewSources() {
+  return [
+    backHdr(t('sources_title'), t('sources_sub')),
+    h('section', { class: 'card' }, h('h2', {}, t('how_calc')), h('div', { class: 'small' }, t('how_calc_body'))),
+    SOURCES.map(([k, name, url, pro, con]) => h('section', { class: 'card' },
+      h('div', { class: 'between' }, h('div', {}, h('div', { class: 'tag' }, t(k)), h('div', { class: 'title' }, name)), url && h('a', { class: 'iconbtn', href: url, target: '_blank', rel: 'noopener', 'aria-label': name }, icon('link', 18))),
+      h('div', { class: 'pc pro' }, h('div', { class: 'small' }, '+ ', t(pro))), h('div', { class: 'pc con' }, h('div', { class: 'small' }, '− ', t(con))))),
   ];
 }
 
@@ -1545,6 +2054,125 @@ function showLock() {
   });
 }
 
+// ---------- sign in first (every phone, every person) ----------
+function authShell(...kids) {
+  return h('div', { class: 'authscreen' }, h('div', { class: 'authbox' },
+    h('img', { class: 'authlogo', src: 'img/logo.jpg', alt: 'Ami Realtors' }), h('div', { class: 'brandline center' }, BRAND.tag_gu), ...kids));
+}
+function showLogin() {
+  return new Promise((done) => {
+    const f = { email: cfg.get('lastEmail', ''), password: '', mode: 'in' };
+    const el = h('div', {});
+    const draw = () => el.replaceChildren(authShell(
+      h('h1', { class: 'center' }, f.mode === 'up' ? t('create_account') : f.mode === 'reset' ? t('forgot') : t('sign_in')),
+      h('div', { class: 'small muted center' }, t('login_why')),
+      field(t('email'), h('input', { class: 'input', type: 'email', autocomplete: 'username', autocapitalize: 'none', value: f.email, oninput: (e) => { f.email = e.target.value; } })),
+      f.mode !== 'reset' && field(t('password'), h('input', { class: 'input', type: 'password', autocomplete: f.mode === 'up' ? 'new-password' : 'current-password', value: f.password, oninput: (e) => { f.password = e.target.value; }, onkeydown: (e) => { if (e.key === 'Enter') go1(); } })),
+      h('button', { class: 'btn gold big', onclick: go1 }, f.mode === 'up' ? t('create_account') : f.mode === 'reset' ? t('send_link') : t('sign_in')),
+      h('div', { class: 'between' },
+        h('button', { class: 'linkbtn', onclick: () => { f.mode = f.mode === 'up' ? 'in' : 'up'; draw(); } }, f.mode === 'up' ? t('have_account') : t('new_here')),
+        f.mode !== 'reset' ? h('button', { class: 'linkbtn', onclick: () => { f.mode = 'reset'; draw(); } }, t('forgot')) : h('button', { class: 'linkbtn', onclick: () => { f.mode = 'in'; draw(); } }, t('back'))),
+      h('div', { class: 'seg mini' }, ...[['gu', 'ગુજરાતી'], ['en', 'English']].map(([v, l]) => h('button', { class: getLang() === v ? 'on' : '', onclick: () => { setLang(v); draw(); } }, l)))));
+    async function go1() {
+      const email = f.email.trim().toLowerCase();
+      if (!/^\S+@\S+\.\S+$/.test(email)) return toast(t('email'), true);
+      try {
+        if (f.mode === 'reset') { await cloud.resetPassword(email); toast(t('reset_sent')); f.mode = 'in'; return draw(); }
+        if (f.password.length < 6) return toast(t('pw_short'), true);
+        await cloud.signIn(email, f.password, f.mode === 'up');
+        cfg.set('lastEmail', email); el.remove(); done();
+      } catch (e) {
+        if (e.message === 'CONFIRM_EMAIL') { toast(t('confirm_email')); f.mode = 'in'; draw(); return; }
+        toast(/invalid login/i.test(e.message) ? t('wrong_login') : /fetch|network/i.test(e.message) ? t('no_net') : e.message, true);
+      }
+    }
+    draw(); document.body.append(el);
+  });
+}
+// First owner creates the team; everyone else joins with a code. Before the v3 database update this is skipped.
+function showTeamSetup() {
+  return new Promise((done) => {
+    const f = { name: 'Ami Realtors', person: '', code: '', mode: 'join' };
+    const el = h('div', {});
+    const draw = () => el.replaceChildren(authShell(
+      h('h1', { class: 'center' }, t('team_setup')),
+      h('div', { class: 'small muted center' }, cloud.email),
+      seg([['join', t('team_join')], ['create', t('team_create')]], f.mode, (v) => { f.mode = v; draw(); }),
+      field(t('your_name'), h('input', { class: 'input', value: f.person, oninput: (e) => { f.person = e.target.value; } })),
+      f.mode === 'join' ? field(t('invite_code'), h('input', { class: 'input code', value: f.code, maxlength: 6, autocapitalize: 'characters', oninput: (e) => { f.code = e.target.value.toUpperCase(); } }))
+        : [field(t('team_name'), h('input', { class: 'input', value: f.name, oninput: (e) => { f.name = e.target.value; } })), h('div', { class: 'xs muted' }, t('team_create_help'))],
+      h('button', { class: 'btn gold big', onclick: async () => {
+        try {
+          if (f.mode === 'join') { if (f.code.trim().length < 6) return toast(t('invite_code'), true); await cloud.joinTeam(f.code, f.person.trim()); }
+          else await cloud.createTeam(f.name.trim(), f.person.trim());
+          el.remove(); done(); toast(t('team_ok'));
+        } catch (e) { toast(e.message, true); }
+      } }, t('continue')),
+      h('button', { class: 'linkbtn', onclick: async () => { await cloud.signOut(); location.reload(); } }, t('sign_out'))));
+    draw(); document.body.append(el);
+  });
+}
+const canDelete = () => !cloud.ready || cloud.isOwner;
+// Live sync: apply other phones' changes as they happen, without disturbing typing or an open form.
+function startLive() {
+  if (!cloud.ready) return;
+  cloud.onStatus = () => { const d = document.querySelector('.livedot'); if (d) d.className = 'livedot' + (cloud.live ? ' on' : ''); };
+  cloud.listen(PRIVATE.filter((x) => x !== 'reports'), (table, ev, row, old) => {
+    if (!S.data[table]) return;
+    const a = S.data[table];
+    if (ev === 'DELETE') S.data[table] = a.filter((r) => r.id !== (old && old.id));
+    else if (row && row.id) { const i = a.findIndex((r) => r.id === row.id); if (i >= 0) { if (String(a[i].updated_at) > String(row.updated_at)) return; a[i] = row; } else a.push(row); }
+    if (table === 'price_points') S.fits = null;
+    softRender();
+  });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && cloud.ready && !cloud.live) startLive(); });
+}
+function softRender() {
+  clearTimeout(S.softT);
+  S.softT = setTimeout(() => {
+    const ae = document.activeElement;
+    if (sheets.length || (ae && /INPUT|TEXTAREA|SELECT/.test(ae.tagName)) || S.tab === 'map') { S.dirty = true; return; }
+    const sc = $('.screen'), y = sc ? sc.scrollTop : 0; render(); const sc2 = $('.screen'); if (sc2) sc2.scrollTop = y;
+  }, 300);
+}
+document.addEventListener('focusout', () => { if (S.dirty && !sheets.length) setTimeout(() => { if (S.dirty && !sheets.length && !/INPUT|TEXTAREA/.test((document.activeElement || {}).tagName || '')) { S.dirty = false; softRender(); } }, 400); });
+// Android share sheet → "Ami Realtors": a Google Maps link opens straight on the map with the price.
+function handleShared() {
+  const q = new URLSearchParams(location.search), txt = [q.get('text'), q.get('url'), q.get('title')].filter(Boolean).join(' ');
+  if (q.get('open') === 'link') { history.replaceState(null, '', location.pathname); return linkSheet(); }
+  if (!txt) return;
+  history.replaceState(null, '', location.pathname);
+  if (coordsFromText(txt) || isMapsUrl(firstUrl(txt))) priceFromLink(txt);
+  else { S.tab = 'customers'; render(); }
+}
+// ---------- team: members, roles, invite codes ----------
+function viewTeam() {
+  const box = h('div', { class: 'stack' }, h('div', { class: 'muted small shimmer' }, t('loading')));
+  const tm = cloud.team || {};
+  const draw = async () => {
+    if (tm.missing) return box.replaceChildren(h('div', { class: 'card' }, h('div', { class: 'b' }, t('db_update')), h('div', { class: 'small' }, t('db_update_help'))));
+    try {
+      const ms = await cloud.members(); S.members = ms;
+      box.replaceChildren(
+        ...ms.map((m) => h('div', { class: 'card' }, h('div', { class: 'between' },
+          h('div', {}, h('div', { class: 'title' }, m.name || m.email || '—'), h('div', { class: 'xs muted' }, [m.email, t('role_' + m.role)].filter(Boolean).join(' · '))),
+          cloud.isOwner && m.user_id !== cloud.uid ? h('select', { class: 'input sel', value: m.role, onchange: async (e) => { try { await cloud.setRole(m.user_id, e.target.value); toast(t('saved')); } catch (er) { fail(er); } } }, ['owner', 'staff'].map((r) => h('option', { value: r }, t('role_' + r)))) : h('span', { class: 'badge' }, t('role_' + m.role))))),
+        cloud.isOwner && h('section', { class: 'card' }, h('h2', {}, t('invite')), h('div', { class: 'small muted' }, t('invite_help')),
+          h('div', { class: 'grid2' },
+            ...['staff', 'owner'].map((r) => h('button', { class: 'btn ' + (r === 'staff' ? 'gold' : ''), onclick: async () => {
+              try {
+                const code = await cloud.invite(r);
+                const msg = `${t('invite_msg')}\n${location.origin}\n${t('invite_code')}: ${code}`;
+                openSheet(t('invite'), () => [h('div', { class: 'codebig' }, code), h('div', { class: 'small' }, t('invite_steps')),
+                  h('a', { class: 'btn green', href: 'https://wa.me/?text=' + encodeURIComponent(msg), target: '_blank', rel: 'noopener' }, icon('wa', 18), 'WhatsApp'), copyBtn(code)]);
+              } catch (er) { fail(er); }
+            } }, `+ ${t('role_' + r)}`)))));
+    } catch (e) { box.replaceChildren(h('div', { class: 'card' }, h('div', { class: 'small' }, t('db_update_help')))); }
+  };
+  draw();
+  return [backHdr(t('team'), `${tm.team_name || ''} · ${cloud.email}`), box];
+}
+
 // ---------- start ----------
 let hiddenAt = 0, locked = false;
 document.addEventListener('visibilitychange', async () => {
@@ -1553,10 +2181,18 @@ document.addEventListener('visibilitychange', async () => {
 });
 (async function start() {
   setLang(getLang());
-  if (lock.hasPin) { locked = true; await showLock(); locked = false; }
   await cloud.init();
+  if (!cloud.ready) await showLogin();
+  if (cloud.team === null && cloud.ready) await showTeamSetup();
+  if (lock.hasPin) { locked = true; await showLock(); locked = false; }
+  // Anything saved on this phone before signing in moves to the cloud automatically (nothing is lost).
+  if (cloud.ready) { try { if (await store.hasLocal()) { const n = await store.uploadLocal(); if (n) toast(`${t('upload_local')} ✓ (${n})`); } } catch (e) { console.warn('upload', e); } }
   await load();
+  purgeTrash().catch(() => {});
   render();
+  startLive();
+  if (cloud.ready && cloud.isOwner && cloud.team && cloud.team.team_id) cloud.members().then((m) => { S.members = m; }).catch(() => {});
   loadPlaces();
+  handleShared();
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

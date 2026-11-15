@@ -33,6 +33,36 @@ async function sendAll(env) {
   }
   return { ok, gone, total: subs.length };
 }
+// Google Maps short links (maps.app.goo.gl) from WhatsApp: a web page cannot follow Google's redirect,
+// so the Worker follows it (only to Google hosts) and returns the final address, which has the coordinates.
+const GOOGLE = /^https:\/\/(maps\.app\.goo\.gl|goo\.gl|g\.co|share\.google|(www\.|maps\.)?google\.[a-z.]+|consent\.google\.[a-z.]+)\//i;
+async function resolveLink(raw) {
+  const json = (o, st = 200) => new Response(JSON.stringify(o), { status: st, headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=86400' } });
+  let url = raw.trim();
+  if (!GOOGLE.test(url)) return json({ error: 'not a Google Maps link' }, 400);
+  let body = '';
+  for (let i = 0; i < 6; i++) {
+    const r = await fetch(url, { redirect: 'manual', headers: { 'User-Agent': 'Mozilla/5.0', 'Accept-Language': 'en' } });
+    const loc = r.headers.get('location');
+    if (loc) {
+      const next = new URL(loc, url).toString();
+      // consent pages carry the real address in ?continue=
+      const cont = new URL(next).searchParams.get('continue');
+      url = cont && GOOGLE.test(cont) ? cont : next;
+      if (!GOOGLE.test(url)) break;
+      continue;
+    }
+    if (r.ok) body = (await r.text()).slice(0, 200000);
+    break;
+  }
+  // When the address has no numbers, the page usually does (og:image centre or APP_INITIALIZATION_STATE).
+  let hint = '';
+  const m = body.match(/center=(-?\d+\.\d+)%2C(-?\d+\.\d+)/) || body.match(/\[\[\[[\d.]+,(-?\d+\.\d+),(-?\d+\.\d+)\]/);
+  if (m) hint = m[0].startsWith('center') ? `${m[1]},${m[2]}` : `${m[2]},${m[1]}`;
+  const om = body.match(/<meta (?:content="([^"]+)" (?:itemprop|property)="og:title"|property="og:title" content="([^"]+)")/) || [];
+  const name = om[1] || om[2] || null;
+  return json({ url, body: hint ? 'q=' + hint : '', name });
+}
 export default {
   async fetch(req, env) {
     const u = new URL(req.url);
@@ -40,6 +70,14 @@ export default {
     if (u.pathname === '/push-test') {
       if (!env.PUSH_KEY || u.searchParams.get('key') !== env.PUSH_KEY) return new Response('no', { status: 403 });
       return Response.json(await sendAll(env));
+    }
+    if (u.pathname === '/resolve') return resolveLink(u.searchParams.get('u') || '');
+    // WhatsApp needs an absolute image address to show the visiting card as the link preview
+    if (u.pathname === '/card.html' || u.pathname === '/card') {
+      let r = await env.ASSETS.fetch(new Request(u.origin + '/card.html'));
+      if (r.status >= 300 && r.status < 400 && r.headers.get('location')) r = await env.ASSETS.fetch(new Request(new URL(r.headers.get('location'), u.origin)));
+      const html = (await r.text()).replace('content="img/card.jpg"', `content="${u.origin}/img/card.jpg"`);
+      return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=3600' } });
     }
     return env.ASSETS.fetch(req);
   },
