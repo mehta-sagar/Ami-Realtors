@@ -25,7 +25,8 @@ REQUIRED = ["area_id", "ptype", "kind", "price_sqft", "source", "source_url", "o
 
 def problems(p):
     out = [f"missing {k}" for k in REQUIRED if p.get(k) in (None, "")]
-    lo, hi = BOUNDS.get(p.get("ptype"), (0, 1e9))
+    # rent quotes are monthly rupees per sq ft (shops/offices ~15-400, flats ~8-60, sheds ~8-60)
+    lo, hi = (2, 600) if p.get("kind") == "rent" else BOUNDS.get(p.get("ptype"), (0, 1e9))
     try:
         v = float(p.get("price_sqft"))
         if not lo <= v <= hi:

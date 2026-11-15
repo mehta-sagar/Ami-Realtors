@@ -1,0 +1,1436 @@
+{
+"_note": "Exact official documents per area. tp: SMC town-planning schemes (map PDF + F/B-form PDF with FP list), read from suratmunicipal.gov.in on 2026-11-15. jantri/dp: filled as each official page is captured.",
+"updated": "2026-11-15",
+"tp": [
+{
+"no": 1,
+"name": "Laldarwaja",
+"status": "final",
+"areas": [
+"lal-darwaja"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP01%20Laldarwaja/CTP01(LALDARWAJA)FINAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP01%20Laldarwaja/TP01_LALDARWAJA_FORM.pdf"
+},
+{
+"no": 1,
+"name": "Udhna-Majura",
+"status": "final",
+"areas": [
+"udhna",
+"majura"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP01%20Udhna-Majura/CTP01(UDHANA-MAJURA)FINAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP01%20Udhna-Majura/TP01_UDHNA_MAJURA_FORM.pdf"
+},
+{
+"no": 1,
+"name": "Vesu",
+"status": "final",
+"areas": [
+"vesu"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP01%20VESU/TP01%20VESU.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP01%20VESU/TP01%20VESU-FORM.pdf"
+},
+{
+"no": 2,
+"name": "Nanpura",
+"status": "final",
+"areas": [
+"nanpura"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP02%20Nanpura/CTP02(NANPURA)FINAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP02%20Nanpura/TP02_NANPURA_FORM.pdf"
+},
+{
+"no": 2,
+"name": "Udhana",
+"status": "final",
+"areas": [
+"udhna"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP2%20UDHNA/TP2%20UDHANA%20PLAN%20NO-3.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP2%20UDHNA/TP02(UDHANA)F-form.pdf"
+},
+{
+"no": 2,
+"name": "Vesu-Bharthana-Vesu",
+"status": "final",
+"areas": [
+"vesu",
+"bharthana-vesu"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP02_VesuBharthanaVesu/TP02_VesuBharthanaVesu_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP02_VesuBharthanaVesu/TP02_VesuBharthanaVesu_FORM.pdf"
+},
+{
+"no": 3,
+"name": "Katargam",
+"status": "final",
+"areas": [
+"katargam"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP03Katargam/CTP03(KATARGAM)FINAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP03Katargam/TP03_KATARGAM_FORM.pdf"
+},
+{
+"no": 3,
+"name": "Karanj",
+"status": "final",
+"areas": [],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP03%20Karanj/CTP03(KARANJ)FINAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP03%20Karanj/CTP03(KARANJ)FINAL-FORM.pdf"
+},
+{
+"no": 4,
+"name": "Ashwinikumar-Navagam",
+"status": "final",
+"areas": [],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP04%20Ashwanikumar-Navagam/CTP04(ASHWA-NAVAGAM)FINAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP04%20Ashwanikumar-Navagam/CTP04(ASHWANIKUMAR-NAVAGAM)FINAL-FORM.pdf"
+},
+{
+"no": 4,
+"name": "Umra-South",
+"status": "final",
+"areas": [
+"athwalines"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP04%20UMRA-SOUTH/CTP04(UMRA-SOUTH)FINAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP04%20UMRA-SOUTH/T.P.04(UMRA%20SOUTH)%20F-FORM.pdf"
+},
+{
+"no": 4,
+"name": "Rundh-Magdalla",
+"status": "final",
+"areas": [
+"magdalla",
+"vesu"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP04_RUNDH_MAGDALLA/TPS4_Map.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP04_RUNDH_MAGDALLA/TPS4B_Form.pdf"
+},
+{
+"no": 5,
+"name": "Athwa-Umra",
+"status": "final",
+"areas": [
+"athwalines"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP05%20Athawa-Umra/CTP05(ATHWA-UMRA)FINAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP05%20Athawa-Umra/TP05_ATHWA_UMRA_FORM.pdf"
+},
+{
+"no": 5,
+"name": "Umra-North",
+"status": "final",
+"areas": [
+"athwalines"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP05%20UMRA-NORTH/TP05%20UMRA-NORTH.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP05%20UMRA-NORTH/TP05%20UMRA-NORTH-FORM.pdf"
+},
+{
+"no": 6,
+"name": "Majura-Khatodara",
+"status": "final",
+"areas": [
+"majura"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP06%20Majura-Khatodra/TP06_MAJURA_KHATODARA_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP06%20Majura-Khatodra/TP06_MAJURA_KHATODARA_FORM.pdf"
+},
+{
+"no": 6,
+"name": "Piplod",
+"status": "final",
+"areas": [
+"piplod"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP06%20PIPLOD/CTP06(PIPLOD)FINAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP06%20PIPLOD/T.P.06(PIPLOD)%20F-FORM.pdf"
+},
+{
+"no": 6,
+"name": "Vesu",
+"status": "final",
+"areas": [
+"vesu"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP6%20VESU/TP6%20VESU%20PLAN%20NO-3.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP6%20VESU/TP%2006%20FINAL%20FORM%20F.pdf"
+},
+{
+"no": 7,
+"name": "Anjana",
+"status": "final",
+"areas": [
+"anjana"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP07%20Anjana/CTP07(ANJANA)FINAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP07%20Anjana/TP07(ANJNA)final-Form.pdf"
+},
+{
+"no": 7,
+"name": "Vesu-Magdalla",
+"status": "final",
+"areas": [
+"vesu",
+"magdalla"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP07_VesuMagdalla/TP07_VesuMagdalla_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP07_VesuMagdalla/TP07_VesuMagdalla_FORM.pdf"
+},
+{
+"no": 8,
+"name": "Umarwada",
+"status": "final",
+"areas": [
+"umarwada"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP08%20Umarwada/CTP08(UMARWADA)FINAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP08%20Umarwada/TP08(UMARWADA)final-Form.pdf"
+},
+{
+"no": 8,
+"name": "Palanpore",
+"status": "final",
+"areas": [
+"palanpur"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP08_PALANPORE/TP08_Map.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP08_PALANPORE/TP08F_Form.pdf"
+},
+{
+"no": 9,
+"name": "Majura",
+"status": "final",
+"areas": [
+"majura"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP09%20Majura/CTP09(MAJURA)FINAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP09%20Majura/TP09_MAJURA_FORM.pdf"
+},
+{
+"no": 9,
+"name": "Palanpore-Bhesan",
+"status": "final",
+"areas": [
+"bhesan",
+"palanpur"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP9%20PALANPORE-BHESAN/TP9_FINAL_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP9%20PALANPORE-BHESAN/TP9_FINAL_F_FORM.pdf"
+},
+{
+"no": 10,
+"name": "Adajan",
+"status": "final",
+"areas": [
+"adajan"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP10%20Adajan/CTP10(ADAJAN)FINAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP10%20Adajan/TP10_ADAJAN_FORM.pdf"
+},
+{
+"no": 10,
+"name": "Pal",
+"status": "final",
+"areas": [
+"pal"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP10%20PAL/TP10%20PAL%20Plan-3.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP10%20PAL/TP10F_Form.pdf"
+},
+{
+"no": 11,
+"name": "Adajan",
+"status": "final",
+"areas": [
+"adajan"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP11%20Adajan/CTP11(ADAJAN)FINAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP11%20Adajan/TP11_ADAJAN_FORM.pdf"
+},
+{
+"no": 11,
+"name": "Puna",
+"status": "final",
+"areas": [
+"puna"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP11%20PUNA/TP11_PUNA.jpg",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP11%20PUNA/TP11_PUNA_F-FORM.pdf"
+},
+{
+"no": 12,
+"name": "Adajan",
+"status": "final",
+"areas": [
+"adajan"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP12%20Adajan/CTP12(ADAJAN)FINAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP12%20Adajan/TP12_ADAJAN_FORM.pdf"
+},
+{
+"no": 14,
+"name": "Pal",
+"status": "final",
+"areas": [
+"pal"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP14%20PAL/TP14%20PAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP14%20PAL/TP14%20PAL%20F-FORM.pdf"
+},
+{
+"no": 13,
+"name": "Adajan",
+"status": "final",
+"areas": [
+"adajan"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP13%20Adajan/CTP13(ADAJAN).pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP13%20Adajan/TP13_ADAJAN_FORM.pdf"
+},
+{
+"no": 14,
+"name": "Rander-Adajan",
+"status": "final",
+"areas": [
+"adajan",
+"rander"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP14%20RANDER-ADAJAN/TP14%20RANDER-ADAJAN.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP14%20RANDER-ADAJAN/TP-14(RANDER-ADAJAN)%20F%20Form.pdf"
+},
+{
+"no": 15,
+"name": "Fulpada",
+"status": "final",
+"areas": [],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP15%20Fulpada/CTP15(FULPADA)FINAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP15%20Fulpada/CTP15(FULPADA)FINAL-FORM.pdf"
+},
+{
+"no": 16,
+"name": "Kapadra",
+"status": "final",
+"areas": [
+"kapodra"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP16%20Kapadra/CTP16(KAPADRA)FINAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP16%20Kapadra/TP16(KAPADRA)final-Form.pdf"
+},
+{
+"no": 16,
+"name": "Pal",
+"status": "final",
+"areas": [
+"pal"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP16PAL/TP16FINAL_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP16PAL/TP16PALFINAL_F_FORM.pdf"
+},
+{
+"no": 17,
+"name": "Fulpada",
+"status": "final",
+"areas": [],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP17%20FULPADA/TP17%20FULPADA.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP17%20FULPADA/CTP17(FULPADA)-FINAL-FORM.pdf"
+},
+{
+"no": 18,
+"name": "Katargam",
+"status": "final",
+"areas": [
+"katargam"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP18%20(KATARGAM)/TP18(katatgam)%20FINAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP18%20(KATARGAM)/TP18_katatgam_FORM.pdf"
+},
+{
+"no": 19,
+"name": "Katargam",
+"status": "final",
+"areas": [
+"katargam"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP19KATARGAM/TP19KATARGAM_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP19KATARGAM/TP19KATARGAM_BForm.pdf"
+},
+{
+"no": 19,
+"name": "Parvat-Magob",
+"status": "final",
+"areas": [
+"parvat",
+"magob"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP19%20PARVAT-MAGOB/TP19%20PARVAT-MAGOB.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP19%20PARVAT-MAGOB/TP19%20PARVAT-MAGOB%20F-Form.pdf"
+},
+{
+"no": 20,
+"name": "Nanavarachha-Kapadra",
+"status": "final",
+"areas": [
+"nana-varachha",
+"kapodra"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP20%20NANAVARACHHA-KAPADRA/TP20%20NANAVARACHHA-KAPADRA.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP20%20NANAVARACHHA-KAPADRA/CTP20(NANA%20VARACHHA-KAPADRA)-FINAL-FORM.pdf"
+},
+{
+"no": 21,
+"name": "Bhestan",
+"status": "final",
+"areas": [
+"bhestan"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP21%20BHESTAN/TP21%20BHESTAN%20PLAN%20NO-3.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP21%20BHESTAN/TP21(BHESTAN)F-form.pdf"
+},
+{
+"no": 22,
+"name": "Bhestan",
+"status": "final",
+"areas": [
+"bhestan"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP22%20BHESTAN/TP22%20BHESTAN%20PLAN%20NO.-3.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP22%20BHESTAN/TP-%2022(BHESTAN)%20FORM-F.pdf"
+},
+{
+"no": 23,
+"name": "Rander",
+"status": "final",
+"areas": [
+"rander"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP23%20RANDER/CTP23(RANDER)%20FINAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP23%20RANDER/CTP-23(RANDER)%20FINAL_BForm.pdf"
+},
+{
+"no": 24,
+"name": "Mota Varachha-Utran",
+"status": "final",
+"areas": [
+"mota-varachha",
+"utran"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP24_MOTAVARACHHA/TP24_Map.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP24_MOTAVARACHHA/TP24_FForm.pdf"
+},
+{
+"no": 26,
+"name": "Singanpore",
+"status": "final",
+"areas": [
+"singanpor"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP26_Singanpore/TP26_Singanpore_Map.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP26_Singanpore/TP26_Singanpore_Form.pdf"
+},
+{
+"no": 29,
+"name": "Rander",
+"status": "final",
+"areas": [
+"rander"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP29_Rander/TP29_Rander_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP29_Rander/TP29_Rander_FORM.pdf"
+},
+{
+"no": 30,
+"name": "Rander",
+"status": "final",
+"areas": [
+"rander"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP30%20RANDER/TP30%20RANDER.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP30%20RANDER/FINAL%20TPS%20NO.30(RANDER)%20F-FORM.pdf"
+},
+{
+"no": 30,
+"name": "Vanakala-Okha-Vihel",
+"status": "final",
+"areas": [],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP30_VOV/TP30_VOV_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP30_VOV/TP30_VOV_FORM.pdf"
+},
+{
+"no": 31,
+"name": "Adajan",
+"status": "final",
+"areas": [
+"adajan"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP31%20ADAJAN/TP31%20ADAJAN.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP31%20ADAJAN/TP31%20ADAJAN-FORM.pdf"
+},
+{
+"no": 32,
+"name": "Adajan",
+"status": "final",
+"areas": [
+"adajan"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP32ADAJAN/TP32ADAJAN.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP32ADAJAN/TP32_ADAJAN_FORM.pdf"
+},
+{
+"no": 34,
+"name": "Magob-Dumbhal",
+"status": "final",
+"areas": [
+"magob"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP34%20MAGOB-DUMBHAL/TP34%20MAGOB-DUMBHAL.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP34%20MAGOB-DUMBHAL/TP34%20MAGOB-DUMBHAL-FORM.pdf"
+},
+{
+"no": 36,
+"name": "Althan",
+"status": "final",
+"areas": [
+"althan"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP36%20Althan/TP36%20Althan.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP36%20Althan/TP36_Althan_FORM.pdf"
+},
+{
+"no": 36,
+"name": "Variyav",
+"status": "final",
+"areas": [
+"variyav"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP36%20VARIYAV/TP36Variyav_Map.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP36%20VARIYAV/TP36Variyav_Form.pdf"
+},
+{
+"no": 37,
+"name": "Althan-South",
+"status": "final",
+"areas": [
+"althan"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP37%20Althan-South/TP37%20Althan-South.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP37%20Althan-South/TP37%20Althan-South-FORM.pdf"
+},
+{
+"no": 37,
+"name": "Variyav",
+"status": "final",
+"areas": [
+"variyav"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP37VARIYAV/TP37_FINAL_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP37VARIYAV/TP37_FINAL_F_FORM.pdf"
+},
+{
+"no": 38,
+"name": "Variyav",
+"status": "final",
+"areas": [
+"variyav"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP38_VARIYAV/TP38_Map.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP38_VARIYAV/TP38B_Form.pdf"
+},
+{
+"no": 39,
+"name": "Udhana-Limbayat",
+"status": "final",
+"areas": [
+"udhna",
+"limbayat"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP39_UDHANA_LIMBAYAT/TP39_UDHANA_LIMBAYAT_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP39_UDHANA_LIMBAYAT/TP39_UDHANA_LIMBAYAT_BForm.pdf"
+},
+{
+"no": 42,
+"name": "Bhimrad",
+"status": "final",
+"areas": [
+"bhimrad"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP42_BHIMRAD/TP42_Map.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP42_BHIMRAD/TP42F_Form.pdf"
+},
+{
+"no": 43,
+"name": "Jahangirabad",
+"status": "final",
+"areas": [
+"jahangirpura"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP43_JAHANGIRABAD/TP43_JAHANGIRABAD_Map.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP43_JAHANGIRABAD/TP43_JAHANGIRABAD_BForm.pdf"
+},
+{
+"no": 43,
+"name": "Bhimrad",
+"status": "final",
+"areas": [
+"bhimrad"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP43%20BHIMRAD/TP43_Map.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP43%20BHIMRAD/TP43F-Form.pdf"
+},
+{
+"no": 44,
+"name": "Jahangirabad",
+"status": "final",
+"areas": [
+"jahangirpura"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP44_JAHANGIRABAD/TP44_JAHANGIRABAD_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP44_JAHANGIRABAD/TP44_JAHANGIRABAD_FORM.pdf"
+},
+{
+"no": 45,
+"name": "Jahangirpura-Pisad",
+"status": "final",
+"areas": [
+"jahangirpura"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP45%20JAHANGIRPURA-PISAD/TP45%20JAHANGIRPURA-PISAD.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP45%20JAHANGIRPURA-PISAD/TP45%20JAHANGIRPURA-PISAD-FORM.pdf"
+},
+{
+"no": 46,
+"name": "Jahangirpura",
+"status": "final",
+"areas": [
+"jahangirpura"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP46_JAHANGIRPURA/TP46_JAHANGIRPURA_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP46_JAHANGIRPURA/TP46_JAHANGIRPURA_FORM.pdf"
+},
+{
+"no": 48,
+"name": "Bhestan",
+"status": "final",
+"areas": [
+"bhestan"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP48%20BHESTAN/TP48(BHESTAN)Plan_3.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP48%20BHESTAN/TP48(BHESTAN)F_Form.pdf"
+},
+{
+"no": 53,
+"name": "Magob Dumbhal",
+"status": "final",
+"areas": [],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP53_MagobDumbhal/TP53_Map.pdf"
+},
+{
+"no": 55,
+"name": "Bhestan",
+"status": "final",
+"areas": [
+"bhestan"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP55_BHESTAN/TP55_BHESTAN_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP55_BHESTAN/TP55_BHESTAN_FORM.pdf"
+},
+{
+"no": 27,
+"name": "Uttaran-Kosad",
+"status": "final",
+"areas": [
+"kosad",
+"utran"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP27_UtranKosad/TP27_UtranKosad_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP27_UtranKosad/TP27_UtranKosad_FORM.pdf"
+},
+{
+"no": 35,
+"name": "Katargam",
+"status": "final",
+"areas": [
+"katargam"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TPS35KATARGAM/TPS35KATARGAM_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TPS35KATARGAM/TPS35KATARGAM_FORM.pdf"
+},
+{
+"no": 71,
+"name": "Vadod",
+"status": "final",
+"areas": [
+"vadod"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP71_VADOD/TP71_VADOD_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP71_VADOD/TP71_VADOD_FORM.pdf"
+},
+{
+"no": 47,
+"name": "Bhestan",
+"status": "final",
+"areas": [
+"bhestan"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP47_Bhestan/TP47_Bhestan_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP47_Bhestan/TP47_Bhestan_FORM.pdf"
+},
+{
+"no": 54,
+"name": "Bhestan",
+"status": "final",
+"areas": [
+"bhestan"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP54_BHESTAN/TP54_BHESTAN_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP54_BHESTAN/TP54_BHESTAN_FORM.pdf"
+},
+{
+"no": 24,
+"name": "Tunki",
+"status": "final",
+"areas": [],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP24_Tunki/TP24_Tunki_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP24_Tunki/TP24_Tunki_FORM.pdf"
+},
+{
+"no": 65,
+"name": "Bharthana-Vesu-Althan",
+"status": "final",
+"areas": [
+"vesu",
+"althan",
+"bharthana-vesu"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TPSNO65_BHARTHANA_VESU_ALTHAN/TPSNO65_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TPSNO65_BHARTHANA_VESU_ALTHAN/TPSNO65_FORM.pdf"
+},
+{
+"no": 57,
+"name": "Pandesara",
+"status": "final",
+"areas": [
+"pandesara"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP57_PANDESARA/TP57_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP57_PANDESARA/TP57_FORM.pdf"
+},
+{
+"no": 85,
+"name": "Sarthana-Pasodra-Laskana",
+"status": "final",
+"areas": [
+"sarthana",
+"laskana"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP85_SARTHANA_PASODRA_LASKANA/TP85_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/FinalSchemes/TP85_SARTHANA_PASODRA_LASKANA/TP85_FORM.pdf"
+},
+{
+"no": 25,
+"name": "Tunki-Singanpore",
+"status": "prelim",
+"areas": [
+"singanpor"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/PreliminarySchemes/TP25%20Singanpore-Tunki/TP25%20Singanpore-Tunki.pdf"
+},
+{
+"no": 28,
+"name": "Althan-Bhatar",
+"status": "prelim",
+"areas": [
+"althan",
+"bhatar"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/PreliminarySchemes/TP28%20ALTHAN-BHATAR/TP28%20ALTHAN-BHATAR.pdf"
+},
+{
+"no": 42,
+"name": "Jahangirabad",
+"status": "prelim",
+"areas": [
+"jahangirpura"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/PreliminarySchemes/TP42%20JAHANGIRABAD/TP42_JAHANGIRABAD_PLAN_NO3.pdf"
+},
+{
+"no": 13,
+"name": "Vesu-Bharthana",
+"status": "prelim",
+"areas": [
+"vesu",
+"bharthana-vesu"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/PreliminarySchemes/TP%2013%20BHARTHANA-VESU/TP13%20Bharthana%20vesu_map.pdf"
+},
+{
+"no": 20,
+"name": "Puna",
+"status": "prelim",
+"areas": [
+"puna"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/PreliminarySchemes/TP20_PUNA/TP20_PUNA_MAP.pdf"
+},
+{
+"no": 40,
+"name": "Limbayat-Dindoli",
+"status": "prelim",
+"areas": [
+"dindoli",
+"limbayat"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/PreliminarySchemes/TPSNO40_LIMBAYAT_DINDOLI/TPSNO40_MAP.pdf"
+},
+{
+"no": 27,
+"name": "Bhatar-Majura",
+"status": "prelim",
+"areas": [
+"bhatar",
+"majura"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/PreliminarySchemes/TPSNO27_BHATAR_MAJURA/TPSNO27_MAP.pdf"
+},
+{
+"no": 50,
+"name": "Ved-Katargam",
+"status": "prelim",
+"areas": [
+"katargam",
+"ved"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/PreliminarySchemes/TP50_VED_KATARGAM/TP50_VED_KATARGAM_MAP.pdf"
+},
+{
+"no": 51,
+"name": "Dabholi",
+"status": "prelim",
+"areas": [
+"dabholi"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/PreliminarySchemes/TP51_DABHOLI/TP51_DABHOLI_MAP.pdf"
+},
+{
+"no": 41,
+"name": "Dindoli",
+"status": "prelim",
+"areas": [
+"dindoli"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/PreliminarySchemes/TPSNO41_DINDOLI/TPSNO41_MAP.pdf"
+},
+{
+"no": 22,
+"name": "Sarthana-Valak",
+"status": "prelim",
+"areas": [
+"sarthana",
+"valak"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/PreliminarySchemes/TPSNO22_SARTHANA_VALAK/TPSNO22_MAP.pdf"
+},
+{
+"no": 29,
+"name": "Rundh-Vesu-Magdalla",
+"status": "prelim",
+"areas": [
+"vesu",
+"magdalla"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/PreliminarySchemes/TPSNO29_RUNDH_VESU_MAGDALLA/TPSNO29_MAP.pdf"
+},
+{
+"no": 15,
+"name": "Pal",
+"status": "prelim",
+"areas": [
+"pal"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/PreliminarySchemes/TPSNO15_PAL/TPSNO15_MAP.pdf"
+},
+{
+"no": 49,
+"name": "Katargam",
+"status": "prelim",
+"areas": [
+"katargam"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/PreliminarySchemes/TPSNO49_KATARGAM/TPSNO49_MAP.pdf"
+},
+{
+"no": 84,
+"name": "Kosad-Bharthana Kosad-Motavarachha-Abrama",
+"status": "prelim",
+"areas": [
+"kosad",
+"abrama",
+"mota-varachha"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/PreliminarySchemes/TP84_KBKMA/TP84_KBKMA_MAP.pdf"
+},
+{
+"no": 21,
+"name": "Sarthana-Simada",
+"status": "prelim",
+"areas": [
+"sarthana"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/PreliminarySchemes/TP21_SARTHANA_SIMADA/TP21_MAP.pdf"
+},
+{
+"no": 52,
+"name": "Ved",
+"status": "prelim",
+"areas": [
+"ved"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/PreliminarySchemes/TP52_VED/TP52_MAP.pdf"
+},
+{
+"no": 74,
+"name": "Pal",
+"status": "prelim",
+"areas": [
+"pal"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/PreliminarySchemes/TP74_PAL/TP74_PALMAP.pdf"
+},
+{
+"no": 33,
+"name": "Dumbhal",
+"status": "draft",
+"areas": [],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP33%20Dumbhal/CTP33(DUMBHAL)DRAFT.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP33%20Dumbhal/TP33(DUMBHAL)DRAFT.pdf"
+},
+{
+"no": 38,
+"name": "Nana Varachchha",
+"status": "draft",
+"areas": [
+"nana-varachha"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP38%20Nanavarachha/CTP38(NANA%20VARACHHA)DRAFT.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP38%20Nanavarachha/CTP38(NANVARACHHA)DRAFT-FORM.pdf"
+},
+{
+"no": 56,
+"name": "Bamroli",
+"status": "draft",
+"areas": [
+"bamroli"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP56%20BAMROLI/TP56%20BAMROLI.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP56%20BAMROLI/TP56_BAMROLI_FORM.pdf"
+},
+{
+"no": 58,
+"name": "Bamroli",
+"status": "draft",
+"areas": [
+"bamroli"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP58%20BAMROLI/TP58_BAMROLI_Map.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP58%20BAMROLI/TP58_BAMROLI_Form.pdf"
+},
+{
+"no": 59,
+"name": "Unn",
+"status": "draft",
+"areas": [],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP59%20UNN/TP59%20UNN.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP59%20UNN/TP59_FORM_F.pdf"
+},
+{
+"no": 60,
+"name": "Puna",
+"status": "draft",
+"areas": [
+"puna"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP60%20PUNA/TP60%20PUNA.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP60%20PUNA/TP60%20PUNA-FORM.pdf"
+},
+{
+"no": 61,
+"name": "Parvat-Godadara",
+"status": "draft",
+"areas": [
+"godadara",
+"parvat"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP61%20PARVAT-GODADRA/TP61%20PARVAT-GODADRA.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP61%20PARVAT-GODADRA/TP61(PARVAT-GODARA).pdf"
+},
+{
+"no": 62,
+"name": "Dindoli-Bhestan-Bhedwad",
+"status": "draft",
+"areas": [
+"dindoli",
+"bhestan"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP62%20DINDOLI-BHESTAN-BHEDVAD/TP62%20DINDOLI-BHESTAN-BHEDVAD.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP62%20DINDOLI-BHESTAN-BHEDVAD/TP62(DINDOLI-BHESTAN-BHEDWAD).pdf"
+},
+{
+"no": 63,
+"name": "Vadod",
+"status": "draft",
+"areas": [
+"vadod"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP63%20VADOD/TP63%20VADOD.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP63%20VADOD/TP63_VADOD_FORM.pdf"
+},
+{
+"no": 64,
+"name": "Dumbhal-Magob",
+"status": "draft",
+"areas": [
+"magob"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP64%20DUMBHAL-MAGOB/TP64%20DUMBHAL-MAGOB.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP64%20DUMBHAL-MAGOB/TP64(DUMBHAL-MAGOB).pdf"
+},
+{
+"no": 66,
+"name": "Kosad-Variyav",
+"status": "draft",
+"areas": [
+"kosad",
+"variyav"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP66%20KOSAD-VARIAV/TP66%20KOSAD-VARIAV.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP66%20KOSAD-VARIAV/TP66_KOSAD_VARIAV_FORM.pdf"
+},
+{
+"no": 67,
+"name": "Jiav-Sonari-Gabheni",
+"status": "draft",
+"areas": [],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP67%20JIAV-SONARI-GABHENI/TP67%20JIAV-SONARI-GHABENI.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP67%20JIAV-SONARI-GABHENI/TP67%20JIAV-SONARI-GHABENI-FORM.pdf"
+},
+{
+"no": 68,
+"name": "Puna-Simada",
+"status": "draft",
+"areas": [
+"puna",
+"sarthana"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP68%20PUNA-SIMADA/TP68%20PUNA-SIMADA.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP68%20PUNA-SIMADA/CTP68(PUNA-SIMADA)DRAFT-FORM.pdf"
+},
+{
+"no": 69,
+"name": "Godadra-Dindoli",
+"status": "draft",
+"areas": [
+"dindoli",
+"godadara"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP69%20GODADRA-DINDOLI/TP69%20GODADRA-DINDOLI.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP69%20GODADRA-DINDOLI/TP69(GODADRA-DINDOLI).pdf"
+},
+{
+"no": 70,
+"name": "Chhaprabhatha-Amroli-Kosad-Utran",
+"status": "draft",
+"areas": [
+"kosad",
+"amroli",
+"utran",
+"chhaprabhatha"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP70%20CHHAPRABHATHA-AMROLI-UTRAN-KOSAD/TP70%20CHHAPRABHATHA-AMROLI-UTRAN-KOSAD.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP70%20CHHAPRABHATHA-AMROLI-UTRAN-KOSAD/TP70_CHHAPRABHATHA_AMROLI_UTRAN_KOSAD_FORM.pdf"
+},
+{
+"no": 72,
+"name": "Bamroli",
+"status": "draft",
+"areas": [
+"bamroli"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP72%20BAMROLI/TP72_BAMROLI_Map.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP72%20BAMROLI/TP72_BAMROLI_Form.pdf"
+},
+{
+"no": 73,
+"name": "Utaran",
+"status": "draft",
+"areas": [
+"utran"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP73%20UTRAN/TP73%20UTRAN.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP73%20UTRAN/TP73_UTRAN_FORM.pdf"
+},
+{
+"no": 75,
+"name": "Vesu-Magadalla-Gaviar-Abhava",
+"status": "draft",
+"areas": [
+"vesu",
+"gaviyar",
+"magdalla"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP75%20VESU-MAGADALLA-GAVIAR/TP75%20VESU-MAGADALLA-GAVIAR.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP75%20VESU-MAGADALLA-GAVIAR/TP75%20VESU-MAGADALLA-GAVIAR-Form.pdf"
+},
+{
+"no": 76,
+"name": "Dumas-Vanta-Gaviar",
+"status": "draft",
+"areas": [
+"dumas",
+"gaviyar"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP76%20DUMAS-VANTA-GAVIAR/TP76%20DUMAS-VANTA-GAVIAR.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP76%20DUMAS-VANTA-GAVIAR/TP76%20DUMAS-VANTA-GAVIAR-Form.pdf"
+},
+{
+"no": 77,
+"name": "Dumas-Bhimpor-Gaviar",
+"status": "draft",
+"areas": [
+"dumas",
+"gaviyar"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP77%20DUMAS-BHIMPOR-GAVIER/TP77%20DUMAS-BHIMPOR-GAVIER.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP77%20DUMAS-BHIMPOR-GAVIER/TP77%20DUMAS-BHIMPOR-GAVIER-FORM.pdf"
+},
+{
+"no": 78,
+"name": "Dumas-Bhimpor-Gaviar",
+"status": "draft",
+"areas": [
+"dumas",
+"gaviyar"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP78%20DUMAS-BHIMPOR-GAVIER/TP78%20DUMAS-BHIMPOR-GAVIER.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP78%20DUMAS-BHIMPOR-GAVIER/TP78%20DUMAS-BHIMPOR-GAVIER-FORM.pdf"
+},
+{
+"no": 79,
+"name": "Sultanabad-Bhimpor",
+"status": "draft",
+"areas": [],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP79%20SULTANABAD-BHIMPOR/TP79%20SULTANABAD-BHIMPOR.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP79%20SULTANABAD-BHIMPOR/TP79%20SULTANABAD-BHIMPOR-FORM.pdf"
+},
+{
+"no": 80,
+"name": "Sultanabad-Bhimpor",
+"status": "draft",
+"areas": [],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP80%20SULTANABAD-BHIMPOR/TP80%20SULTANABAD-BHIMPOR.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP80%20SULTANABAD-BHIMPOR/TP80%20SULTANABAD-BHIMPOR-FORM.pdf"
+},
+{
+"no": 81,
+"name": "Dumas",
+"status": "draft",
+"areas": [
+"dumas"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP81%20DUMAS/TP81%20DUMAS.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP81%20DUMAS/TP81%20DUMAS-FORM.pdf"
+},
+{
+"no": 82,
+"name": "Dumas",
+"status": "draft",
+"areas": [
+"dumas"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP82%20DUMAS/TP82%20DUMAS.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP82%20DUMAS/TP82%20DUMAS-FORM.pdf"
+},
+{
+"no": 83,
+"name": "Variyav-Kosad",
+"status": "draft",
+"areas": [
+"kosad",
+"variyav"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP83%20VARIAV-KOSAD/TP_83(VRIAV-KOSAD)MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP83%20VARIAV-KOSAD/TP_83(VRIAV-KOSAD)FORM-F.pdf"
+},
+{
+"no": 5,
+"name": "Vesu-Bhimrad",
+"status": "draft",
+"areas": [
+"vesu",
+"bhimrad"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP05_VESU_BHIMRAD/tp_05.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP05_VESU_BHIMRAD/TP05_VESU_BHIMRAD_FORM.pdf"
+},
+{
+"no": 12,
+"name": "Puna",
+"status": "draft",
+"areas": [
+"puna"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP12%20PUNA/tp-12.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP12%20PUNA/CTP12(PUNA)DRAFT-FORM.pdf"
+},
+{
+"no": 17,
+"name": "Puna",
+"status": "draft",
+"areas": [
+"puna"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP17%20PUNA/tp-17.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP17%20PUNA/CTP17(PUNA)DRAFT-FORM.pdf"
+},
+{
+"no": 18,
+"name": "Mota-Varachha",
+"status": "draft",
+"areas": [
+"varachha",
+"mota-varachha"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP18%20MOTA%20VARACHHA/tp_18.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP18%20MOTA%20VARACHHA/CTP18(MOTAVARACHHA)DRAFT-FORM.pdf"
+},
+{
+"no": 23,
+"name": "Kosad",
+"status": "draft",
+"areas": [
+"kosad"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP23_KOSAD/tp-23.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP23_KOSAD/TP23_KOSAD_FORM.pdf"
+},
+{
+"no": 25,
+"name": "Mota-Varachha",
+"status": "draft",
+"areas": [
+"varachha",
+"mota-varachha"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP25%20MOTAVARACHHA/TP25%20MOTAVARACHHA.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP25%20MOTAVARACHHA/CTP25(MOTAVARACHHA)DRAFT-FORM.pdf"
+},
+{
+"no": 26,
+"name": "Abhava",
+"status": "draft",
+"areas": [],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP26%20ABHAVA/TP26%20ABHAVA.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP26%20ABHAVA/f-form.pdf"
+},
+{
+"no": 28,
+"name": "Rundh-Vesu",
+"status": "draft",
+"areas": [
+"vesu"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP28%20RUNDH-VESU/tp_28.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP28%20RUNDH-VESU/TP28_RUNDH_VESU_FORM.pdf"
+},
+{
+"no": 31,
+"name": "Gaviyar-Magdalla",
+"status": "draft",
+"areas": [
+"gaviyar",
+"magdalla"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP31%20GAVIAR-MAGDALLA/tp_31.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP31%20GAVIAR-MAGDALLA/TP31_GAVIAR_MAGDALLA_FORM.pdf"
+},
+{
+"no": 32,
+"name": "Gaviyar-Vanta-Dumas",
+"status": "draft",
+"areas": [
+"gaviyar",
+"dumas"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP32%20GAVIAR-VANTA-DUMAS/tp_32.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP32%20GAVIAR-VANTA-DUMAS/TP32_GAVIAR_VANTA_DUMAS_FORM.pdf"
+},
+{
+"no": 39,
+"name": "Variyav",
+"status": "draft",
+"areas": [
+"variyav"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP39%20%20VARIAV/TP%2039.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP39%20%20VARIAV/TP39_VARIAV_FORM.pdf"
+},
+{
+"no": 50,
+"name": "Bhatha-Bet",
+"status": "draft",
+"areas": [],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP50_BHATHA_BET/TP50_BHATHA_BET_Map.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP50_BHATHA_BET/TP50_BHATHA_BET_FORM.pdf"
+},
+{
+"no": 33,
+"name": "Talangpor-Umber",
+"status": "draft",
+"areas": [],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP33_TALANGPOR_UMBER/TP33_TALANGPOR_UMBER_Map.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP33_TALANGPOR_UMBER/TP33_TALANGPOR_UMBER_FORM.pdf"
+},
+{
+"no": 34,
+"name": "Pali-Schin-Kansad",
+"status": "draft",
+"areas": [
+"kansad"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP34_PALI_SCHIN_KANSAD/TP34_PALI_SCHIN_KANSAD_Map.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP34_PALI_SCHIN_KANSAD/TP34_PALI_SCHIN_KANSAD_FORM.pdf"
+},
+{
+"no": 59,
+"name": "Pardi Kande-Schin Kansad",
+"status": "draft",
+"areas": [],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP59_PARDIKANDE_SCHINKANSAD/TP59_PARDIKANDE_SCHINKANSAD_Map.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP59_PARDIKANDE_SCHINKANSAD/TP59_PARDIKANDE_SCHINKANSAD_FORM.pdf"
+},
+{
+"no": 46,
+"name": "Gothan-Bharthana-Kosad-Variyav",
+"status": "draft",
+"areas": [
+"kosad",
+"variyav",
+"bharthana-vesu"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP46_GOTHAN_BHARTHANAKOSAD_VARIYAV/TP46_GOTHAN_BHARTHANAKOSAD_VARIYAV_Map.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP46_GOTHAN_BHARTHANAKOSAD_VARIYAV/TP46_GOTHAN_BHARTHANAKOSAD_VARIYAV_FORM.pdf"
+},
+{
+"no": 58,
+"name": "Valak",
+"status": "draft",
+"areas": [
+"valak"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP58_VALAK/TP58_VALAK_Map.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP58_VALAK/TP58_VALAK_FORM.pdf"
+},
+{
+"no": 91,
+"name": "Vesu",
+"status": "draft",
+"areas": [
+"vesu"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP91_VESU/TP91_VESU_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP91_VESU/TP91_VESU_FORM.pdf"
+},
+{
+"no": 90,
+"name": "Sarsana",
+"status": "draft",
+"areas": [],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP90_SARSANA/TP90_SARSANA_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP90_SARSANA/TP90_SARSANA_FORM.pdf"
+},
+{
+"no": 86,
+"name": "Kosad",
+"status": "draft",
+"areas": [
+"kosad"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP86_KOSAD/TP86_KOSAD_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP86_KOSAD/TP86_KOSAD_FORM.pdf"
+},
+{
+"no": 93,
+"name": "Pal-Palanpor-Bhata",
+"status": "draft",
+"areas": [
+"pal",
+"palanpur"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP93_PAL_PALANPOR_BHATA/TP93_PAL_PALANPOR_BHATA_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP93_PAL_PALANPOR_BHATA/TP93_PAL_PALANPOR_BHATA_FORM.pdf"
+},
+{
+"no": 88,
+"name": "Variav",
+"status": "draft",
+"areas": [
+"variyav"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP88_VARIAV/TP88_VARIAV_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP88_VARIAV/TP88_VARIAV_FORM.pdf"
+},
+{
+"no": 92,
+"name": "Simada-Kosmada",
+"status": "draft",
+"areas": [
+"sarthana"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP92_SIMADA_KOSMADA/TP92_SIMADA_KOSMADA_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/Draftschemes/TP92_SIMADA_KOSMADA/TP92_SIMADA_KOSMADA_FORM.pdf"
+},
+{
+"no": 94,
+"name": "Mota Varachha",
+"status": "submitted",
+"areas": [
+"mota-varachha"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/DraftschemesSTG/TP94_MOTA_VARACHHA/TP94_MOTA_VARACHHA_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/DraftschemesSTG/TP94_MOTA_VARACHHA/TP94_MOTA_VARACHHA_FORM.pdf"
+},
+{
+"no": 95,
+"name": "Ghabheni",
+"status": "submitted",
+"areas": [],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/DraftschemesSTG/TP95_GHABHENI/TP95_GHABHENI_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/DraftschemesSTG/TP95_GHABHENI/TP95_GHABHENI_FORM.pdf"
+},
+{
+"no": 96,
+"name": "Variyav",
+"status": "submitted",
+"areas": [
+"variyav"
+],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/DraftschemesSTG/TP96_VARIYAV/TP96_VARIYAV_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/DraftschemesSTG/TP96_VARIYAV/TP96_VARIYAV_FORM.pdf"
+},
+{
+"no": 87,
+"name": "Gabheni",
+"status": "submitted",
+"areas": [],
+"url": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/DraftschemesSTG/TP87_GABHENI/TP87_GABHENI_MAP.pdf",
+"form": "https://www.suratmunicipal.gov.in/Content/Documents/Departments/DraftschemesSTG/TP87_GABHENI/TP87_GABHENI_FORM.pdf"
+}
+],
+"jantri": {},
+"dp": {}
+}

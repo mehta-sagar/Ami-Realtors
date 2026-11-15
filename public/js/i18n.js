@@ -152,6 +152,8 @@ Object.assign(T, {
   moved_trash: ['કચરાપેટીમાં મૂક્યું', 'Moved to trash'], restore: ['પાછું લાવો', 'Restore'], restored: ['પાછું આવ્યું ✓', 'Restored ✓'],
   trash_help: ['30 દિવસ પછી આપમેળે કાયમ માટે દૂર થશે', 'Removed for good after 30 days'], trash_empty: ['કચરાપેટી ખાલી છે', 'Trash is empty'], deleted_on: ['કાઢ્યું', 'Deleted'], days_left: ['દિવસ બાકી', 'days left'],
   // projects + broadcast
+  rent_evidence: ['નજીકનું ભાડું', 'Nearby rent'], rent_used: ['ભાડું ખાલી હોવાથી આ વાપર્યું', 'used because rent is empty'],
+  tp_map: ['નકશો PDF', 'Map PDF'], tp_form: ['F-ફોર્મ (FP યાદી)', 'F-form (FP list)'], tp_help: ['નકશામાં રસ્તાની પહોળાઈ અને FP; F-ફોર્મમાં દરેક FP નું મૂળ/અંતિમ ક્ષેત્રફળ અને માલિક.', 'The map shows road widths and FPs; the F-form lists every FP with original/final area and owner.'],
   save_short: ['સાચવો', 'Save'], please_confirm: ['ખાતરી કરો', 'Please confirm'], cancel: ['રદ કરો', 'Cancel'],
   select_first: ['પહેલાં પ્રોજેક્ટ પસંદ કરો', 'Select projects first'], select: ['પસંદ કરો', 'Select'], select_all: ['બધા', 'All'], select_none: ['કોઈ નહીં', 'None'], selected: ['પસંદ', 'selected'],
   bc_send: ['પસંદ કરેલા બિલ્ડરોને કાર્ડ મોકલો', 'Send card to selected builders'], bc_title: ['બિલ્ડરોને WhatsApp', 'WhatsApp to builders'], bc_builders: ['બિલ્ડર', 'builders'], bc_nophone: ['પ્રોજેક્ટમાં ફોન નથી', 'projects without phone'],

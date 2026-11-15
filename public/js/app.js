@@ -1150,7 +1150,7 @@ const withBuilding = (p) => /shed|building|factory|godown|rcc|construction/i.tes
 function stats(areaId, ptype, kind, furnished, grade) {
   const cut = new Date(Date.now() - FRESH_DAYS * 864e5).toISOString().slice(0, 10);
   const every = S.data.price_points.filter((p) => p.area_id === areaId && p.ptype === ptype && p.kind === kind);
-  let all = every.filter(inBounds);
+  let all = kind === 'rent' ? every.filter((p) => p.price_sqft >= 2 && p.price_sqft <= 600) : every.filter(inBounds);
   if (kind === 'market' && furnished != null) all = all.filter((p) => (furnished ? p.furnished === true : p.furnished !== true));
   if (grade && grade !== 'all') all = all.filter((p) => p.grade === grade);
   if (kind === 'jantri') {
@@ -1735,8 +1735,15 @@ function areaLinks(a, extra = {}) {
   const L = S.refs || {}, en = getLang() === 'en';
   const out = [];
   const link = (label, url, sub, kind = '') => out.push(h('a', { class: 'row linkrow ' + kind, href: url, target: '_blank', rel: 'noopener' }, h('div', { class: 'grow' }, h('div', { class: 'small b' }, label), sub && h('div', { class: 'xs muted' }, sub)), icon('link', 16)));
-  const tps = (L.tp || []).filter((x) => (x.areas || []).includes(a.id));
-  for (const tp of tps.slice(0, 4)) link(`${t('l_tp')} ${tp.no} ${tp.name}`, tp.url, `${tp.status ? t('tp_' + tp.status) + ' · ' : ''}SMC · PDF${tp.page ? ' · ' + t('page') + ' ' + tp.page : ''}`, 'pdf');
+  const ORD = { final: 0, submitted: 1, draft: 2, prelim: 3 };
+  const tps = (L.tp || []).filter((x) => (x.areas || []).includes(a.id)).sort((x, y) => (ORD[x.status] - ORD[y.status]) || x.no - y.no);
+  const tpRow = (tp) => h('div', { class: 'row linkrow tprow' },
+    h('div', { class: 'grow' }, h('div', { class: 'small b' }, `${t('l_tp')} ${tp.no} – ${tp.name}`), h('div', { class: 'xs muted' }, `${t('tp_' + tp.status)} · SMC`)),
+    tp.url && h('a', { class: 'chip sm', href: tp.url, target: '_blank', rel: 'noopener' }, t('tp_map')),
+    tp.form && h('a', { class: 'chip sm', href: tp.form, target: '_blank', rel: 'noopener' }, t('tp_form')));
+  out.push(...tps.slice(0, 5).map(tpRow));
+  if (tps.length > 5) out.push(h('button', { class: 'linkbtn', onclick: () => openSheet(`${t('l_tp')} · ${areaName(a, getLang())}`, () => [h('div', { class: 'xs muted' }, t('tp_help')), tps.map(tpRow)]) }, `+ ${tps.length - 5} ${t('l_tp')}`));
+  if (tps.length) out.push(h('div', { class: 'xs muted' }, t('tp_help')));
   const jr = (L.jantri || {})[a.id];
   if (jr) link(`${t('jantri')}: ${areaName(a, getLang())}`, jr.url, `${jr.note || ''}${jr.page ? ' · ' + t('page') + ' ' + jr.page : ''}${jr.date ? ' · ' + jr.date : ''}`, 'pdf');
   else link(`${t('jantri')}: ${t('l_garvi_lookup')}`, 'https://garvi.gujarat.gov.in/', `${t('l_path')}: ${t('l_jantri_path')} → ${a.district} → ${a.taluka || (a.district === 'Surat' ? 'Surat City / Choryasi' : '')} → ${a.en}`);
@@ -1879,8 +1886,11 @@ function valuationBody(d, V, hint) {
   if (comp) parts.push({ key: 'm_comparison', value: comp, w: base.own ? 3 : 2 });
   // 2 income
   const cap = V.cap ?? CAP[pt];
-  const inc = N(V.rent) && cap ? incomeValue({ rent: N(V.rent), cap, vacancy: VACANCY[pt] ?? 5, outgo: OUTGO[pt] ?? 15 }) : null;
   const sizeSqft = N(V.size) ? N(V.size) : null;
+  // local rent evidence (rent quotes, ₹/sq ft/month) from the nearest area that has some
+  const rq = a ? [a, ...AREAS.filter((x) => x !== a && !x.ind && sameBank(d.lat, d.lng, x)).sort((p, q) => km(d.lat, d.lng, p.lat, p.lng) - km(d.lat, d.lng, q.lat, q.lng)).slice(0, 4)].map((x) => ({ x, s: stats(x.id, pt, 'rent', null) })).find((r) => r.s.median != null) : null;
+  const rentUsed = N(V.rent) || (rq && sizeSqft ? rq.s.median * sizeSqft : null);
+  const inc = rentUsed && cap ? incomeValue({ rent: rentUsed, cap, vacancy: VACANCY[pt] ?? 5, outgo: OUTGO[pt] ?? 15 }) : null;
   if (inc && sizeSqft) parts.push({ key: 'm_income', value: inc.value / sizeSqft, w: ['shop', 'office', 'industrial'].includes(pt) ? 3 : 1 });
   // 3 residual (plots)
   let resid = null;
@@ -1917,6 +1927,7 @@ function valuationBody(d, V, hint) {
     h('section', { class: 'card' }, h('h2', {}, t('val_methods')),
       parts.length ? parts.map(methodRow) : h('div', { class: 'muted small' }, t('val_need')),
       base && h('div', { class: 'xs muted' }, `${t('m_base')}: ${base.own ? t('own_short') + ' ' + areaName(base.own, getLang()) : knnLine(base, unit)}`),
+      rq && h('div', { class: 'xs muted' }, `${t('rent_evidence')}: ${areaName(rq.x, getLang())} ₹ ${Math.round(rq.s.median)}/${unitLabel('sqft')}/${t('month')} (${rq.s.used})${!N(V.rent) && sizeSqft ? ' · ' + t('rent_used') : ''}`),
       inc && h('div', { class: 'card inset' }, h('div', { class: 'b small' }, t('m_income')),
         result(t('inc_gross'), money(inc.gross)), result(t('inc_noi'), money(inc.noi)), result(`${t('inc_cap')} ${cap}% → YP ${inc.yp.toFixed(1)}`, money(inc.value), true),
         h('div', { class: 'grid2' }, field(t('inc_cap') + ' %', h('input', { class: 'input', inputmode: 'decimal', value: cap, onchange: (e) => { V.cap = N(e.target.value); rd(); } })),
