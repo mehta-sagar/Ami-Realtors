@@ -68,12 +68,13 @@ export const cloud = {
   async signIn(email, password, create) {
     if (!sb) await this.init();
     if (!sb) throw new Error('Cloud library did not load. Check the internet and reopen the app.');
-    const r = create ? await sb.auth.signUp({ email, password }) : await sb.auth.signInWithPassword({ email, password });
+    const r = create ? await sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + '/' } }) : await sb.auth.signInWithPassword({ email, password });
     if (r.error) throw r.error;
     session = r.data.session;
     if (!session) throw new Error('CONFIRM_EMAIL');
     await this.loadTeam();
   },
+  async resendConfirm(email) { const { error } = await sb.auth.resend({ type: 'signup', email, options: { emailRedirectTo: location.origin + '/' } }); if (error) throw error; },
   async resetPassword(email) { const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin }); if (error) throw error; },
   async createTeam(name, person) { const { data, error } = await sb.rpc('create_team', { p_name: name, p_person: person }); if (error) throw error; team = data; cfg.set('team', team); return team; },
   async joinTeam(code, person) { const { data, error } = await sb.rpc('join_team', { p_code: code, p_person: person }); if (error) throw error; team = data; cfg.set('team', team); return team; },

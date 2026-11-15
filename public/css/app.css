@@ -92,7 +92,7 @@ button { cursor: pointer; }
 .sheet-hd { display: flex; align-items: center; justify-content: space-between; padding: 10px 8px 4px 18px; }
 .sheet-body { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 6px 18px calc(env(safe-area-inset-bottom) + 20px); display: flex; flex-direction: column; gap: 10px; }
 .sheet-body .card { background: var(--ground); }
-.toast { position: fixed; z-index: 1200; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom) + 96px); background: var(--green); color: #fff; padding: 10px 16px; border-radius: 14px; font-size: 14px; max-width: 88%; text-align: center; box-shadow: 0 6px 20px rgba(0, 0, 0, .25); } .toast.bad { background: #9B2C1F; }
+.toast { position: fixed; z-index: 3000; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom) + 96px); background: var(--green); color: #fff; padding: 10px 16px; border-radius: 14px; font-size: 14px; max-width: 88%; text-align: center; box-shadow: 0 6px 20px rgba(0, 0, 0, .25); } .toast.bad { background: #9B2C1F; }
 .lockscreen { position: fixed; inset: 0; z-index: 2000; background: #EFE5D4 url(../img/card.jpg) center top / cover; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; }
 .lockscreen .lockbox { background: rgba(243, 236, 225, .92); border-radius: 22px; padding: 22px; display: flex; flex-direction: column; align-items: center; gap: 12px; box-shadow: 0 8px 30px rgba(74, 50, 32, .25); }
 .lockscreen .lockbox img { width: 180px; border-radius: 14px; }
@@ -220,3 +220,5 @@ h1.sm { font-size: 20px; line-height: 1.2; overflow: hidden; text-overflow: elli
 #mapcard .card { max-height: 52vh; overflow-y: auto; -webkit-overflow-scrolling: touch; gap: 8px; padding: 12px 14px; }
 #mapcard .list.tight .between { min-height: 22px; }
 .tprow { min-height: 52px; } .chip.sm { min-height: 32px; padding: 0 10px; font-size: 12px; display: inline-flex; align-items: center; text-decoration: none; color: var(--green); font-weight: 600; }
+.authmsg { border-radius: 14px; padding: 12px 14px; font-size: 15px; line-height: 1.45; background: #EEF5EC; color: #1F4D2B; } .authmsg.bad { background: #FBEDE7; color: #8A2A17; }
+.btn[disabled] { opacity: .6; pointer-events: none; }

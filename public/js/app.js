@@ -2072,29 +2072,41 @@ function authShell(...kids) {
 }
 function showLogin() {
   return new Promise((done) => {
-    const f = { email: cfg.get('lastEmail', ''), password: '', mode: 'in' };
+    const f = { email: cfg.get('lastEmail', ''), password: '', mode: 'in', msg: null, bad: false, busy: false, unconfirmed: false };
     const el = h('div', {});
+    const say = (msg, bad) => { f.msg = msg; f.bad = !!bad; draw(); };
     const draw = () => el.replaceChildren(authShell(
       h('h1', { class: 'center' }, f.mode === 'up' ? t('create_account') : f.mode === 'reset' ? t('forgot') : t('sign_in')),
       h('div', { class: 'small muted center' }, t('login_why')),
+      f.msg && h('div', { class: 'authmsg' + (f.bad ? ' bad' : ''), role: 'alert' }, f.msg),
+      f.unconfirmed && h('button', { class: 'btn', onclick: async () => { try { await cloud.resendConfirm(f.email.trim().toLowerCase()); say(t('confirm_resent')); } catch (e) { say(e.message, true); } } }, t('resend_confirm')),
       field(t('email'), h('input', { class: 'input', type: 'email', autocomplete: 'username', autocapitalize: 'none', value: f.email, oninput: (e) => { f.email = e.target.value; } })),
       f.mode !== 'reset' && field(t('password'), h('input', { class: 'input', type: 'password', autocomplete: f.mode === 'up' ? 'new-password' : 'current-password', value: f.password, oninput: (e) => { f.password = e.target.value; }, onkeydown: (e) => { if (e.key === 'Enter') go1(); } })),
-      h('button', { class: 'btn gold big', onclick: go1 }, f.mode === 'up' ? t('create_account') : f.mode === 'reset' ? t('send_link') : t('sign_in')),
+      h('button', { class: 'btn gold big', disabled: f.busy, onclick: go1 }, f.busy ? t('please_wait') : f.mode === 'up' ? t('create_account') : f.mode === 'reset' ? t('send_link') : t('sign_in')),
       h('div', { class: 'between' },
-        h('button', { class: 'linkbtn', onclick: () => { f.mode = f.mode === 'up' ? 'in' : 'up'; draw(); } }, f.mode === 'up' ? t('have_account') : t('new_here')),
-        f.mode !== 'reset' ? h('button', { class: 'linkbtn', onclick: () => { f.mode = 'reset'; draw(); } }, t('forgot')) : h('button', { class: 'linkbtn', onclick: () => { f.mode = 'in'; draw(); } }, t('back'))),
+        h('button', { class: 'linkbtn', onclick: () => { f.mode = f.mode === 'up' ? 'in' : 'up'; f.msg = null; draw(); } }, f.mode === 'up' ? t('have_account') : t('new_here')),
+        f.mode !== 'reset' ? h('button', { class: 'linkbtn', onclick: () => { f.mode = 'reset'; f.msg = null; draw(); } }, t('forgot')) : h('button', { class: 'linkbtn', onclick: () => { f.mode = 'in'; f.msg = null; draw(); } }, t('back'))),
       h('div', { class: 'seg mini' }, ...[['gu', 'ગુજરાતી'], ['en', 'English']].map(([v, l]) => h('button', { class: getLang() === v ? 'on' : '', onclick: () => { setLang(v); draw(); } }, l)))));
     async function go1() {
+      if (f.busy) return;
       const email = f.email.trim().toLowerCase();
-      if (!/^\S+@\S+\.\S+$/.test(email)) return toast(t('email'), true);
+      if (!/^\S+@\S+\.\S+$/.test(email)) return say(t('email_bad'), true);
+      if (f.mode !== 'reset' && f.password.length < 6) return say(t('pw_short'), true);
+      f.busy = true; f.msg = null; draw();
       try {
-        if (f.mode === 'reset') { await cloud.resetPassword(email); toast(t('reset_sent')); f.mode = 'in'; return draw(); }
-        if (f.password.length < 6) return toast(t('pw_short'), true);
+        if (f.mode === 'reset') { await cloud.resetPassword(email); f.busy = false; f.mode = 'in'; return say(t('reset_sent')); }
         await cloud.signIn(email, f.password, f.mode === 'up');
         cfg.set('lastEmail', email); el.remove(); done();
       } catch (e) {
-        if (e.message === 'CONFIRM_EMAIL') { toast(t('confirm_email')); f.mode = 'in'; draw(); return; }
-        toast(/invalid login/i.test(e.message) ? t('wrong_login') : /fetch|network/i.test(e.message) ? t('no_net') : e.message, true);
+        f.busy = false;
+        const m = String(e.message || e);
+        if (m === 'CONFIRM_EMAIL') { f.mode = 'in'; f.unconfirmed = true; return say(t('confirm_email')); }
+        if (/not confirmed/i.test(m)) { f.unconfirmed = true; return say(t('not_confirmed'), true); }
+        if (/already registered|already exists/i.test(m)) { f.mode = 'in'; return say(t('already_reg'), true); }
+        if (/invalid login/i.test(m)) return say(t('wrong_login'), true);
+        if (/rate limit|too many/i.test(m)) return say(t('rate_limit'), true);
+        if (/fetch|network|load failed/i.test(m)) return say(t('no_net'), true);
+        say(m, true);
       }
     }
     draw(); document.body.append(el);
