@@ -110,8 +110,8 @@ function openSheet(title, build, opts = {}) {
 function goSub(change) {
   const snap = { tab: S.tab, detail: S.detail, propView: S.propView, scroll: $('.screen') ? $('.screen').scrollTop : 0 };
   change();
-  navPush(() => { Object.assign(S, { tab: snap.tab, detail: snap.detail, propView: snap.propView }); render(); const sc = $('.screen'); if (sc) sc.scrollTop = snap.scroll; });
-  render();
+  navPush(() => { Object.assign(S, { tab: snap.tab, detail: snap.detail, propView: snap.propView }); S.wantScroll = snap.scroll; render(); });
+  S.lastScreen = null; render();
   const sc = $('.screen'); if (sc) sc.scrollTop = 0;
 }
 const openDetail = (kind, data) => goSub(() => { S.detail = { kind, data }; });
@@ -1089,12 +1089,20 @@ function render() {
   if (S.mmap) { S.mmap.remove(); S.mmap = null; }
   if (S.dmap) { S.dmap.remove(); S.dmap = null; }
   if (S.pmap) { S.pmap.remove(); S.pmap = null; }
+  // Same screen redrawn (a tick, a filter, a live update)? Keep the scroll where it was instead of jumping to the top.
+  const key = screenKey(), old = $('.screen'), keep = S.wantScroll != null ? S.wantScroll : old && S.lastScreen === key ? old.scrollTop : null;
+  S.lastScreen = key; S.wantScroll = null;
   const view = S.detail ? viewDetail() : { today: viewToday, map: viewMap, prices: viewPrices, customers: viewCustomers, properties: viewProps, more: viewMore }[S.tab]();
   $('#app').replaceChildren(h('main', { class: 'screen ' + (S.detail ? 'detail' : S.tab) }, view), tabbar());
+  if (keep) {
+    const put = () => { const sc = $('.screen'); if (sc && S.lastScreen === key && sc.scrollTop < keep) sc.scrollTop = keep; };
+    put(); setTimeout(put, 0); setTimeout(put, 60); requestAnimationFrame(put); // lists that fill in a moment later
+  }
   if (S.tab === 'map' && !S.detail) initMap();
   if (S.detail && S.detail.after) S.detail.after();
   if (!S.detail && S.tab === 'properties' && S.propView === 'projects' && S.projQ && S.projQ.mapOn && S.projects && S.projects.length) initProjMap();
 }
+const screenKey = () => S.detail ? 'd:' + S.detail.kind + ':' + (S.detail.data && (S.detail.data.id || S.detail.data.rera || S.detail.data.url || S.detail.data.lat) || '') : 't:' + S.tab + ':' + (S.propView || '');
 function tabbar() {
   const cur = S.tab === 'prices' ? 'map' : S.tab;
   return h('nav', { class: 'tabbar', 'aria-label': 'Tabs' }, ['today', 'map', 'customers', 'properties', 'more'].map((k) =>
