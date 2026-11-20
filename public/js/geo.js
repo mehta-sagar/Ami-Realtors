@@ -87,7 +87,7 @@ function encodePlus(lat, lng) {
 // ---------- OpenStreetMap: roads and facilities around a point ----------
 const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://z.overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter'];
 // Ask two public Overpass servers at once and take whichever answers first (they are often busy).
-async function overpass(q) {
+export async function overpass(q) {
   const ctrls = OVERPASS.map(() => new AbortController());
   const timer = setTimeout(() => ctrls.forEach((c) => c.abort()), 45000);
   try {

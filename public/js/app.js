@@ -3,7 +3,7 @@ import { AREAS, SURAT, areaById, areaName, km, searchAreas, findAreaInText } fro
 import { UNITS, unitsFor, inBounds, PTYPES, sqftPer, toSqft, rateToSqft, rateFromSqft, defaultUnit, summarize, emi, median, DEFAULT_VIGHA_SQFT } from './units.js';
 import { parseEntry, normDigits, allPhones, parseCard } from './parse.js';
 import { store, cloud, cfg, lock, localBackup, outbox, DEFAULT_SB_URL, SB_PUBLIC_KEY, PRIVATE } from './store.js';
-import { resolveMapsLink, coordsFromText, firstUrl, isMapsUrl, roadsAround, facilitiesAround, loadHighways, quickFacts } from './geo.js';
+import { resolveMapsLink, coordsFromText, firstUrl, isMapsUrl, roadsAround, facilitiesAround, loadHighways, quickFacts, overpass } from './geo.js';
 import { DEFAULT_INPUTS, adjustments, incomeValue, rentFromValue, residualLand, fsiFor, agriValue, reconcile as reconcileVals, CAP, VACANCY, OUTGO } from './valuation.js';
 
 const S = {
@@ -865,7 +865,8 @@ function propFilter(F) {
   return out.sort(by);
 }
 function viewProps() {
-  const segBar = seg([['mine', t('my_props')], ['projects', t('projects')], ['leads', t('leads')]], S.propView || 'mine', (v) => { S.propView = v; render(); });
+  const segBar = seg([['mine', t('my_props')], ['societies', t('societies')], ['projects', t('projects')], ['leads', t('leads')]], S.propView || 'mine', (v) => { S.propView = v; render(); });
+  if (S.propView === 'societies') return [h('header', { class: 'hdr' }, h('h1', { class: 'grow' }, t('properties'))), segBar, ...viewSocieties()];
   if (S.propView === 'projects') return [h('header', { class: 'hdr' }, h('h1', { class: 'grow' }, t('properties'))), segBar, ...viewProjects()];
   if (S.propView === 'leads') return [h('header', { class: 'hdr' }, h('h1', { class: 'grow' }, t('properties'))), segBar, ...viewLeads()];
   const F = (S.propF ||= { q: '', deal: 'all', ptype: 'all', area: null, broker: null, status: 'available', min: '', max: '', sort: 'new', map: false, n: 40 });
@@ -2213,6 +2214,226 @@ function projectsHere(a) {
   return n ? h('button', { class: 'btn', onclick: () => goProjects({ area: a.id }) }, `${t('projects')}: ${n}`) : null;
 }
 
+// ---------- Societies: every building in 3D, society cards with prices, listings lit up on their building ----------
+// Map: MapLibre + OpenFreeMap vector tiles. All OpenStreetMap buildings are raised to their real height (or ~3 m a floor).
+// Societies come from three places, best first: 99acres project pages (unit sizes, builder prices), GujRERA
+// (official name, builder, location, possession) and OpenStreetMap (older named societies, loaded for the view).
+// Our own listings and paper ads with an exact pin light up the building they stand on: gold = for sale,
+// blue = for rent, orange = paper ad; the listed floor glows red.
+let mlP;
+const loadML = () => (mlP ||= new Promise((ok, no) => {
+  const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'vendor/maplibre/maplibre-gl.css'; document.head.append(l);
+  const s = document.createElement('script'); s.src = 'vendor/maplibre/maplibre-gl.js'; s.onload = () => ok(window.maplibregl); s.onerror = () => { mlP = null; no(new Error('map library')); }; document.head.append(s);
+}));
+const reraTok = (r) => ((String(r || '').match(/[A-Z]{1,3}AA\d{4,6}/i) || [''])[0]).toUpperCase().replace(/^RN\d+AA/, 'RAA');
+const normName = (s) => String(s || '').toLowerCase().replace(/\b(the|by|residency|apartments?|heights|society|soc|co-?op|housing|ltd|llp)\b/g, '').replace(/[^a-z0-9઀-૿]+/g, '');
+async function loadSocieties() {
+  if (S.socs) return S.socs;
+  const j = await fetch('data/societies.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+  const list = (j.societies || []).map((s) => ({ ...s, src: '99acres' }));
+  if (!S.projects) await loadProjects().catch(() => {});
+  for (const p of S.projects || []) {
+    if (!p.lat || !p.lng) continue;
+    const tok = reraTok(p.rera), hit = list.find((s) => (tok && reraTok(s.rera) === tok) || (normName(s.name) === normName(p.name) && km(s.lat, s.lng, p.lat, p.lng) < 0.5));
+    if (hit) { hit.phone ||= p.phone; hit.rera_full = p.rera; hit.possession ||= p.end_month; hit.address ||= p.address; continue; }
+    list.push({ id: 'rera-' + p.rera, name: p.name, builder: p.promoter, lat: p.lat, lng: p.lng, locality: p.locality || areaName(areaById(p.area_id), 'en'), status: p.end_month && p.end_month <= new Date().toISOString().slice(0, 7) ? 'Ready To Move' : 'Under Construction',
+      possession: p.end_month, rera: p.rera, rera_full: p.rera, kind: p.ptype === 'commercial' ? 'commercial' : p.ptype === 'plotted' ? 'villa' : 'apartment', configs: [], phone: p.phone, address: p.address, price_from: p.price_from, price_to: p.price_to, src: 'rera' });
+  }
+  for (const s of list) s.area_id = s.area_id || (AREAS.filter((a) => !a.ind).map((a) => ({ a, d: km(s.lat, s.lng, a.lat, a.lng) })).sort((x, y) => x.d - y.d)[0] || {}).a?.id;
+  S.socs = list; return list;
+}
+// Older societies are only on OpenStreetMap: fetched for the area on screen (zoomed in), kept for the session.
+async function osmSocieties(b) {
+  const k = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].map((x) => (Math.round(x * 100) / 100).toFixed(2)).join(',');
+  S.osmDone ||= new Set(); if (S.osmDone.has(k)) return 0; S.osmDone.add(k);
+  const [s, w, n, e] = k.split(',').map(Number), bb = `(${s - 0.005},${w - 0.005},${n + 0.005},${e + 0.005})`;
+  let j; try { j = await overpass(`[out:json][timeout:25];(way["landuse"="residential"]["name"]${bb};relation["landuse"="residential"]["name"]${bb};way["building"~"apartments|residential|commercial|yes"]["name"]${bb};way["place"="neighbourhood"]["name"]${bb};node["place"="neighbourhood"]["name"]${bb};);out center tags 600;`); } catch { S.osmDone.delete(k); return 0; }
+  let add = 0;
+  for (const el of j.elements || []) {
+    const la = el.lat ?? el.center?.lat, lo = el.lon ?? el.center?.lon, tg = el.tags || {}, name = tg['name:en'] || tg.name;
+    if (la == null || !name || /road|marg|street|lane|nagar road/i.test(name) && !tg.landuse) continue;
+    if (S.socs.some((x) => normName(x.name) === normName(name) && km(x.lat, x.lng, la, lo) < 0.4)) continue;
+    S.socs.push({ id: 'osm-' + el.type[0] + el.id, name, name_gu: tg['name:gu'], builder: null, lat: la, lng: lo, locality: tg['addr:suburb'] || null, kind: tg.building === 'commercial' ? 'commercial' : 'apartment', configs: [], src: 'osm', levels: Number(tg['building:levels']) || null });
+    add++;
+  }
+  return add;
+}
+// Rate for one config: builder price / size; otherwise the area model for that spot.
+function socRates(s) {
+  const model = priceAt(s.lat, s.lng, s.kind === 'commercial' ? 'shop' : s.kind === 'villa' ? 'bungalow' : 'flat');
+  const rows = (s.configs || []).map((c) => {
+    const size = Math.round((c.min + c.max) / 2), price = c.pmin && c.pmax ? (c.pmin + c.pmax) / 2 : c.pmin || c.pmax || null;
+    const rate = price && size ? price / size : null, est = !price && model ? model.value * size : null;
+    const flag = rate && model && (rate > model.value * 1.8 || rate < model.value * 0.5) ? 'check' : null;
+    return { ...c, size, price, rate, est, flag, rent: rentFromValue(price || est || 0, /office/i.test(c.type) ? 'office' : /shop|showroom/i.test(c.type) ? 'shop' : 'flat') || null };
+  });
+  return { model, rows };
+}
+// Our own listings and paper ads inside / at a society.
+function socListings(s) {
+  const nn = normName(s.name);
+  const props = S.data.properties.filter((p) => !isGone(p) && (p.status || 'available') !== 'sold' && ((nn.length > 3 && normName(readExt(p).society || '') === nn) || (p.lat != null && km(+p.lat, +p.lng, s.lat, s.lng) < 0.12)));
+  const ads = [...cfg.get(LEADS_KEY, []), ...(S.leads || [])].filter((l) => l.lat != null && km(+l.lat, +l.lng, s.lat, s.lng) < 0.15);
+  return { props, ads };
+}
+function litItems() {
+  const out = [];
+  for (const p of S.data.properties) if (!isGone(p) && p.lat != null && (p.status || 'available') !== 'sold') { const e = readExt(p); out.push({ lat: +p.lat, lng: +p.lng, kind: p.deal === 'rent' ? 'rent' : 'sale', floor: e.floor_no ?? (parseInt(p.floor, 10) || null), label: p.price ? moneyShort(p.price) : t(p.ptype || 'flat'), prop: p }); }
+  for (const l of [...cfg.get(LEADS_KEY, []), ...(S.leads || [])]) if (l.lat != null && (l.loc || 'exact') === 'exact') out.push({ lat: +l.lat, lng: +l.lng, kind: 'paper', floor: null, label: '📰', lead: l });
+  return out;
+}
+const LIT = { sale: '#E3B341', rent: '#4A90E2', paper: '#F07F2D' };
+// Slightly larger copy of a footprint so the lit building sits just outside the grey one (no flicker).
+function grow(geom, k = 1.05) {
+  const ring = geom.type === 'Polygon' ? geom.coordinates[0] : geom.type === 'MultiPolygon' ? geom.coordinates[0][0] : null; if (!ring) return null;
+  const cx = ring.reduce((a, p) => a + p[0], 0) / ring.length, cy = ring.reduce((a, p) => a + p[1], 0) / ring.length;
+  return { type: 'Polygon', coordinates: [ring.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k])] };
+}
+function socGeo(list) {
+  return { type: 'FeatureCollection', features: list.map((s) => ({ type: 'Feature', properties: { id: s.id, name: s.name, src: s.src, n: socListings(s).props.length }, geometry: { type: 'Point', coordinates: [s.lng, s.lat] } })) };
+}
+function socFilter() {
+  const F = (S.socF ||= { q: '', bhk: 0, max: '', ready: false, sale: false, kind: 'all', n: 30 });
+  const q = F.q.trim().toLowerCase(), max = N(F.max) != null ? N(F.max) * 1e5 : null;
+  return (S.socs || []).filter((s) => (!q || [s.name, s.builder, s.locality, areaName(areaById(s.area_id), 'en'), areaName(areaById(s.area_id), 'gu')].join(' ').toLowerCase().includes(q))
+    && (F.kind === 'all' || s.kind === F.kind)
+    && (!F.ready || /ready/i.test(s.status || '') || s.src === 'osm')
+    && (!F.bhk || (s.configs || []).some((c) => (F.bhk >= 5 ? c.bhk >= 5 : c.bhk === F.bhk)))
+    && (max == null || (s.configs || []).some((c) => (c.pmin || c.pmax) && (c.pmin || c.pmax) <= max) || (s.price_from && s.price_from <= max))
+    && (!F.sale || socListings(s).props.length || socListings(s).ads.length));
+}
+function viewSocieties() {
+  if (!S.socs) { loadSocieties().then(render).catch(fail); return [h('div', { class: 'empty' }, t('loading'))]; }
+  const F = (S.socF ||= { q: '', bhk: 0, max: '', ready: false, sale: false, kind: 'all', n: 30 });
+  const box = h('div', { class: 'stack' }), count = h('div', { class: 'xs muted' });
+  const drawList = () => {
+    const list = socFilter().map((s) => ({ s, l: socListings(s) })).sort((a, b) => (b.l.props.length + b.l.ads.length) - (a.l.props.length + a.l.ads.length) || (b.s.configs.length - a.s.configs.length) || a.s.name.localeCompare(b.s.name));
+    count.textContent = `${list.length} ${t('societies')} · ${t('soc_src')}`;
+    box.replaceChildren(...list.slice(0, F.n).map(({ s, l }) => socCard(s, l)), list.length > F.n ? h('button', { class: 'btn', onclick: () => { F.n += 40; drawList(); } }, '+ ', list.length - F.n) : '');
+    if (S.socMap && S.socMap.getSource('socs')) S.socMap.getSource('socs').setData(socGeo(list.map((x) => x.s)));
+  };
+  S.drawSocList = drawList;
+  const search = h('input', { type: 'search', placeholder: t('search_soc'), value: F.q, autocomplete: 'off', autocorrect: 'off', spellcheck: 'false', enterkeyhint: 'search', oninput: (e) => { F.q = e.target.value; F.n = 30; clearTimeout(S.sqT); S.sqT = setTimeout(drawList, 200); }, onkeydown: (e) => { if (e.key === 'Enter') { e.target.blur(); const s = socFilter()[0]; if (s && S.socMap) S.socMap.flyTo({ center: [s.lng, s.lat], zoom: 17, pitch: 60 }); } } });
+  setTimeout(() => { drawList(); initSocMap().catch(fail); }, 0);
+  return [
+    h('div', { class: 'stickybar' }, h('label', { class: 'searchbox flat' }, icon('search', 18), search)),
+    chips([[0, t('all')], [1, '1 BHK'], [2, '2 BHK'], [3, '3 BHK'], [4, '4 BHK'], [5, '5+ BHK']], F.bhk, (v) => { F.bhk = v; drawList(); render(); }, 'scroll'),
+    h('div', { class: 'chips scroll' },
+      [['all', t('all')], ['apartment', t('flat')], ['villa', t('bungalow')], ['commercial', t('shop') + '/' + t('office')]].map(([v, l]) => h('button', { class: 'chip' + (F.kind === v ? ' on' : ''), onclick: () => { F.kind = v; render(); } }, l)),
+      h('button', { class: 'chip' + (F.ready ? ' on' : ''), onclick: () => { F.ready = !F.ready; render(); } }, t('ready_only')),
+      h('button', { class: 'chip' + (F.sale ? ' on' : ''), onclick: () => { F.sale = !F.sale; render(); } }, '🏷 ', t('for_sale_now'))),
+    h('div', { class: 'grid2' }, h('input', { class: 'input', inputmode: 'decimal', placeholder: t('max_lakh'), value: F.max, oninput: (e) => { F.max = e.target.value; clearTimeout(S.sqT); S.sqT = setTimeout(drawList, 300); } }),
+      h('button', { class: 'btn', onclick: () => { S.soc3d = S.soc3d === false; if (S.socMap) S.socMap.easeTo({ pitch: S.soc3d === false ? 0 : 60 }); } }, '🏙 2D / 3D')),
+    h('div', { id: 'socmap', class: 'socmap' }),
+    h('div', { class: 'xs muted socleg' }, h('span', { style: 'color:' + LIT.sale }, '■ '), t('lit_sale'), '  ', h('span', { style: 'color:' + LIT.rent }, '■ '), t('lit_rent'), '  ', h('span', { style: 'color:' + LIT.paper }, '■ '), t('lit_paper'), '  ', h('span', { style: 'color:#ff2d55' }, '■ '), t('lit_floor')),
+    count, box,
+  ];
+}
+function socCard(s, l) {
+  const r = socRates(s), best = r.rows.filter((x) => x.price).sort((a, b) => a.price - b.price)[0];
+  return h('article', { class: 'card tap', onclick: (e) => { if (e.target.closest('a,button')) return; openSociety(s); } },
+    h('div', { class: 'between top' }, h('div', { class: 'grow' }, h('div', { class: 'title' }, s.name), h('div', { class: 'small muted' }, [s.builder, s.locality || areaName(areaById(s.area_id), getLang())].filter(Boolean).join(' · '))),
+      l.props.length || l.ads.length ? h('span', { class: 'badge warn' }, `🏷 ${l.props.length + l.ads.length}`) : null),
+    h('div', { class: 'small' }, [s.status, s.possession && t('possession') + ' ' + s.possession, r.rows.map((x) => (x.bhk ? x.bhk + ' BHK' : x.type)).filter((v, i, a) => a.indexOf(v) === i).join(', ')].filter(Boolean).join(' · ')),
+    best ? h('div', { class: 'b' }, `${t('from')} ${moneyShort(best.price)}`, best.rate ? h('span', { class: 'muted small' }, ` · ₹${Math.round(best.rate).toLocaleString('en-IN')}/sq ft`) : null)
+      : r.model ? h('div', { class: 'small goldtext' }, `≈ ₹${Math.round(r.model.value).toLocaleString('en-IN')}/sq ft (${t('model_price')})`) : null,
+    h('div', { class: 'xs muted' }, t('socsrc_' + s.src)));
+}
+async function initSocMap() {
+  const el = document.getElementById('socmap'); if (!el) return;
+  if (S.socMap && S.socMap.getContainer() === el) return;
+  if (S.socMap) { try { S.socMap.remove(); } catch { /* gone */ } S.socMap = null; }
+  let ml; try { ml = await loadML(); } catch { el.replaceChildren(h('div', { class: 'empty' }, t('map_offline'))); return; }
+  const v = S.socView || { center: [SURAT.lng, SURAT.lat], zoom: 13.5 };
+  const map = (S.socMap = new ml.Map({ container: el, style: 'https://tiles.openfreemap.org/styles/liberty', center: v.center, zoom: v.zoom, pitch: S.soc3d === false ? 0 : 55, bearing: v.bearing || -15, maxPitch: 75, attributionControl: { compact: true } }));
+  map.addControl(new ml.NavigationControl({ visualizePitch: true }), 'top-right');
+  map.addControl(new ml.GeolocateControl({ positionOptions: { enableHighAccuracy: true } }), 'top-right');
+  map.on('load', () => {
+    for (const ly of map.getStyle().layers) if (ly.type === 'fill-extrusion' || /^building/.test(ly.id)) map.setLayoutProperty(ly.id, 'visibility', 'none');
+    const src = Object.keys(map.getStyle().sources).find((k) => map.getStyle().sources[k].type === 'vector') || 'openmaptiles';
+    const H = ['coalesce', ['get', 'render_height'], 9], B = ['coalesce', ['get', 'render_min_height'], 0];
+    map.addLayer({ id: 'bld3d', type: 'fill-extrusion', source: src, 'source-layer': 'building', minzoom: 13,
+      paint: { 'fill-extrusion-color': ['interpolate', ['linear'], H, 0, '#d9d4c7', 30, '#c4c9d4', 90, '#9aa6bd'], 'fill-extrusion-height': H, 'fill-extrusion-base': B, 'fill-extrusion-opacity': 0.88 } });
+    map.addSource('lit', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map.addLayer({ id: 'lit-bld', type: 'fill-extrusion', source: 'lit', filter: ['==', ['get', 'part'], 'b'], paint: { 'fill-extrusion-color': ['get', 'c'], 'fill-extrusion-height': ['get', 'h'], 'fill-extrusion-base': 0, 'fill-extrusion-opacity': 0.95 } });
+    map.addLayer({ id: 'lit-floor', type: 'fill-extrusion', source: 'lit', filter: ['==', ['get', 'part'], 'f'], paint: { 'fill-extrusion-color': '#ff2d55', 'fill-extrusion-height': ['get', 'h'], 'fill-extrusion-base': ['get', 'b'], 'fill-extrusion-opacity': 1 } });
+    map.addSource('socs', { type: 'geojson', data: socGeo(socFilter()) });
+    map.addLayer({ id: 'soc-dot', type: 'circle', source: 'socs', paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 3, 16, 7], 'circle-color': ['match', ['get', 'src'], '99acres', '#E3B341', 'rera', '#1F3A5F', '#7b8494'], 'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5 } });
+    map.addLayer({ id: 'soc-name', type: 'symbol', source: 'socs', minzoom: 14.5, layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'], 'text-size': 12, 'text-offset': [0, 1.2], 'text-anchor': 'top', 'text-max-width': 9 }, paint: { 'text-color': '#1F3A5F', 'text-halo-color': '#fff', 'text-halo-width': 1.6 } });
+    map.on('click', 'soc-dot', (e) => { const id = e.features[0].properties.id, s = S.socs.find((x) => x.id === id); if (s) openSociety(s); });
+    map.on('mouseenter', 'soc-dot', () => { map.getCanvas().style.cursor = 'pointer'; }); map.on('mouseleave', 'soc-dot', () => { map.getCanvas().style.cursor = ''; });
+    map.on('click', (e) => {
+      if (map.queryRenderedFeatures(e.point, { layers: ['soc-dot'] }).length) return;
+      const lit = (S.litNow || []).find((x) => x.f && map.queryRenderedFeatures(e.point, { layers: ['lit-bld', 'lit-floor'] }).length && km(x.lat, x.lng, e.lngLat.lat, e.lngLat.lng) < 0.06);
+      if (lit) return lit.prop ? propertyForm(lit.prop) : openDetail('lead', lit.lead);
+      const b = map.queryRenderedFeatures(e.point, { layers: ['bld3d'] })[0];
+      const near = (S.socs || []).map((s) => ({ s, d: km(s.lat, s.lng, e.lngLat.lat, e.lngLat.lng) })).sort((x, y) => x.d - y.d)[0];
+      if (near && near.d < 0.12) return openSociety(near.s);
+      if (b) { const hgt = b.properties.render_height; toast(`${t('building')} · ≈ ${Math.round(hgt || 9)} m · ≈ ${Math.max(1, Math.round((hgt || 9) / 3.1))} ${t('floors')}`); }
+    });
+    const idle = () => { S.socView = { center: map.getCenter().toArray(), zoom: map.getZoom(), bearing: map.getBearing() }; lightUp(map); if (map.getZoom() >= 15) osmSocieties(map.getBounds()).then((n) => { if (n) S.drawSocList && S.drawSocList(); }); };
+    map.on('idle', () => { clearTimeout(S.idleT); S.idleT = setTimeout(idle, 250); });
+    S.litMarkers = [];
+  });
+}
+// Find the building under each exact pin and raise a coloured copy of it; the listed floor is a red band.
+function lightUp(map) {
+  const b = map.getBounds(), feats = [], now = [];
+  for (const m of S.litMarkers || []) m.remove(); S.litMarkers = [];
+  for (const x of litItems()) {
+    if (!b.contains([x.lng, x.lat])) continue;
+    const pt = map.project([x.lng, x.lat]);
+    const f = map.getZoom() >= 14 ? map.queryRenderedFeatures([[pt.x - 2, pt.y - 2], [pt.x + 2, pt.y + 2]], { layers: ['bld3d'] })[0] : null;
+    let top = 12;
+    if (f) {
+      const g = grow(f.geometry), hgt = Number(f.properties.render_height) || 9; top = hgt + 0.6;
+      if (g) {
+        feats.push({ type: 'Feature', properties: { part: 'b', c: LIT[x.kind], h: hgt + 0.4 }, geometry: g });
+        if (x.floor != null && x.floor >= 0) { const fb = Math.min(hgt - 1, x.floor * 3.1), fh = Math.min(hgt + 0.8, fb + 3.1); feats.push({ type: 'Feature', properties: { part: 'f', b: Math.max(0, fb), h: fh }, geometry: grow(f.geometry, 1.08) }); }
+      }
+    }
+    now.push({ ...x, f: !!f });
+    const pin = h('div', { class: 'pin small sel', style: `border-color:${LIT[x.kind]}` }, h('span', {}, x.kind === 'paper' ? t('lit_paper') : t(x.prop?.ptype || 'flat')), h('b', {}, x.label));
+    pin.onclick = (ev) => { ev.stopPropagation(); x.prop ? propertyForm(x.prop) : openDetail('lead', x.lead); };
+    S.litMarkers.push(new window.maplibregl.Marker({ element: pin, anchor: 'bottom', offset: [0, -Math.min(60, top)] }).setLngLat([x.lng, x.lat]).addTo(map));
+  }
+  S.litNow = now;
+  if (map.getSource('lit')) map.getSource('lit').setData({ type: 'FeatureCollection', features: feats });
+}
+function openSociety(s) {
+  const r = socRates(s), l = socListings(s), fac = { v: null };
+  const sh = openSheet(s.name, () => [
+    h('div', { class: 'small muted' }, [s.builder, s.locality || areaName(areaById(s.area_id), getLang()), s.status, s.possession && t('possession') + ' ' + s.possession].filter(Boolean).join(' · ')),
+    s.rera_full || s.rera ? h('div', { class: 'xs muted' }, 'RERA: ' + (s.rera_full || s.rera)) : null,
+    r.rows.length ? h('div', { class: 'card inset' },
+      h('div', { class: 'b' }, t('soc_units')),
+      ...r.rows.map((x) => h('div', { class: 'between small' },
+        h('span', {}, `${x.bhk ? x.bhk + ' BHK' : x.type} · ${x.min === x.max ? x.min : x.min + '–' + x.max} sq ft`),
+        h('span', { class: 'b' + (x.flag ? ' badtext' : '') }, x.price ? `${moneyShort(x.price)}${x.rate ? ' · ₹' + Math.round(x.rate).toLocaleString('en-IN') + '/ft' : ''}${x.flag ? ' ⚠' : ''}` : x.est ? `≈ ${moneyShort(x.est)}` : '—'))),
+      h('div', { class: 'xs muted' }, t('soc_units_note'))) : null,
+    h('div', { class: 'grid3' },
+      h('div', { class: 'tile' }, h('div', { class: 'muted xs' }, t('model_price')), h('div', { class: 'b' }, r.model ? '₹' + Math.round(r.model.value).toLocaleString('en-IN') + '/ft' : '—')),
+      h('div', { class: 'tile' }, h('div', { class: 'muted xs' }, t('rent_est')), h('div', { class: 'b' }, (() => { const x = r.rows.find((y) => y.rent); return x ? '≈ ' + money(Math.round(x.rent / 500) * 500) + '/' + t('month') : '—'; })())),
+      h('div', { class: 'tile dark' }, h('div', { class: 'gold xs' }, t('for_sale_now')), h('div', { class: 'b' }, String(l.props.length + l.ads.length)))),
+    l.props.length ? h('div', { class: 'stack' }, h('div', { class: 'b' }, t('my_props')), ...l.props.map(propCard)) : null,
+    l.ads.length ? h('div', { class: 'stack' }, h('div', { class: 'b' }, t('leads')), ...l.ads.map((a) => h('button', { class: 'row', onclick: () => openDetail('lead', a) }, h('span', { class: 'small' }, `📰 ${a.text}`), icon('chev', 16)))) : null,
+    h('div', { class: 'card inset' }, h('div', { class: 'b' }, t('nearby')),
+      fac.v ? h('div', { class: 'small' }, ['school', 'hospital', 'park', 'market', 'bus', 'bank'].filter((k) => fac.v[k]?.length).map((k) => `${(FAC.find((f) => f[0] === k) || [0, ''])[1]} ${fac.v[k][0].d} km${fac.v[k][0].name ? ' (' + fac.v[k][0].name + ')' : ''}`).join(' · ') || '—') : h('div', { class: 'xs muted shimmer' }, t('loading'))),
+    h('div', { class: 'grid3' },
+      gmapsBtn(s.lat, s.lng),
+      s.url ? h('a', { class: 'btn', href: s.url, target: '_blank', rel: 'noopener' }, '99acres') : s.phone ? h('a', { class: 'btn green', href: 'tel:+91' + tel(s.phone) }, t('call')) : h('span', {}),
+      h('button', { class: 'btn', onclick: () => { sh.close(); if (S.socMap) S.socMap.flyTo({ center: [s.lng, s.lat], zoom: 17.5, pitch: 62 }); } }, '🏙 3D')),
+    h('button', { class: 'btn gold', onclick: () => { sh.close(); propertyForm({ lat: s.lat, lng: s.lng, area_id: s.area_id, ptype: s.kind === 'commercial' ? 'shop' : s.kind === 'villa' ? 'bungalow' : 'flat', ext: { society: s.name } }); } }, '+ ', t('add_listing_here')),
+    h('button', { class: 'btn', onclick: () => copyText(socText(s, r, l)) }, '📋 ', t('copy_soc')),
+  ]);
+  facilitiesAround(s.lat, s.lng, cfg, 1500).then((v) => { fac.v = v; sh.redraw(); }).catch(() => { fac.v = {}; sh.redraw(); });
+}
+function socText(s, r, l) {
+  return [`🏢 *${s.name}*`, [s.builder, s.locality || areaName(areaById(s.area_id), 'en')].filter(Boolean).join(' · '), [s.status, s.possession && 'Possession ' + s.possession].filter(Boolean).join(' · '),
+    ...r.rows.map((x) => `• ${x.bhk ? x.bhk + ' BHK' : x.type}: ${x.min === x.max ? x.min : x.min + '–' + x.max} sq ft${x.price ? ' · ' + moneyShort(x.price) : ''}`),
+    l.props.length ? `For sale now: ${l.props.length}` : null, `Map: ${gmaps(s.lat, s.lng)}`, `${BRAND.name} · ${BRAND.person} · ${BRAND.phones}`].filter(Boolean).join('\n');
+}
+
 // ---------- newspaper "for sale" ads (leads) ----------
 const LEADS_KEY = 'leads.own';
 // Paper ads on the map: exact building / near a landmark from the ad's address; ads naming only an area sit
@@ -3047,7 +3268,7 @@ function viewTeam() {
 //  3. Old app versions left open for days: the app checks version.json and reloads itself.
 // Every phone also reports a heartbeat (who, app version, counts, pending saves) so the Phones screen shows
 // whether all phones match the master copy.
-const APP_BUILD = '2026-11-20.1';
+const APP_BUILD = '2026-11-20.2';
 const KV_MARK = '§kv§';
 const KV_KEYS = ['leads.own', 'myareas', 'projpins', 'templates', 'myphones', 'bizPhone', 'vigha', 'np.premIn', 'np.premOut', 'reports', 'devices', 'socpins'];
 const KV_CAP = { 'leads.own': 1500, reports: 500, templates: 200 };
@@ -3107,6 +3328,7 @@ async function kvFetch(key) {
   return data ? kvParse(data) : null;
 }
 function kvApplyLocal(key, value) {
+  if (value == null) { cfg.del(key); return; } // nothing on either side: leave the phone's default in place
   cfg.set(key, value, true);
   const e = kvEntries(value); cfg.set('kvb.' + key, e ? e.map((x) => x[0]) : null, true);
 }
@@ -3221,7 +3443,7 @@ function viewPhones() {
   const countLine = (c) => Object.keys(lbl).map((k) => `${lbl[k]} ${c[k] ?? '—'}`).join(' · ');
   const ago = (iso) => { const m = Math.round((Date.now() - Date.parse(iso)) / 6e4); return m < 2 ? t('just_now') : m < 90 ? m + ' ' + t('min_ago') : m < 2880 ? Math.round(m / 60) + ' ' + t('hr_ago') : Math.round(m / 1440) + ' ' + t('days_ago'); };
   const run = async (ev) => { const b = ev.currentTarget; b.disabled = true; b.textContent = t('please_wait'); const r = await syncAll(true); toast(r && !r.err ? `✓ ${t('sync_done')}${r.sent ? ` · ${r.sent} ${t('sync_sent')}` : ''}${r.local ? ` · ${r.local} ${t('sync_local')}` : ''}` : t('error') + ': ' + ((r && r.err && r.err.message) || '—'), r && r.err); render(); };
-  box.append(
+  box.append(...[
     h('div', { class: 'small muted' }, t('phones_help')),
     !cloud.ready ? h('div', { class: 'authmsg bad' }, t('sync_signin')) : null,
     cloud.ready && (!cloud.team || cloud.team.missing || !cloud.team.team_id) ? h('div', { class: 'authmsg bad' }, t('sync_noteam')) : null,
@@ -3244,7 +3466,7 @@ function viewPhones() {
       h('div', { class: 'b' }, t('dups_title')),
       h('div', { class: 'small' }, nd ? `${dups.brokers.length} ${t('brokers')} · ${dups.customers.length} ${t('customers')} · ${dups.properties.length} ${t('my_props')}` : '✓ ' + t('no_dups')),
       nd ? h('div', { class: 'xs muted' }, [...dups.brokers.map((g) => '🤝 ' + g.map((r) => r.name).join(' = ')), ...dups.customers.map((g) => '👤 ' + g.map((r) => r.name || r.phone).join(' = ')), ...dups.properties.map((g) => '🏠 ' + (g[0].title || propTitle(g[0])) + ' ×' + g.length)].slice(0, 12).join('\n')) : null,
-      nd && canDelete() ? h('button', { class: 'btn', onclick: async (ev) => { if (!(await ask(t('dups_q')))) return; ev.currentTarget.disabled = true; try { const n = await mergeDups(); toast(`✓ ${n} ${t('dups_merged')}`); render(); } catch (e) { fail(e); } } }, t('dups_merge')) : null));
+      nd && canDelete() ? h('button', { class: 'btn', onclick: async (ev) => { const btn = ev.currentTarget; if (!(await ask(t('dups_q')))) return; btn.disabled = true; try { const n = await mergeDups(); toast(`✓ ${n} ${t('dups_merged')}`); render(); } catch (e) { fail(e); } } }, t('dups_merge')) : null)].filter(Boolean));
   return [backHdr(t('phones'), t('master_copy')), box];
 }
 

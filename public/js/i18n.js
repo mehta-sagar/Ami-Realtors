@@ -293,6 +293,13 @@ Object.assign(T, {
   dups_merge: ['ભેગા કરો', 'Merge them'], dups_merged: ['ભેગા થયા', 'merged'],
   society: ['સોસાયટી / બિલ્ડિંગ', 'Society / building'], tower: ['ટાવર / વિંગ', 'Tower / wing'], unit_no: ['ફ્લેટ / યુનિટ નં.', 'Flat / unit no.'],
   copy_listing: ['લિસ્ટિંગ કૉપી (WhatsApp ફોર્મેટ)', 'Copy listing (WhatsApp format)'], blank_format: ['ખાલી ફોર્મેટ', 'Blank format'],
+  societies: ['સોસાયટી 3D', 'Societies 3D'], search_soc: ['સોસાયટી, બિલ્ડર કે વિસ્તાર શોધો', 'Search society, builder or area'],
+  soc_src: ['99acres + ગુજરેરા + OpenStreetMap', '99acres + GujRERA + OpenStreetMap'], ready_only: ['રેડી પઝેશન', 'Ready to move'], for_sale_now: ['હાલ વેચાણમાં', 'For sale now'],
+  lit_sale: ['વેચાણ', 'Sale'], lit_rent: ['ભાડે', 'Rent'], lit_paper: ['છાપાની જાહેરાત', 'Paper ad'], lit_floor: ['એ માળ', 'That floor'],
+  socsrc_99acres: ['સ્ત્રોત: 99acres પ્રોજેક્ટ પેજ (સાઇઝ, બિલ્ડરનો ભાવ)', 'Source: 99acres project page (sizes, builder price)'], socsrc_rera: ['સ્ત્રોત: ગુજરેરા (સરકારી)', 'Source: GujRERA (official)'], socsrc_osm: ['સ્ત્રોત: OpenStreetMap (નામ અને જગ્યા)', 'Source: OpenStreetMap (name and place)'],
+  soc_units: ['યુનિટ, સાઇઝ અને ભાવ', 'Units, sizes and prices'], soc_units_note: ['બિલ્ડરની સાઇઝ (કાર્પેટ કે સુપર બિલ્ટ-અપ). ≈ = ભાવ છાપ્યો નથી, વિસ્તારના મોડેલ ભાવથી અંદાજ. ⚠ = વિસ્તાર કરતાં ઘણો અલગ – તપાસો.', 'Builder sizes (carpet or super built-up). ≈ = no price printed, estimated from the area model. ⚠ = far from the area – check.'],
+  rent_est: ['ભાડું (અંદાજ)', 'Rent (estimate)'], add_listing_here: ['અહીં મિલકત ઉમેરો', 'Add a listing here'], copy_soc: ['સોસાયટીની વિગત કૉપી', 'Copy society details'],
+  map_offline: ['નકશો લોડ ન થયો – ઇન્ટરનેટ તપાસો', 'Map did not load – check the internet'], from: ['થી શરૂ', 'from'], building: ['બિલ્ડિંગ', 'Building'], floors: ['માળ', 'floors'],
   new_version: ['નવું વર્ઝન આવ્યું – અપડેટ માટે દબાવો', 'New version – tap to update'],
 });
 

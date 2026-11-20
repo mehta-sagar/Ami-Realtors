@@ -1,0 +1,1454 @@
+{
+"_note": "Surat societies/projects with unit sizes and builder prices. Sizes as the builder lists them on 99acres (carpet or super built-up). Prices are new-booking prices where printed. Coordinates from the project page; two projects with clearly wrong coordinates were left out.",
+"updated": "2026-11-20",
+"societies": [
+{
+"id": "99a-276781",
+"name": "Raghuvir Silverstone",
+"builder": "Raghuvir Corporation",
+"lat": 21.1383,
+"lng": 72.7688,
+"locality": "Vesu",
+"status": "Ready To Move",
+"possession": "May 2025",
+"rera": "RAA00162/A1R/EX2/310824/311224",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 4,
+"type": "Apartment",
+"min": 1856,
+"max": 2543,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": 5,
+"type": "Apartment",
+"min": 2305,
+"max": 3165,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/raghuvir-silverstone-vesu-surat-npxid-r276781",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-321509",
+"name": "Shreepad Park Arena",
+"builder": "Shreepad Group",
+"lat": 21.18391,
+"lng": 72.77596,
+"locality": "Pal",
+"status": "Ready To Move",
+"possession": null,
+"rera": "RAA04408/181218",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 4,
+"type": "Apartment",
+"min": 2153,
+"max": 2270,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": 5,
+"type": "Apartment",
+"min": 2504,
+"max": 3112,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/shreepad-park-arena-pal-surat-npxid-r321509",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-366812",
+"name": "Raghuvir Spectrum",
+"builder": "Raghuvir Corporation",
+"lat": 21.134814,
+"lng": 72.777063,
+"locality": "Vesu",
+"status": "Ready To Move",
+"possession": "Jun 2026",
+"rera": "RAA06991/A1R/EX1/130726/300626",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 3,
+"type": "Apartment",
+"min": 956,
+"max": 956,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": 4,
+"type": "Apartment",
+"min": 1322,
+"max": 1322,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/raghuvir-spectrum-vesu-surat-npxid-r366812",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-372184",
+"name": "Raghuvir Satva",
+"builder": "Raghuvir Corporation",
+"lat": 21.14187,
+"lng": 72.76988,
+"locality": "Vesu",
+"status": "Ready To Move",
+"possession": "Jul 2024",
+"rera": "RAA07721/A1R/260523",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 3,
+"type": "Apartment",
+"min": 1010,
+"max": 1010,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/raghuvir-satva-vesu-surat-npxid-r372184",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-372593",
+"name": "Sahaj Icon",
+"builder": "Aagam Associates",
+"lat": 21.20119,
+"lng": 72.793826,
+"locality": "Adajan",
+"status": "Ready To Move",
+"possession": "Feb 2023",
+"rera": "CAA07776/151220",
+"kind": "commercial",
+"configs": [
+{
+"bhk": null,
+"type": "Shop",
+"min": 550,
+"max": 776,
+"pmin": 12000000,
+"pmax": 16000000
+},
+{
+"bhk": null,
+"type": "Office",
+"min": 662,
+"max": 662,
+"pmin": 12200000,
+"pmax": 12200000
+}
+],
+"url": "https://www.99acres.com/sahaj-icon-adajan-surat-npxid-c372593",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-374414",
+"name": "Shreepad Infinia",
+"builder": "Shreepad Group",
+"lat": 21.18524,
+"lng": 72.77857,
+"locality": "Pal",
+"status": "Ready To Move",
+"possession": "Mar 2024",
+"rera": "MAA07993/030221",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 3,
+"type": "Apartment",
+"min": 1126,
+"max": 1297,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/shreepad-infinia-pal-surat-npxid-r374414",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-393814",
+"name": "Shreepad Shivanta Vivanta",
+"builder": "Shreepad Group",
+"lat": 21.195825,
+"lng": 72.771785,
+"locality": "Pal",
+"status": "Ready To Move",
+"possession": null,
+"rera": "RAA10278/060622",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 3,
+"type": "Apartment",
+"min": 1251,
+"max": 1251,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": 4,
+"type": "Apartment",
+"min": 1340,
+"max": 2347,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": 5,
+"type": "Apartment",
+"min": 3051,
+"max": 3060,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/shreepad-shivanta-vivanta-pal-surat-npxid-r393814",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-394321",
+"name": "Happy Astoria",
+"builder": "Anand Corporation Surat",
+"lat": 21.13711,
+"lng": 72.77424,
+"locality": "Vesu",
+"status": "Under Construction",
+"possession": "Nov 2028",
+"rera": "RAA10028/A1R/220923",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 4,
+"type": "Apartment",
+"min": 1629,
+"max": 2072,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/happy-astoria-vesu-surat-npxid-r394321",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-396305",
+"name": "Avadh Kontina",
+"builder": "Avadh Group",
+"lat": 21.141603,
+"lng": 72.78406,
+"locality": "Vesu",
+"status": "Under Construction",
+"possession": "Dec 2032",
+"rera": "CAA10499/260722",
+"kind": "commercial",
+"configs": [
+{
+"bhk": null,
+"type": "Office (bare shell)",
+"min": 398,
+"max": 3726,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": null,
+"type": "Shop",
+"min": 1534,
+"max": 3010,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": null,
+"type": "Office",
+"min": 551,
+"max": 3710,
+"pmin": 7163000,
+"pmax": 28250000
+}
+],
+"url": "https://www.99acres.com/avadh-kontina-vesu-surat-npxid-c396305",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-398521",
+"name": "Shreepad Inspire",
+"builder": "Shreepad Group",
+"lat": 21.21531,
+"lng": 72.7664,
+"locality": "Palanpur",
+"status": "Ready To Move",
+"possession": "Sep 2025",
+"rera": "RN194AA10094/190922",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 3,
+"type": "Apartment",
+"min": 1220,
+"max": 1220,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": 4,
+"type": "Apartment",
+"min": 1587,
+"max": 2545,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/shreepad-inspire-palanpur-surat-npxid-r398521",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-405001",
+"name": "Siddhi Vinayak Elements",
+"builder": "Siddhi Vinayak Infracon",
+"lat": 21.220635,
+"lng": 72.77144,
+"locality": "Jahangirabad",
+"status": "New Launch",
+"possession": "Dec 2029",
+"rera": "MAA11387/040323",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 2,
+"type": "Apartment",
+"min": 715,
+"max": 749,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": 3,
+"type": "Apartment",
+"min": 1039,
+"max": 1327,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/siddhi-vinayak-elements-jahangirabad-surat-npxid-r405001",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-406624",
+"name": "Sahaj Panoramic",
+"builder": "Sahaj Developers Surat",
+"lat": 21.196706,
+"lng": 72.77316,
+"locality": "Pal",
+"status": "Ready To Move",
+"possession": "Sep 2025",
+"rera": "RAA11553/050423",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 3,
+"type": "Apartment",
+"min": 1123,
+"max": 1222,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/sahaj-panoramic-pal-surat-npxid-r406624",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-412972",
+"name": "Vaidehi Hills",
+"builder": "Axis Buildcon",
+"lat": 21.136672,
+"lng": 72.879652,
+"locality": "Dindoli",
+"status": "Under Construction",
+"possession": "Dec 2027",
+"rera": "RAA11964/190623",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 2,
+"type": "Apartment",
+"min": 537,
+"max": 555,
+"pmin": 2900000,
+"pmax": 2951000
+},
+{
+"bhk": 3,
+"type": "Apartment",
+"min": 734,
+"max": 734,
+"pmin": 3800000,
+"pmax": 3800000
+}
+],
+"url": "https://www.99acres.com/vaidehi-hills-dindoli-surat-npxid-r412972",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-414295",
+"name": "Rajhans Skylar",
+"builder": "Rajhans Desai-Jain Group",
+"lat": 21.147013,
+"lng": 72.762253,
+"locality": "Vesu",
+"status": "Under Construction",
+"possession": "Nov 2027",
+"rera": "CAA11996/220623",
+"kind": "commercial",
+"configs": [
+{
+"bhk": null,
+"type": "Office (bare shell)",
+"min": 1008,
+"max": 3344,
+"pmin": null,
+"pmax": 13500000
+},
+{
+"bhk": null,
+"type": "Showroom",
+"min": 1858,
+"max": 3820,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": null,
+"type": "Office",
+"min": 1500,
+"max": 1500,
+"pmin": 21000000,
+"pmax": 21000000
+}
+],
+"url": "https://www.99acres.com/rajhans-skylar-vesu-surat-npxid-c414295",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-414587",
+"name": "Anand Aspire By Balar Homes",
+"builder": "Balar Homes",
+"lat": 21.217666,
+"lng": 72.779029,
+"locality": "Jahangirabad",
+"status": "Under Construction",
+"possession": "Dec 2030",
+"rera": "MAA12201/290823",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 2,
+"type": "Apartment",
+"min": 694,
+"max": 719,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": 3,
+"type": "Apartment",
+"min": 892,
+"max": 972,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/anand-aspire-by-balar-homes-jahangirabad-surat-npxid-r414587",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-418040",
+"name": "Vaibhav Prince Elegance",
+"builder": "Vaibhav Builders Surat",
+"lat": 21.217971,
+"lng": 72.779457,
+"locality": "Jahangirabad",
+"status": "Ready To Move",
+"possession": "Jul 2025",
+"rera": "RAA12446/131023",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 2,
+"type": "Apartment",
+"min": 668,
+"max": 668,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": 3,
+"type": "Apartment",
+"min": 865,
+"max": 865,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/vaibhav-prince-elegance-jahangirabad-surat-npxid-r418040",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-421185",
+"name": "Raghuvir Spelito",
+"builder": "Raghuvir Corporation",
+"lat": 21.137951,
+"lng": 72.76953,
+"locality": "Vesu",
+"status": "Under Construction",
+"possession": "Dec 2026",
+"rera": "RAA12759/080124/311229",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 4,
+"type": "Apartment",
+"min": 1740,
+"max": 1810,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/raghuvir-spelito-vesu-surat-npxid-r421185",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-423077",
+"name": "Millennium Park",
+"builder": "Millennium Residency",
+"lat": 21.129971,
+"lng": 72.766999,
+"locality": "Vesu",
+"status": "Under Construction",
+"possession": "Dec 2026",
+"rera": "RAA12987/200224/311229",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 2,
+"type": "Apartment",
+"min": 764,
+"max": 764,
+"pmin": 7000000,
+"pmax": 7000000
+},
+{
+"bhk": 3,
+"type": "Apartment",
+"min": 1209,
+"max": 1231,
+"pmin": 11298511,
+"pmax": 11500000
+}
+],
+"url": "https://www.99acres.com/millennium-park-vesu-surat-npxid-r423077",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-425065",
+"name": "Prayosha Impress",
+"builder": "Prayosha Group",
+"lat": 21.14594,
+"lng": 72.87376,
+"locality": "Dindoli",
+"status": "Under Construction",
+"possession": "Dec 2026",
+"rera": "MAA12967/200224/201226",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 2,
+"type": "Apartment",
+"min": 671,
+"max": 671,
+"pmin": 2870000,
+"pmax": 2870000
+},
+{
+"bhk": 3,
+"type": "Apartment",
+"min": 851,
+"max": 851,
+"pmin": 3750000,
+"pmax": 3750000
+}
+],
+"url": "https://www.99acres.com/prayosha-impress-dindoli-surat-npxid-r425065",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-426068",
+"name": "Shreepad Central Vista",
+"builder": "Shreepad Group",
+"lat": 21.194492,
+"lng": 72.802974,
+"locality": "Adajan",
+"status": "Under Construction",
+"possession": "Dec 2027",
+"rera": "CAA13086/070324/311227",
+"kind": "commercial",
+"configs": [
+{
+"bhk": null,
+"type": "Office (bare shell)",
+"min": 262,
+"max": 1128,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": null,
+"type": "Shop",
+"min": 331,
+"max": 2618,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/shreepad-central-vista-adajan-surat-npxid-c426068",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-426470",
+"name": "Samarthya Excellence",
+"builder": "Samarthya Group",
+"lat": 21.193701,
+"lng": 72.768106,
+"locality": "Pal",
+"status": "Under Construction",
+"possession": "Jun 2027",
+"rera": "RAA13184/270324/300627",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 3,
+"type": "Apartment",
+"min": 1344,
+"max": 1369,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": 4,
+"type": "Apartment",
+"min": 2332,
+"max": 2335,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/samarthya-excellence-pal-surat-npxid-r426470",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-426915",
+"name": "Avadh Onella",
+"builder": "Avadh Buildcorp",
+"lat": 21.105598,
+"lng": 72.720185,
+"locality": "Dumas Road",
+"status": "Under Construction",
+"possession": "Dec 2029",
+"rera": "RAA13387/230424/311229",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 3,
+"type": "Apartment",
+"min": 1437,
+"max": 1437,
+"pmin": 13000000,
+"pmax": 13000000
+},
+{
+"bhk": 4,
+"type": "Apartment",
+"min": 2016,
+"max": 2016,
+"pmin": 16000000,
+"pmax": 16000000
+}
+],
+"url": "https://www.99acres.com/avadh-onella-dumas-road-surat-npxid-r426915",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-427188",
+"name": "Avadh Menorca",
+"builder": "Avadh Buildtech",
+"lat": 21.136118,
+"lng": 72.792121,
+"locality": "Vesu",
+"status": "Under Construction",
+"possession": "Dec 2029",
+"rera": "RAA13508/140524/311229",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 5,
+"type": "Apartment",
+"min": 2805,
+"max": 3224,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": 6,
+"type": "Apartment",
+"min": 3716,
+"max": 4448,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/avadh-menorca-vesu-surat-npxid-r427188",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-427275",
+"name": "Waves Live by the River",
+"builder": "Veer Group",
+"lat": 21.182688,
+"lng": 72.776913,
+"locality": "Pal",
+"status": "Under Construction",
+"possession": "Mar 2027",
+"rera": "RAA13490/130524/310327",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 4,
+"type": "Apartment",
+"min": 1908,
+"max": 1908,
+"pmin": 23600000,
+"pmax": 23600000
+},
+{
+"bhk": 5,
+"type": "Apartment",
+"min": 2784,
+"max": 2784,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/waves-live-by-the-river-pal-surat-npxid-r427275",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-428103",
+"name": "Rajhans Maxton",
+"builder": "Rajhans Infracon",
+"lat": 21.132956,
+"lng": 72.782309,
+"locality": "Vesu",
+"status": "Under Construction",
+"possession": "Dec 2029",
+"rera": "RAA13511/160524/311229",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 3,
+"type": "Apartment",
+"min": 1265,
+"max": 1265,
+"pmin": 12650000,
+"pmax": 12650000
+}
+],
+"url": "https://www.99acres.com/rajhans-maxton-vesu-surat-npxid-r428103",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-429229",
+"name": "Nemi Eminent",
+"builder": "Nemi Eminent",
+"lat": 21.142201,
+"lng": 72.772463,
+"locality": "Vesu",
+"status": "Under Construction",
+"possession": "Jun 2028",
+"rera": "CAA13687/150624/300628",
+"kind": "commercial",
+"configs": [
+{
+"bhk": null,
+"type": "Office (bare shell)",
+"min": 310,
+"max": 2623,
+"pmin": 3906000,
+"pmax": 33049800
+},
+{
+"bhk": null,
+"type": "Showroom",
+"min": 1050,
+"max": 1100,
+"pmin": 13230000,
+"pmax": 13860000
+}
+],
+"url": "https://www.99acres.com/nemi-eminent-vesu-surat-npxid-c429229",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-429908",
+"name": "Vedant Bellavista",
+"builder": "Hare Krishna Group",
+"lat": 21.195809,
+"lng": 72.772141,
+"locality": "Pal",
+"status": "Under Construction",
+"possession": "Mar 2029",
+"rera": "RAA13712/250624/310329",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 4,
+"type": "Apartment",
+"min": 1963,
+"max": 1963,
+"pmin": 19000000,
+"pmax": 19000000
+},
+{
+"bhk": 5,
+"type": "Apartment",
+"min": 3204,
+"max": 3204,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/vedant-bellavista-pal-surat-npxid-r429908",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-430110",
+"name": "Dhanush Villa",
+"builder": "Shiva Developers Surat",
+"lat": 21.231816,
+"lng": 72.763134,
+"locality": "Jahangirabad",
+"status": "Under Construction",
+"possession": "Dec 2027",
+"rera": "PAA13769/010724/311227",
+"kind": "villa",
+"configs": [
+{
+"bhk": 4,
+"type": "Villa",
+"min": 2700,
+"max": 2700,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": null,
+"type": "Plot",
+"min": 799,
+"max": 3659,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/dhanush-villa-jahangirabad-surat-npxid-r430110",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-431015",
+"name": "Rajhans Blue Cloud",
+"builder": "Rajhans Group Builders",
+"lat": 21.139932,
+"lng": 72.778619,
+"locality": "Vesu",
+"status": "Under Construction",
+"possession": "Dec 2029",
+"rera": "CAA13967/050824/311229",
+"kind": "commercial",
+"configs": [
+{
+"bhk": null,
+"type": "Office (bare shell)",
+"min": 430,
+"max": 430,
+"pmin": 6000000,
+"pmax": 6000000
+},
+{
+"bhk": null,
+"type": "Showroom",
+"min": 755,
+"max": 2937,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": null,
+"type": "Office",
+"min": 860,
+"max": 860,
+"pmin": 6020000,
+"pmax": 6020000
+}
+],
+"url": "https://www.99acres.com/rajhans-blue-cloud-vesu-surat-npxid-c431015",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-432708",
+"name": "Ornate Evita",
+"builder": "Ornate Group",
+"lat": 21.133628,
+"lng": 72.770851,
+"locality": "Vesu",
+"status": "New Launch",
+"possession": null,
+"rera": "RAA13947/050824/310329",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 4,
+"type": "Apartment",
+"min": 2013,
+"max": 2098,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/ornate-evita-vesu-surat-npxid-r432708",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-440236",
+"name": "Avadh Paloma Pride",
+"builder": "Avadh Infra Square LLP",
+"lat": 21.157273,
+"lng": 72.790302,
+"locality": "Vesu",
+"status": "Under Construction",
+"possession": "Dec 2030",
+"rera": "RAA14571/231224/311230",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 5,
+"type": "Apartment",
+"min": 3033,
+"max": 6662,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": 6,
+"type": "Apartment",
+"min": 5329,
+"max": 5664,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": 7,
+"type": "Apartment",
+"min": 7693,
+"max": 7936,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/avadh-paloma-pride-vesu-surat-npxid-r440236",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-441242",
+"name": "Oliva Breeze",
+"builder": "Oliva Group",
+"lat": 21.159273,
+"lng": 72.767996,
+"locality": "Piplod",
+"status": "Under Construction",
+"possession": "Dec 2027",
+"rera": "RAA14921/070325/311228",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 4,
+"type": "Apartment",
+"min": 2137,
+"max": 2662,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": 5,
+"type": "Apartment",
+"min": 3844,
+"max": 4827,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/oliva-breeze-piplod-surat-npxid-r441242",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-443937",
+"name": "Vibrant Eco Park",
+"builder": "Vibrant Buildcons",
+"lat": 21.34336,
+"lng": 72.78265,
+"locality": "Olpad",
+"status": "Ready To Move",
+"possession": "Dec 2024",
+"rera": null,
+"kind": "villa",
+"configs": [
+{
+"bhk": 2,
+"type": "Villa",
+"min": 809,
+"max": 809,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": 3,
+"type": "Villa",
+"min": 958,
+"max": 958,
+"pmin": 1851000,
+"pmax": 1851000
+},
+{
+"bhk": 4,
+"type": "Villa",
+"min": 1618,
+"max": 1618,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/vibrant-eco-park-olpad-surat-npxid-r443937",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-449076",
+"name": "Northern Infinity",
+"builder": "Shiv Infrasquare LLP",
+"lat": 21.191455,
+"lng": 72.769623,
+"locality": "Pal",
+"status": "New Launch",
+"possession": "Mar 2029",
+"rera": "RAA15452/020725/310329",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 2,
+"type": "Apartment",
+"min": 686,
+"max": 686,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": 3,
+"type": "Apartment",
+"min": 1058,
+"max": 1125,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/northern-infinity-pal-surat-npxid-r449076",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-450117",
+"name": "Rajlaxmi Vivaan",
+"builder": "Rajlaxmi Group",
+"lat": 21.13129,
+"lng": 72.796344,
+"locality": "Althan",
+"status": "Under Construction",
+"possession": "Nov 2028",
+"rera": "MAA15637/A1M/200526/310330",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 2,
+"type": "Apartment",
+"min": 770,
+"max": 770,
+"pmin": 7100000,
+"pmax": 7100000
+},
+{
+"bhk": 3,
+"type": "Apartment",
+"min": 1122,
+"max": 1270,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/rajlaxmi-vivaan-althan-surat-npxid-r450117",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-452230",
+"name": "Universal Commercial Capital",
+"builder": "Universal Realty",
+"lat": 21.195892,
+"lng": 72.79309,
+"locality": "Adajan",
+"status": "New Launch",
+"possession": "Sep 2027",
+"rera": "CAA14119/110924/311229",
+"kind": "commercial",
+"configs": [
+{
+"bhk": null,
+"type": "Office (bare shell)",
+"min": 490,
+"max": 856,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": null,
+"type": "Showroom",
+"min": 794,
+"max": 2511,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/universal-commercial-capital-adajan-surat-npxid-c452230",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-455359",
+"name": "Rameshwaram Divyabhoomi",
+"builder": "Rameshwaram Group",
+"lat": 21.133667,
+"lng": 72.77997,
+"locality": "Vesu",
+"status": "Under Construction",
+"possession": "Aug 2027",
+"rera": "MAA15882/220925/310530",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 3,
+"type": "Apartment",
+"min": 1273,
+"max": 1359,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": 4,
+"type": "Apartment",
+"min": 1601,
+"max": 1620,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/rameshwaram-divyabhoomi-vesu-surat-npxid-r455359",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-456176",
+"name": "Cygni Villa",
+"builder": "Cygni Realty",
+"lat": 21.246362,
+"lng": 72.762149,
+"locality": "Vankala",
+"status": "Under Construction",
+"possession": null,
+"rera": "PAA17244/100826/311229",
+"kind": "villa",
+"configs": [
+{
+"bhk": 4,
+"type": "Villa",
+"min": 2196,
+"max": 2196,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": null,
+"type": "Plot",
+"min": 810,
+"max": 2250,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/cygni-villa-vankala-surat-npxid-r456176",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-466910",
+"name": "Vacanza City",
+"builder": "Vacanza Developers",
+"lat": 21.150586,
+"lng": 72.8291,
+"locality": "Pandesara",
+"status": "Under Construction",
+"possession": "Dec 2032",
+"rera": "MAA15455/040725/311232",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 2,
+"type": "Apartment",
+"min": 575,
+"max": 575,
+"pmin": 3900000,
+"pmax": 3900000
+}
+],
+"url": "https://www.99acres.com/vacanza-city-pandesara-surat-npxid-r466910",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-468246",
+"name": "Mahant Marvel",
+"builder": "Mahant Developers",
+"lat": 21.310138,
+"lng": 72.73463,
+"locality": "Masma",
+"status": "Under Construction",
+"possession": "Jun 2028",
+"rera": null,
+"kind": "villa",
+"configs": [
+{
+"bhk": 2,
+"type": "Villa",
+"min": 900,
+"max": 1325,
+"pmin": 2851000,
+"pmax": 4351000
+},
+{
+"bhk": 3,
+"type": "Villa",
+"min": 1200,
+"max": 1525,
+"pmin": 3151000,
+"pmax": 3651000
+},
+{
+"bhk": null,
+"type": "Plot",
+"min": 637,
+"max": 2131,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/mahant-marvel-masma-surat-npxid-r468246",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-469714",
+"name": "Pavitram Bungalows",
+"builder": "Prism Arc Developers",
+"lat": 21.152592,
+"lng": 72.880764,
+"locality": "Dindoli",
+"status": "New Launch",
+"possession": null,
+"rera": "PAA17068/040726/300929",
+"kind": "villa",
+"configs": [
+{
+"bhk": 3,
+"type": "Villa",
+"min": 2150,
+"max": 2353,
+"pmin": 9351000,
+"pmax": 12451000
+},
+{
+"bhk": 4,
+"type": "Villa",
+"min": 2350,
+"max": 2350,
+"pmin": 12051000,
+"pmax": 12051000
+},
+{
+"bhk": 5,
+"type": "Villa",
+"min": 2850,
+"max": 2856,
+"pmin": 16051000,
+"pmax": 18851000
+}
+],
+"url": "https://www.99acres.com/pavitram-bungalows-dindoli-surat-npxid-r469714",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-469992",
+"name": "Cygni Pride",
+"builder": "Cygni Realty",
+"lat": 21.256795,
+"lng": 72.889955,
+"locality": "Mota Varachha",
+"status": "New Launch",
+"possession": "Dec 2031",
+"rera": "RAA17094/100726/311231",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 3,
+"type": "Apartment",
+"min": 1341,
+"max": 1341,
+"pmin": 10500000,
+"pmax": 10500000
+},
+{
+"bhk": 5,
+"type": "Apartment",
+"min": 2787,
+"max": 2787,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/cygni-pride-mota-varachha-surat-npxid-r469992",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-470386",
+"name": "Pramukh Villa",
+"builder": "Mahant Developers",
+"lat": 21.310803,
+"lng": 72.735029,
+"locality": "Masma",
+"status": "Under Construction",
+"possession": "Mar 2027",
+"rera": null,
+"kind": "villa",
+"configs": [
+{
+"bhk": 2,
+"type": "Villa",
+"min": 1000,
+"max": 1000,
+"pmin": 2571000,
+"pmax": 2571000
+},
+{
+"bhk": 3,
+"type": "Villa",
+"min": 1300,
+"max": 1450,
+"pmin": 2871000,
+"pmax": 3471000
+}
+],
+"url": "https://www.99acres.com/pramukh-villa-masma-surat-npxid-r470386",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-471214",
+"name": "Universal Majesty",
+"builder": "Universal Realty",
+"lat": 21.186609,
+"lng": 72.790454,
+"locality": "Adajan",
+"status": "New Launch",
+"possession": "Dec 2032",
+"rera": "CAA17219/010826/311232",
+"kind": "commercial",
+"configs": [
+{
+"bhk": null,
+"type": "Office (bare shell)",
+"min": 338,
+"max": 2078,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": null,
+"type": "Shop",
+"min": 550,
+"max": 800,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": null,
+"type": "Showroom",
+"min": 915,
+"max": 1890,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/universal-majesty-adajan-surat-npxid-c471214",
+"src": "99acres project page, read 2026-11-20"
+},
+{
+"id": "99a-473630",
+"name": "Sangini Anantam",
+"builder": "Sangini Group",
+"lat": 21.14484,
+"lng": 72.767674,
+"locality": "Vesu",
+"status": "New Launch",
+"possession": "May 2031",
+"rera": "MAA17349/160926/310531",
+"kind": "apartment",
+"configs": [
+{
+"bhk": 3,
+"type": "Apartment",
+"min": 1420,
+"max": 1453,
+"pmin": null,
+"pmax": null
+},
+{
+"bhk": 4,
+"type": "Apartment",
+"min": 2012,
+"max": 2798,
+"pmin": null,
+"pmax": null
+}
+],
+"url": "https://www.99acres.com/sangini-anantam-vesu-surat-npxid-r473630",
+"src": "99acres project page, read 2026-11-20"
+}
+]
+}
