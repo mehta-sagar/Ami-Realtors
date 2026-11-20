@@ -5,11 +5,11 @@
    "paper": "Sandesh",
    "edition": "Surat City",
    "url": "https://sandesh.com/epaper/surat?date={YYYY-MM-DD}&page={page}",
-   "pages_total": 14,
-   "classifieds_page": 6,
-   "where": "Sunday 15 Nov 2026 (14 pages): page 6, left four columns, 'સંદેશ ક્લાસિફાઇડ' block; property ads under 'પ્રોપર્ટી' → 'વેચવાનું છે'. Monday 16 Nov 2026 (14 pages): page 9, bottom-left 'સંદેશ ક્લાસિફાઇડ' block (no property ads that day; page 11 bottom had only tenders). Check page 6, 9 and 11.",
+   "pages_total": 18,
+   "classifieds_page": 9,
+   "where": "Sunday 15 Nov 2026 (14 pages): page 6, left four columns, 'સંદેશ ક્લાસિફાઇડ' block; property ads under 'પ્રોપર્ટી' → 'વેચવાનું છે'. Monday 16 Nov 2026 (14 pages): page 9, bottom-left 'સંદેશ ક્લાસિફાઇડ' block (no property ads that day; page 11 bottom had only tenders). Check page 6, 9 and 11. Friday 20 Nov 2026 (18 pages): page 9, bottom-left 'સંદેશ ક્લાસિફાઇડ' block, 'પ્રોપર્ટી' → 'ભાડે આપવાનું છે' (1 ad); page 13 = public/title notices. Valsad, Navsari (3-page pullouts) repeat the same classified block on their page 2; Bharuch pullout has none.",
    "image": "page images listed in the page HTML as epapercdn.sandesh.com/epaper/YYYY/MM/DD/<id>-<n>.jpg (2324x3231)",
-   "checked": "2026-11-16"
+   "checked": "2026-11-20"
   },
   {
    "paper": "Sandesh",
@@ -23,11 +23,11 @@
    "paper": "Gujarat Samachar",
    "edition": "Surat",
    "url": "https://epaper.gujaratsamachar.com/surat/{DD-MM-YYYY}/{page}",
-   "pages_total": 16,
-   "classifieds_page": 13,
-   "where": "bottom half 'ક્લાસિફાઇડ' block; on 15 Nov 2026 property ads under area heads (અડાજણ-હજીરા, રાંદેર-જહાંગીરપુરા, અલથાણ-ભટાર, ઉધના-લીંબાયત, વેડ-ડભોલી, પ્રોપર્ટી જનરલ) with વેચવાનું છે / ભાડે આપવાનું છે; no ad numbers printed; Monday 16 Nov 2026: no classifieds block on any of the 16 pages (page 4 = puzzles/obituaries, page 13 = news)",
+   "pages_total": 14,
+   "classifieds_page": 9,
+   "where": "bottom half 'ક્લાસિફાઇડ' block; on 15 Nov 2026 property ads under area heads (અડાજણ-હજીરા, રાંદેર-જહાંગીરપુરા, અલથાણ-ભટાર, ઉધના-લીંબાયત, વેડ-ડભોલી, પ્રોપર્ટી જનરલ) with વેચવાનું છે / ભાડે આપવાનું છે; no ad numbers printed; Monday 16 Nov 2026: no classifieds block on any of the 16 pages (page 4 = puzzles/obituaries, page 13 = news) Friday 20 Nov 2026 (14 pages): classifieds moved to page 9, bottom half ('ક્લાસિફાઇડ્સ / ટચુકડી જાહેરખબર'); heads અડાજણ-હજીરા, પ્રોપર્ટી જનરલ with વેચવાનું છે / ભાડે આપવાનું છે plus boxed display ads on the left.",
    "image": "epaperstatic.gujaratsamachar.com/epaper/<YYYYMMDD>-<id>-<DDMMYYYY>_SUR-<n-1>.jpg (2800x3720)",
-   "checked": "2026-11-16"
+   "checked": "2026-11-20"
   }
  ]
 }
