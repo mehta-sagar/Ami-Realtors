@@ -291,6 +291,8 @@ Object.assign(T, {
   dups_title: ['ડુપ્લિકેટ (અલગ ફોનથી બે વાર ઉમેરાયેલા)', 'Duplicates (added twice from different phones)'], no_dups: ['કોઈ ડુપ્લિકેટ નથી', 'No duplicates'],
   dups_q: ['એક જ નંબરના દલાલ/ગ્રાહક અને એક જ મિલકત ભેગા કરીએ? વિગતો, ફોટા, દલાલ અને ઇન્ક્વાયરી સાચવાઈ રહેશે.', 'Merge dalals/customers with the same number and identical properties? Details, photos, dalals and inquiries are kept.'],
   dups_merge: ['ભેગા કરો', 'Merge them'], dups_merged: ['ભેગા થયા', 'merged'],
+  society: ['સોસાયટી / બિલ્ડિંગ', 'Society / building'], tower: ['ટાવર / વિંગ', 'Tower / wing'], unit_no: ['ફ્લેટ / યુનિટ નં.', 'Flat / unit no.'],
+  copy_listing: ['લિસ્ટિંગ કૉપી (WhatsApp ફોર્મેટ)', 'Copy listing (WhatsApp format)'], blank_format: ['ખાલી ફોર્મેટ', 'Blank format'],
   new_version: ['નવું વર્ઝન આવ્યું – અપડેટ માટે દબાવો', 'New version – tap to update'],
 });
 

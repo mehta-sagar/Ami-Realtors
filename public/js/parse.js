@@ -99,3 +99,76 @@ export function parseEntry(raw) {
 
   return out;
 }
+
+// ---------- Ami listing format: one WhatsApp message that fills every field when pasted ----------
+// Lines are "Label: value" (English or Gujarati labels, any order, emojis and *bold* ignored).
+// Recognised when it starts with "AMI LISTING" or has at least four known labels.
+const CARD_LABELS = {
+  deal: /^(deal|for|sale\s*\/\s*rent|સોદો|વેચાણ\s*\/\s*ભાડે)$/,
+  ptype: /^(type|property\s*type|પ્રકાર|મિલકત)$/,
+  bhk: /^(bhk|bedrooms?|બીએચકે|રૂમ)$/,
+  society: /^(society|building|project|apartment|complex|સોસાયટી|બિલ્ડિંગ|પ્રોજેક્ટ|એપાર્ટમેન્ટ)$/,
+  tower: /^(tower|wing|block|tower\s*\/\s*wing|ટાવર|વિંગ|બ્લોક)$/,
+  unit: /^(flat\s*no\.?|unit\s*no\.?|shop\s*no\.?|office\s*no\.?|house\s*no\.?|plot\s*no\.?|no\.?|ફ્લેટ\s*નં\.?|નંબર|નં\.?)$/,
+  floor: /^(floor|માળ)$/,
+  area: /^(area|locality|વિસ્તાર|એરિયા)$/,
+  address: /^(address|landmark|સરનામું|લેન્ડમાર્ક)$/,
+  size: /^(size|super\s*built[\s-]*up|sbu|built[\s-]*up|plot\s*size|land\s*size|સાઇઝ|ક્ષેત્રફળ|માપ)$/,
+  carpet: /^(carpet|carpet\s*area|કાર્પેટ)$/,
+  price: /^(price|asking|asking\s*price|expected\s*price|કિંમત|ભાવ)$/,
+  rent: /^(rent|monthly\s*rent|ભાડું)$/,
+  deposit: /^(deposit|ડિપોઝિટ)$/,
+  maint: /^(maintenance|મેન્ટેનન્સ)$/,
+  facing: /^(facing|ફેસિંગ|દિશા)$/,
+  furnished: /^(furnished|furnishing|ફર્નિચર|ફર્નિશ્ડ)$/,
+  parking: /^(parking|પાર્કિંગ)$/,
+  age: /^(age|building\s*age|ઉંમર|જૂનું)$/,
+  possession: /^(possession|status|પઝેશન)$/,
+  owner: /^(owner|owner\s*name|name|માલિક|નામ)$/,
+  phone: /^(mobile|phone|contact|owner\s*mobile|મોબાઇલ|ફોન|નંબર\s*\(મોબાઇલ\))$/,
+  dalal: /^(dalal|broker|દલાલ|બ્રોકર)$/,
+  location: /^(location|map|google\s*map|maps|લોકેશન|નકશો)$/,
+  notes: /^(notes?|details?|remarks?|વિગત|નોંધ)$/,
+  ref: /^(ref|id|listing\s*id)$/,
+};
+const moneyOf = (s) => {
+  const x = normDigits(s || '').replace(/,/g, '');
+  let total = 0, hit = false;
+  for (const [mult, pat] of [[1e7, '(?:crores?|cr\\.?|karod|કરોડ)'], [1e5, '(?:lakhs?|lacs?|lac|લાખ|l)'], [1e3, '(?:thousand|k|હજાર)']]) {
+    const m = x.match(new RegExp('(\\d+(?:\\.\\d+)?)\\s*' + pat + '(?![a-z])', 'i')); if (m) { total += parseFloat(m[1]) * mult; hit = true; }
+  }
+  if (hit) return Math.round(total);
+  const m = x.match(/(\d{4,})/); return m ? Number(m[1]) : null;
+};
+export function parseCard(raw) {
+  const text = normDigits(String(raw || '')).replace(/\r/g, '');
+  const out = {}; let known = 0;
+  for (const line0 of text.split('\n')) {
+    const line = line0.replace(/[*_~`]/g, '').replace(/^[^\p{L}\p{N}]+/u, '').trim();
+    const m = line.match(/^([^:：=]{1,30}?)\s*[:：=]\s*(.*)$/); if (!m) continue;
+    const label = m[1].toLowerCase().replace(/\s+/g, ' ').trim(), val = m[2].trim();
+    for (const [k, re] of Object.entries(CARD_LABELS)) if (re.test(label)) { if (val && out[k] == null) out[k] = val; known++; break; }
+  }
+  if (!/ami\s*listing|અમી\s*લિસ્ટિંગ/i.test(text) && known < 4) return null;
+  const r = { raw: String(raw).trim() };
+  const low = (s) => String(s || '').toLowerCase();
+  if (out.deal) r.deal = /rent|ભાડ|lease|લીઝ/i.test(out.deal) ? 'rent' : 'sale';
+  if (out.ptype) for (const [t2, re] of TYPES) if (re.test(low(out.ptype))) { r.ptype = t2; break; }
+  if (!r.ptype && (out.bhk || /flat|ફ્લેટ/i.test(text))) r.ptype = 'flat';
+  if (out.bhk) { const b = out.bhk.match(/\d/); if (b) r.bhk = Number(b[0]); }
+  for (const k of ['society', 'tower', 'unit', 'address', 'facing', 'parking', 'age', 'possession', 'owner', 'notes', 'deposit', 'maint', 'ref']) if (out[k]) r[k] = out[k];
+  if (out.floor) { r.floor = out.floor.replace(/\s*(?:of|\/|માંથી)\s*/i, '/').replace(/\s*(?:th|st|nd|rd|floor|માળ)\b/gi, '').trim(); const f = r.floor.match(/-?\d+|ground|g\b|ગ્રાઉન્ડ/i); r.floor_no = f ? (/\d/.test(f[0]) ? Number(f[0]) : 0) : null; const tf = r.floor.match(/\/\s*(\d+)/); if (tf) r.floors_total = Number(tf[1]); }
+  const sizeOf = (s) => { const p = parseEntry(s); return p.size ? { size: p.size, unit: p.size_unit } : (s.match(/\d/) ? { size: Number((s.match(/\d+(?:\.\d+)?/) || [])[0]), unit: 'sqft' } : null); };
+  if (out.size) { const s = sizeOf(out.size); if (s) { r.size = s.size; r.size_unit = s.unit; } }
+  if (out.carpet) { const s = sizeOf(out.carpet); if (s) r.carpet = s.size; if (!r.size && s) { r.size = s.size; r.size_unit = s.unit; } }
+  if (out.price) r.price = moneyOf(out.price);
+  if (out.rent) r.rent = moneyOf(out.rent);
+  if (out.furnished) r.furnished = /un|no|વગર|નથી/i.test(out.furnished) ? false : /semi|સેમી|full|yes|હા|furnished|ફર્નિશ/i.test(out.furnished) ? true : null;
+  if (out.phone) { const p = allPhones(out.phone)[0]; if (p) r.phone = p; }
+  if (out.dalal) { const p = allPhones(out.dalal)[0]; r.dalal = { name: out.dalal.replace(/[+\d\s-]{8,}/g, ' ').replace(/\s+/g, ' ').trim() || null, phone: p || null }; }
+  if (out.location) r.location = out.location;
+  const a = findAreaInText([out.area, out.address, out.society].filter(Boolean).join(' ')) || (out.area ? findAreaInText(text) : null);
+  if (a) r.area_id = a.id;
+  if (out.area) r.area_text = out.area;
+  return r;
+}

@@ -1,7 +1,7 @@
 import { t, getLang, setLang, money, moneyShort, fmtDate } from './i18n.js';
 import { AREAS, SURAT, areaById, areaName, km, searchAreas, findAreaInText } from './areas.js';
 import { UNITS, unitsFor, inBounds, PTYPES, sqftPer, toSqft, rateToSqft, rateFromSqft, defaultUnit, summarize, emi, median, DEFAULT_VIGHA_SQFT } from './units.js';
-import { parseEntry, normDigits, allPhones } from './parse.js';
+import { parseEntry, normDigits, allPhones, parseCard } from './parse.js';
 import { store, cloud, cfg, lock, localBackup, outbox, DEFAULT_SB_URL, SB_PUBLIC_KEY, PRIVATE } from './store.js';
 import { resolveMapsLink, coordsFromText, firstUrl, isMapsUrl, roadsAround, facilitiesAround, loadHighways, quickFacts } from './geo.js';
 import { DEFAULT_INPUTS, adjustments, incomeValue, rentFromValue, residualLand, fsiFor, agriValue, reconcile as reconcileVals, CAP, VACANCY, OUTGO } from './valuation.js';
@@ -699,6 +699,8 @@ function bulkItems(text) {
   return splitChat(text).map((m, i) => {
     const p = parseEntry(m.text), ptype = p.ptype || 'flat';
     const date = m.date && !isNaN(new Date(m.date)) && m.date <= today ? m.date : today;
+    const card = parseCard(m.text);
+    if (card) { const rec = cardRec(card, { ...m, date }); const dup = seen.some((x) => similar(x, rec.notes)) || !!ownDup(rec); seen.push(rec.notes); return { i, ...m, date, p, own: rec, card: true, dup, on: !dup }; }
     if (isOwnPost({ ...m, date }, p)) {
       // Dad's own listing → Mari Milkat (once, even if he posted it five times)
       const rec = ownListing({ ...m, date }, p);
@@ -825,6 +827,7 @@ function propCard(p) {
       ph ? h('a', { class: 'btn green', href: 'tel:+91' + ph }, t('call')) : h('button', { class: 'btn', onclick: () => shareCard(p).catch(fail) }, t('share_card')),
       p.lat != null ? gmapsBtn(p.lat, p.lng) : a ? gmapsBtn(null, null, [p.address, a.en.replace(/\s*\(.*\)/, ''), a.district, 'Gujarat'].filter(Boolean).join(', ')) : h('span', {}),
       h('button', { class: 'btn', onclick: () => openValue(p) }, '₹ ', t('model_price'))),
+    h('button', { class: 'linkbtn xs', onclick: () => copyText(listingText({ ...p, ext: { ...readExt(p), notes: listingNotes(p, visibleNotes(p.notes)) } })) }, '📋 ', t('copy_listing')),
     aiBtn(() => askAI(getLang() === 'en' ? 'property' : 'મિલકત', [`${p.title ? p.title + ' – ' : ''}${propTitle(p, 'en-card')} for ${p.deal === 'rent' ? 'rent' : 'sale'}`, p.address && `Address: ${p.address}`, p.price && `Asking price: Rs ${Number(p.price).toLocaleString('en-IN')}`, r && `Rate: Rs ${Math.round(r)} per sq ft`, p.rent && `Current rent: Rs ${Number(p.rent).toLocaleString('en-IN')} per month`, p.floor && `Floor: ${p.floor}`, p.facing && `Facing: ${p.facing}`, p.furnished != null && (p.furnished ? 'Furnished' : 'Unfurnished'), p.notes && `Notes: ${p.notes.slice(0, 800)}`, ...areaFacts(a, p.ptype || 'flat')]), 'btn ai sm'));
 }
 // Put a listing's exact spot on the map (drag the pin) and save it straight away.
@@ -904,6 +907,7 @@ function viewProps() {
         [['new', t('sort_new')], ['low', t('sort_low')], ['high', t('sort_high')], ['rate', t('sort_rate')]].map(([v, l]) => h('option', { value: v, selected: F.sort === v }, l)))),
     h('div', { class: 'chips scroll' },
       h('button', { class: 'chip' + (F.map ? ' on' : ''), onclick: () => { F.map = !F.map; render(); } }, '🗺 ', t('map')),
+      h('button', { class: 'chip', onclick: () => copyText(listingText({}, true)) }, '📋 ', t('blank_format')),
       [['available', t('st_available')], ['sold', t('st_sold')], ['all', t('all')]].map(([v, l]) => h('button', { class: 'chip' + (F.status === v ? ' on' : ''), onclick: () => { F.status = v; render(); } }, l)),
       active ? h('button', { class: 'chip', onclick: () => { S.propF = { ...F, q: '', deal: 'all', ptype: 'all', area: null, broker: null, status: 'available', min: '', max: '' }; render(); } }, '✕ ', t('clear_filters')) : null),
     count,
@@ -950,6 +954,7 @@ async function shrink(file) {
 function propertyForm(init) {
   const f = { deal: 'sale', size_unit: defaultUnit(init.ptype), photos: [], docs: [], ...init };
   for (const k of Object.keys(f)) if (f[k] == null) delete f[k];
+  f._ext = { ...readExt(init), ...(init.ext || {}) }; delete f.ext; f.notes = visibleNotes(f.notes);
   f.photos = [...(f.photos || [])]; f.docs = [...(f.docs || [])]; f.size_unit ||= 'sqft';
   const fileRow = (key, accept, label) => {
     const pick = h('input', { type: 'file', accept, multiple: true, hidden: true, onchange: async (e) => {
@@ -968,6 +973,7 @@ function propertyForm(init) {
     seg([['sale', t('sale')], ['rent', t('rent')]], f.deal, (v) => { f.deal = v; api.redraw(); }),
     field(t('prop_title'), inp(f, 'title', { placeholder: 'Corner row house near Honey Park' })),
     areaBtn(f, 'area_id', api.redraw),
+    h('div', { class: 'grid3' }, field(t('society'), inp(f._ext, 'society', { placeholder: 'Shreepad Infinia' })), field(t('tower'), inp(f._ext, 'tower', { placeholder: 'B' })), field(t('unit_no'), inp(f._ext, 'unit', { placeholder: '504' }))),
     field(t('address'), inp(f, 'address', { placeholder: 'Society / road / landmark' })),
     h('div', { class: 'between' },
       h('span', { class: 'xs muted' }, f.lat != null ? `📍 ${(+f.lat).toFixed(5)}, ${(+f.lng).toFixed(5)}` : t('pin_none')),
@@ -988,13 +994,14 @@ function propertyForm(init) {
     field(t('notes'), h('textarea', { class: 'input area', rows: 2, value: f.notes || '', oninput: (e) => { f.notes = e.target.value; } })),
     h('button', { class: 'btn gold', onclick: async () => {
       try {
-        const rec = { id: f.id, created_at: f.created_at, ptype: f.ptype || null, deal: f.deal, area_id: f.area_id || null, price: N(f.price), size: N(f.size), size_unit: f.size_unit, bhk: N(f.bhk), floor: f.floor || null, facing: f.facing || null, furnished: f.furnished ?? null, owner_name: f.owner_name || null, owner_phone: tel(f.owner_phone) || null, notes: f.notes || null, photos: f.photos, docs: f.docs, brokers: cleanBrokers(f.brokers),
+        const rec = { id: f.id, created_at: f.created_at, ptype: f.ptype || null, deal: f.deal, area_id: f.area_id || null, price: N(f.price), size: N(f.size), size_unit: f.size_unit, bhk: N(f.bhk), floor: f.floor || null, facing: f.facing || null, furnished: f.furnished ?? null, owner_name: f.owner_name || null, owner_phone: tel(f.owner_phone) || null, notes: writeExt(f.notes, f._ext) || null, photos: f.photos, docs: f.docs, brokers: cleanBrokers(f.brokers),
           title: (f.title || '').trim() || null, address: (f.address || '').trim() || null, lat: f.lat ?? null, lng: f.lng ?? null, rent: f.deal === 'rent' ? null : N(f.rent), status: f.status || 'available', source: f.source || null, source_key: f.source_key || null, posted_on: f.posted_on || new Date().toISOString().slice(0, 10) };
         if (!f.id && rec.source_key && ownDup(rec)) { sh.close(); toast(t('wa_dup')); return; }
         await saveRec('properties', rec); syncOwnEvidence();
         sh.close(); toast(t('saved') + (cloud.ready ? ' · ☁' : '')); render();
       } catch (e) { fail(e); }
     } }, t('save')),
+    h('button', { class: 'btn', onclick: () => copyText(listingText({ ...f, notes: null, price: N(f.price), size: N(f.size), ext: { ...f._ext, notes: listingNotes({ ...f, ext: f._ext }, f.notes) } })) }, '📋 ', t('copy_listing')),
     f.id && canDelete() && h('button', { class: 'btn danger', onclick: async () => { if (await ask(t('confirm_del'))) { await delRec('properties', f.id).catch(fail); syncOwnEvidence(); sh.close(); render(); } } }, t('del')),
   ]);
 }
@@ -1206,6 +1213,59 @@ function viewToday() {
   ];
 }
 
+
+// ---------- Ami listing format: paste one WhatsApp message and every field is filled ----------
+// The same format is produced by "Copy listing" on any property, so a listing copied on one phone (or sent by
+// a dalal who uses the format) arrives complete on another: society, tower, flat no., floor, sizes, price,
+// owner, dalal, map pin and notes.
+const unitShort = { sqft: 'sq ft', sqm: 'sq m', var: 'var', vigha: 'vigha', acre: 'acre', hectare: 'hectare' };
+const lakhCr = (v) => (v == null ? '' : v >= 1e7 ? `${+(v / 1e7).toFixed(2)} Cr` : v >= 1e5 ? `${+(v / 1e5).toFixed(2)} Lakh` : String(v));
+function listingFields(p) {
+  const sx = p.ext || {};
+  return [
+    ['Deal', p.deal === 'rent' ? 'Rent' : 'Sale'], ['Type', p.ptype ? (EN[p.ptype] || p.ptype) : ''], ['BHK', p.bhk || ''],
+    ['Society', sx.society || ''], ['Tower/Wing', sx.tower || ''], ['Flat No', sx.unit || ''], ['Floor', p.floor || ''],
+    ['Area', areaById(p.area_id) ? areaById(p.area_id).en.replace(/\s*\(.*\)/, '') : ''], ['Address', sx.addr || p.address || ''],
+    ['Size', p.size ? `${p.size} ${unitShort[p.size_unit || 'sqft'] || ''}` : ''], ['Carpet', sx.carpet ? sx.carpet + ' sq ft' : ''],
+    ['Price', p.deal === 'rent' ? '' : lakhCr(p.price)], ['Rent', p.deal === 'rent' ? lakhCr(p.price) : p.rent ? lakhCr(p.rent) : ''],
+    ['Facing', p.facing || ''], ['Furnished', p.furnished === true ? 'Yes' : p.furnished === false ? 'No' : ''], ['Parking', sx.parking || ''],
+    ['Possession', sx.possession || ''], ['Owner', p.owner_name || ''], ['Mobile', p.owner_phone || ''],
+    ['Dalal', (p.brokers || []).map((x) => brokerOf(x.broker_id)).filter(Boolean).map((b) => `${b.name}${b.phone ? ' ' + b.phone : ''}`).join(', ')],
+    ['Location', p.lat != null ? `https://maps.google.com/?q=${(+p.lat).toFixed(6)},${(+p.lng).toFixed(6)}` : ''], ['Notes', sx.notes || ''],
+  ];
+}
+function listingText(p, blank) {
+  const rows = blank ? listingFields({}).map(([k]) => [k, '']) : listingFields(p);
+  return '🏠 *AMI LISTING*\n' + rows.filter(([, v]) => blank || v !== '').map(([k, v]) => `${k}: ${v}`).join('\n');
+}
+// Notes line of a copied listing: our own short note, never the whole original WhatsApp post again.
+const listingNotes = (p, text) => { const e = p.ext || readExt(p); if (e.notes) return String(e.notes).replace(/\s*\n+\s*/g, ' ').slice(0, 300); if (/^card-/.test(p.source_key || '') || parseCard(text)) return ''; return String(text || '').replace(/\s*\n+\s*/g, ' ').slice(0, 300); };
+async function copyText(s) { try { await navigator.clipboard.writeText(s); toast(t('copied')); } catch { openSheet(t('copy'), () => [h('textarea', { class: 'input area', rows: 14, value: s })]); } }
+// Extra listing details live inside notes as a hidden block so no database change is needed.
+const EXT_RE = /\n?⁣ext:(\{.*\})⁣/s;
+const readExt = (p) => { const m = String(p.notes || '').match(EXT_RE); try { return m ? JSON.parse(m[1]) : {}; } catch { return {}; } };
+const writeExt = (notes, ext) => { const clean = String(notes || '').replace(EXT_RE, '').trimEnd(), e = Object.fromEntries(Object.entries(ext || {}).filter(([, v]) => v != null && v !== '')); return Object.keys(e).length ? clean + '\n⁣ext:' + JSON.stringify(e) + '⁣' : clean; };
+const visibleNotes = (s) => String(s || '').replace(EXT_RE, '').trim();
+function cardRec(c, m) {
+  const unitTxt = [c.tower, c.unit].filter(Boolean).join('-');
+  const addr = [unitTxt, c.society, c.address].filter(Boolean).join(', ');
+  const ext = { society: c.society, tower: c.tower, unit: c.unit, carpet: c.carpet, parking: c.parking, possession: c.possession, age: c.age, deposit: c.deposit, maint: c.maint, floor_no: c.floor_no, floors_total: c.floors_total, addr: c.address, notes: c.notes, area_text: c.area_text };
+  const deal = c.deal || (c.rent && !c.price ? 'rent' : 'sale');
+  return { ptype: c.ptype || null, deal, area_id: c.area_id || null,
+    title: [c.bhk && c.bhk + ' BHK', c.ptype && t(c.ptype), c.society && (c.society + (unitTxt ? ' ' + unitTxt : ''))].filter(Boolean).join(' · ').slice(0, 80) || null,
+    address: addr || null, price: deal === 'rent' ? (c.rent || c.price || null) : (c.price || null), rent: deal === 'rent' ? null : (c.rent || null),
+    size: c.size || null, size_unit: c.size ? (c.size_unit || defaultUnit(c.ptype)) : null, bhk: c.bhk || null, floor: c.floor || null, facing: c.facing || null, furnished: c.furnished ?? null,
+    owner_name: c.owner || null, owner_phone: c.phone || null, notes: writeExt(c.raw, ext).slice(0, 4000), source: 'WhatsApp (Ami format)' + (m.who ? ': ' + m.who : ''),
+    ...(() => { const ll = c.location && coordsFromText(c.location); return ll ? { lat: +(+ll.lat).toFixed(6), lng: +(+ll.lng).toFixed(6) } : {}; })(),
+    status: 'available', source_key: 'card-' + hashStr(textKey(c.raw)), posted_on: m.date || new Date().toISOString().slice(0, 10), photos: [], docs: [], brokers: [], _dalal: c.dalal || null, ext };
+}
+async function attachDalal(r) {
+  const d = r._dalal; delete r._dalal; delete r.ext; if (!d || (!d.phone && !d.name)) return;
+  let b = S.data.brokers.find((x) => !isGone(x) && ((d.phone && tel(x.phone) === d.phone) || (!d.phone && d.name && (x.name || '').toLowerCase() === d.name.toLowerCase())));
+  if (!b) b = await saveRec('brokers', { name: d.name || d.phone, phone: d.phone || null });
+  r.brokers = [{ broker_id: b.id, share: null }];
+}
+
 // ---------- Dad's own listings: a post carrying only our own numbers (or sent by us) is "Mari Milkat" ----------
 // Never a post that carries somebody else's number: that is another broker's or owner's property.
 const ownPhones = () => new Set([...String(BRAND.phones).split(/[\/,]/), ...String(bizPhone()).split(/[\/,]/), ...(S.members || []).map((m) => m.phone), ...cfg.get('myphones', [])].map(tel).filter((x) => x.length === 10));
@@ -1271,6 +1331,7 @@ async function saveOwnListings(recs) {
     if (r.lat == null && /maps\.app\.goo\.gl|google\.[a-z.]+\/maps|goo\.gl\/maps/i.test(r.notes)) {
       try { const c = await resolveMapsLink(firstUrl(r.notes.match(/https?:\/\/\S*(?:goo\.gl|google)\S*/i)[0])); if (c && c.lat != null) { r.lat = +(+c.lat).toFixed(6); r.lng = +(+c.lng).toFixed(6); } } catch { /* keep the area pin */ }
     }
+    if (r._dalal !== undefined || r.ext) { try { await attachDalal(r); } catch (e) { console.warn(e); } }
     done.push(r.notes); await saveRec('properties', r); n++;
   }
   syncOwnEvidence(); return { n, dup };
