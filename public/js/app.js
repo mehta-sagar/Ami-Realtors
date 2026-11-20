@@ -2,7 +2,7 @@ import { t, getLang, setLang, money, moneyShort, fmtDate } from './i18n.js';
 import { AREAS, SURAT, areaById, areaName, km, searchAreas, findAreaInText } from './areas.js';
 import { UNITS, unitsFor, inBounds, PTYPES, sqftPer, toSqft, rateToSqft, rateFromSqft, defaultUnit, summarize, emi, median, DEFAULT_VIGHA_SQFT } from './units.js';
 import { parseEntry, normDigits, allPhones } from './parse.js';
-import { store, cloud, cfg, lock, localBackup, DEFAULT_SB_URL, SB_PUBLIC_KEY, PRIVATE } from './store.js';
+import { store, cloud, cfg, lock, localBackup, outbox, DEFAULT_SB_URL, SB_PUBLIC_KEY, PRIVATE } from './store.js';
 import { resolveMapsLink, coordsFromText, firstUrl, isMapsUrl, roadsAround, facilitiesAround, loadHighways, quickFacts } from './geo.js';
 import { DEFAULT_INPUTS, adjustments, incomeValue, rentFromValue, residualLand, fsiFor, agriValue, reconcile as reconcileVals, CAP, VACANCY, OUTGO } from './valuation.js';
 
@@ -147,6 +147,9 @@ async function load() {
   for (const table of Object.keys(S.data)) {
     try { S.data[table] = await store.list(table); } catch (e) { S.data[table] = []; if (cloud.ready) fail(e); }
   }
+  // shared settings travel inside area_notes; keep them out of the notes list and merge them into this phone
+  const kvRows = S.data.area_notes.filter(isKvRow); S.data.area_notes = S.data.area_notes.filter((r) => !isKvRow(r));
+  for (const r of kvRows) kvLive(r);
   // Public data written by the daily agent ships with the site as plain files.
   const pub = async (f) => { try { const r = await fetch('data/' + f + '.json', { cache: 'no-store' }); return r.ok ? await r.json() : []; } catch { return []; } };
   const [news, market, prices, insights, tags, leads, pprices, refs] = await Promise.all([pub('news'), pub('market'), pub('prices'), pub('insights'), pub('tags'), pub('leads'), pub('project_prices'), pub('refs')]);
@@ -1871,7 +1874,7 @@ function viewMore() {
       h('div', { class: 'grid2' }, h('button', { class: 'btn gold', onclick: shareBizCard }, '📤 ', t('share_bizcard')), h('a', { class: 'btn green', href: 'tel:+91' + BRAND.phone1 }, t('call'), ' ', BRAND.phones.split(' / ')[0]))),
     h('section', { class: 'card' }, row('prices', () => openPrices(S.price.area, S.price.ptype)), row('bulk_paste', bulkPaste), row('brokers', () => brokersSheet()), row('commission', commission)),
     h('section', { class: 'card' }, row('emi_calc', emiCalc), row('stamp_calc', stampCalc), row('cg_calc', cgCalc)),
-    h('section', { class: 'card' }, row('link_title', linkQuick), row('sources_title', () => openDetail('sources')), row('trash', () => openDetail('trash')), row('backup', backupSheet)),
+    h('section', { class: 'card' }, row('link_title', linkQuick), row('sources_title', () => openDetail('sources')), row('trash', () => openDetail('trash')), row('backup', backupSheet), cloud.ready && row('phones', () => openDetail('phones'))),
     h('section', { class: 'card' }, cloud.ready && row('team', () => openDetail('team')), row('reports', reportsSheet), row('settings', settings), cloud.ready && row('sign_out', async () => { if (await ask(t('sign_out') + '?')) { await cloud.signOut(); location.reload(); } }))];
 }
 
@@ -2207,7 +2210,7 @@ function viewLeads() {
 // =====================================================================================================
 function viewDetail() {
   const d = S.detail;
-  const fn = { project: viewProjectDetail, lead: viewLeadDetail, news: viewNewsDetail, value: viewValuation, trash: viewTrash, sources: viewSources, team: viewTeam }[d.kind];
+  const fn = { project: viewProjectDetail, lead: viewLeadDetail, news: viewNewsDetail, value: viewValuation, trash: viewTrash, sources: viewSources, team: viewTeam, phones: viewPhones }[d.kind];
   return fn ? fn(d.data) : [backHdr('—')];
 }
 // ---------- Everything we send on WhatsApp goes out in English ----------
@@ -2916,6 +2919,7 @@ function startLive() {
   cloud.onStatus = () => { const d = document.querySelector('.livedot'); if (d) d.className = 'livedot' + (cloud.live ? ' on' : ''); };
   cloud.listen(PRIVATE.filter((x) => x !== 'reports'), (table, ev, row, old) => {
     if (!S.data[table]) return;
+    if (table === 'area_notes' && isKvRow(row)) { kvLive(row); softRender(); return; }
     const a = S.data[table];
     if (ev === 'DELETE') S.data[table] = a.filter((r) => r.id !== (old && old.id));
     else if (row && row.id) { const i = a.findIndex((r) => r.id === row.id); if (i >= 0) { if (String(a[i].updated_at) > String(row.updated_at)) return; a[i] = row; } else a.push(row); }
@@ -2971,6 +2975,218 @@ function viewTeam() {
   return [backHdr(t('team'), `${tm.team_name || ''} · ${cloud.email}`), box];
 }
 
+// ---------- Master copy: every phone shows the same data ----------
+// Records (properties, dalals, customers, inquiries...) already live in the team's cloud database. Three things
+// used to keep phones apart, and each is handled here:
+//  1. Settings kept only in one phone's storage (WhatsApp/paper leads, own places, project pins, message templates,
+//     own numbers, business phone, vigha size, premiums, reports). Each is now a "shared setting" row in the
+//     cloud (area_notes row whose text starts with KV_MARK) and every phone merges it: union of all phones,
+//     minus what someone deleted (deleted ids are remembered so a stale phone cannot bring them back).
+//  2. Saves made while offline used to fail; they now wait in the outbox (store.js) and go up when online.
+//  3. Old app versions left open for days: the app checks version.json and reloads itself.
+// Every phone also reports a heartbeat (who, app version, counts, pending saves) so the Phones screen shows
+// whether all phones match the master copy.
+const APP_BUILD = '2026-11-20.1';
+const KV_MARK = '§kv§';
+const KV_KEYS = ['leads.own', 'myareas', 'projpins', 'templates', 'myphones', 'bizPhone', 'vigha', 'np.premIn', 'np.premOut', 'reports', 'devices', 'socpins'];
+const KV_CAP = { 'leads.own': 1500, reports: 500, templates: 200 };
+const deviceId = () => { let id = cfg.get('device.id', null); if (!id) { id = 'd' + Math.random().toString(36).slice(2, 10); cfg.set('device.id', id, true); } return id; };
+async function kvId(key) {
+  const b = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('ami-kv:' + ((cloud.team && cloud.team.team_id) || cloud.uid || '') + ':' + key)));
+  const x = [...b.slice(0, 16)].map((v) => v.toString(16).padStart(2, '0')).join('');
+  return `${x.slice(0, 8)}-${x.slice(8, 12)}-4${x.slice(13, 16)}-a${x.slice(17, 20)}-${x.slice(20, 32)}`;
+}
+const isKvRow = (r) => r && typeof r.text === 'string' && r.text.startsWith(KV_MARK);
+function kvParse(r) {
+  if (!isKvRow(r)) return null;
+  const nl = r.text.indexOf('\n'), key = r.text.slice(KV_MARK.length, nl);
+  try { return { key, ...JSON.parse(r.text.slice(nl + 1)), row: r }; } catch { return null; }
+}
+const kvEntryId = (x) => (x && typeof x === 'object' ? (x.id != null ? 'i' + x.id : 'h' + hashStr(JSON.stringify(x))) : 's' + String(x));
+function kvEntries(v) {
+  if (v == null) return null;
+  if (Array.isArray(v)) return v.map((x) => [kvEntryId(x), x]);
+  if (typeof v === 'object') return Object.entries(v).map(([k, x]) => ['k' + k, x]);
+  return null;
+}
+// Merge this phone's value with the master's. Returns { value, gone, changed (master needs update) }.
+function kvMerge(key, local, remote) {
+  const lat = cfg.get('kva.' + key, 0), rat = remote ? Date.parse(remote.at || 0) || 0 : 0;
+  const isList = Array.isArray(local) || Array.isArray(remote?.v), isObj = !isList && ((local && typeof local === 'object') || (remote?.v && typeof remote.v === 'object'));
+  if (!isList && !isObj) {
+    if (!remote) return { value: local, gone: [], changed: local != null };
+    if (local == null || rat >= lat) return { value: remote.v, gone: [], changed: false };
+    return { value: local, gone: [], changed: JSON.stringify(local) !== JSON.stringify(remote.v) };
+  }
+  const L = kvEntries(local) || [], R = kvEntries(remote?.v) || [];
+  const base = cfg.get('kvb.' + key, null), lids = new Set(L.map((e) => e[0]));
+  const goneNow = base ? base.filter((id) => !lids.has(id)) : [];
+  const gone = new Set([...(remote?.gone || []), ...goneNow]);
+  const m = new Map(R.filter(([id]) => !gone.has(id)));
+  for (const [id, v] of L) {
+    if (gone.has(id)) continue;
+    if (!m.has(id)) { m.set(id, v); continue; }
+    const rv = m.get(id); if (JSON.stringify(rv) === JSON.stringify(v)) continue;
+    // entries that carry their own time (phones' heartbeats) keep the newer one; otherwise the side edited last wins
+    const ta = v && typeof v === 'object' && v.at, tb = rv && typeof rv === 'object' && rv.at;
+    if (ta && tb ? String(ta) > String(tb) : lat > rat) m.set(id, v);
+  }
+  let out = [...m.entries()];
+  if (key === 'leads.own' || key === 'reports') out.sort((a, b) => String(b[1].date || b[1].at || '').localeCompare(String(a[1].date || a[1].at || '')));
+  if (KV_CAP[key]) out = out.slice(0, KV_CAP[key]);
+  const value = isList ? out.map((e) => e[1]) : Object.fromEntries(out.map(([id, v]) => [id.slice(1), v]));
+  const goneArr = [...gone].slice(-3000);
+  const changed = !remote || JSON.stringify(value) !== JSON.stringify(remote.v) || goneArr.length !== (remote.gone || []).length;
+  return { value, gone: goneArr, changed };
+}
+async function kvFetch(key) {
+  const id = await kvId(key);
+  const { data, error } = await cloud.client.from('area_notes').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data ? kvParse(data) : null;
+}
+function kvApplyLocal(key, value) {
+  cfg.set(key, value, true);
+  const e = kvEntries(value); cfg.set('kvb.' + key, e ? e.map((x) => x[0]) : null, true);
+}
+// One shared setting: fetch the master, merge, write back to both sides.
+async function kvSync(key) {
+  if (!cloud.ready) return false;
+  const remote = await kvFetch(key);
+  const r = kvMerge(key, cfg.get(key, null), remote);
+  kvApplyLocal(key, r.value);
+  if (r.changed && r.value != null) {
+    const at = new Date().toISOString();
+    await store.save('area_notes', { id: await kvId(key), area_id: null, kind: null, text: KV_MARK + key + '\n' + JSON.stringify({ v: r.value, gone: r.gone, at }), created_at: remote?.row?.created_at });
+    cfg.set('kva.' + key, Date.parse(at), true);
+  }
+  return true;
+}
+// A teammate changed a shared setting: merge it in straight away (live).
+function kvLive(row) {
+  const r = kvParse(row); if (!r || !KV_KEYS.includes(r.key)) return;
+  const m = kvMerge(r.key, cfg.get(r.key, null), r);
+  kvApplyLocal(r.key, m.value);
+  if (m.changed) kvSoon(r.key);
+  if (r.key === 'myareas') { addMyAreas(); S.fits = null; }
+  if (r.key === 'devices') S.devices = m.value;
+}
+const kvQueue = new Set();
+function kvSoon(key) {
+  kvQueue.add(key); clearTimeout(S.kvT);
+  S.kvT = setTimeout(async () => { const keys = [...kvQueue]; kvQueue.clear(); for (const k of keys) { try { await kvSync(k); } catch (e) { console.warn('kv', k, e); } } }, 1500);
+}
+cfg.onSet = (k) => { if (KV_KEYS.includes(k) && k !== 'devices') { cfg.set('kva.' + k, Date.now(), true); if (cloud.ready) kvSoon(k); } };
+function heartbeat() {
+  const counts = {}; for (const tb of ['properties', 'brokers', 'customers', 'inquiries', 'deals', 'price_points', 'tasks']) counts[tb] = (S.data[tb] || []).filter((r) => !isGone(r) && !r.pub).length;
+  counts.leads = cfg.get('leads.own', []).length;
+  const d = { ...(cfg.get('devices', {}) || {}) };
+  d[deviceId()] = { who: (cloud.team && cloud.team.name) || cloud.email, email: cloud.email, at: new Date().toISOString(), app: APP_BUILD, ua: (navigator.userAgent.match(/iPhone|iPad|Android|Mac|Windows/) || ['?'])[0], counts, pending: S.pending || 0 };
+  cfg.set('devices', d, true); cfg.set('kva.devices', Date.now(), true);
+  S.devices = d;
+}
+// Full alignment of this phone with the master copy. Safe to run any time; runs at start and when the app comes back.
+async function syncAll(manual) {
+  if (!cloud.ready || S.syncing) return null;
+  S.syncing = true; const res = { sent: 0, local: 0, keys: 0, err: null };
+  try {
+    res.sent = await outbox.flush();
+    if (await store.hasLocal()) res.local = await store.uploadLocal();
+    for (const k of KV_KEYS) { if (k === 'devices') continue; try { await kvSync(k); res.keys++; } catch (e) { res.err = e; } }
+    if (res.sent || res.local || manual) await load();
+    addMyAreas();
+    S.pending = (await outbox.list()).length;
+    heartbeat(); await kvSync('devices').catch(() => {});
+    cfg.set('sync.at', new Date().toISOString(), true);
+  } catch (e) { res.err = e; } finally { S.syncing = false; }
+  return res;
+}
+// ----- duplicate dalals / customers / properties created on different phones -----
+function findDups() {
+  const out = { brokers: [], customers: [], properties: [] };
+  const group = (rows, keyFn) => { const g = new Map(); for (const r of rows) { const k = keyFn(r); if (!k) continue; if (!g.has(k)) g.set(k, []); g.get(k).push(r); } return [...g.values()].filter((x) => x.length > 1).map((x) => x.sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))); };
+  out.brokers = group(S.data.brokers.filter((r) => !isGone(r)), (r) => tel(r.phone).length === 10 ? tel(r.phone) : null);
+  out.customers = group(S.data.customers.filter((r) => !isGone(r)), (r) => tel(r.phone).length === 10 ? tel(r.phone) : null);
+  out.properties = group(S.data.properties.filter((r) => !isGone(r)), (r) => r.source_key ? 'k' + r.source_key : (textKey(r.notes).length > 40 ? 't' + textKey(r.notes) + '|' + (r.price || '') : null));
+  return out;
+}
+const fillBlank = (keep, others, fields) => { const o = {}; for (const f of fields) if (keep[f] == null || keep[f] === '') { const v = others.map((x) => x[f]).find((x) => x != null && x !== ''); if (v != null) o[f] = v; } return o; };
+async function mergeDups() {
+  const d = findDups(); let n = 0;
+  for (const grp of d.brokers) {
+    const [keep, ...rest] = grp, ids = new Set(rest.map((r) => r.id));
+    const notes = [...new Set(grp.map((r) => r.notes).filter(Boolean))].join('\n');
+    await saveRec('brokers', { ...keep, ...fillBlank(keep, rest, ['name', 'firm', 'area_text']), notes: notes || null });
+    for (const p of S.data.properties.filter((p) => (p.brokers || []).some((x) => ids.has(x.broker_id)))) {
+      const seen = new Set(); const brokers = p.brokers.map((x) => (ids.has(x.broker_id) ? { ...x, broker_id: keep.id } : x)).filter((x) => !seen.has(x.broker_id) && seen.add(x.broker_id));
+      await saveRec('properties', { ...p, brokers });
+    }
+    for (const r of rest) { await delRec('brokers', r.id); n++; }
+  }
+  for (const grp of d.customers) {
+    const [keep, ...rest] = grp, ids = new Set(rest.map((r) => r.id));
+    const notes = [...new Set(grp.map((r) => r.notes).filter(Boolean))].join('\n');
+    await saveRec('customers', { ...keep, ...fillBlank(keep, rest, ['name', 'alt_phone']), notes: notes || null });
+    for (const tb of ['inquiries', 'activities', 'tasks']) for (const r of (S.data[tb] || []).filter((x) => ids.has(x.customer_id))) await saveRec(tb, { ...r, customer_id: keep.id });
+    for (const r of rest) { await saveRec('customers', { ...r, deleted_at: new Date().toISOString() }); n++; }
+  }
+  for (const grp of d.properties) {
+    const [keep, ...rest] = grp;
+    const photos = [...new Set(grp.flatMap((r) => r.photos || []))], docs = [...new Set(grp.flatMap((r) => r.docs || []))];
+    const bseen = new Set(), brokers = grp.flatMap((r) => r.brokers || []).filter((x) => !bseen.has(x.broker_id) && bseen.add(x.broker_id));
+    await saveRec('properties', { ...keep, ...fillBlank(keep, rest, ['title', 'address', 'lat', 'lng', 'owner_name', 'owner_phone', 'price', 'size', 'bhk', 'floor', 'facing', 'rent']), photos, docs, brokers });
+    for (const r of rest) { await delRec('properties', r.id); n++; }
+  }
+  syncOwnEvidence();
+  return n;
+}
+// ----- app version: phones left open for days get the new version -----
+async function checkVersion() {
+  try {
+    const v = await fetch('version.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null));
+    if (!v || !v.build || v.build === APP_BUILD) return;
+    S.newBuild = v.build;
+    if (!sheets.length && !/INPUT|TEXTAREA/.test((document.activeElement || {}).tagName || '')) location.reload();
+    else render();
+  } catch { /* offline */ }
+}
+function viewPhones() {
+  const devs = Object.entries(S.devices || cfg.get('devices', {}) || {}).sort((a, b) => String(b[1].at).localeCompare(String(a[1].at)));
+  const master = {}; for (const tb of ['properties', 'brokers', 'customers', 'inquiries', 'deals', 'price_points', 'tasks']) master[tb] = (S.data[tb] || []).filter((r) => !isGone(r) && !r.pub).length;
+  master.leads = cfg.get('leads.own', []).length;
+  const box = h('div', { class: 'stack' });
+  const dups = findDups(), nd = dups.brokers.length + dups.customers.length + dups.properties.length;
+  const lbl = { properties: t('my_props'), brokers: t('brokers'), customers: t('customers'), inquiries: t('inquiries'), leads: t('leads') };
+  const countLine = (c) => Object.keys(lbl).map((k) => `${lbl[k]} ${c[k] ?? '—'}`).join(' · ');
+  const ago = (iso) => { const m = Math.round((Date.now() - Date.parse(iso)) / 6e4); return m < 2 ? t('just_now') : m < 90 ? m + ' ' + t('min_ago') : m < 2880 ? Math.round(m / 60) + ' ' + t('hr_ago') : Math.round(m / 1440) + ' ' + t('days_ago'); };
+  const run = async (ev) => { const b = ev.currentTarget; b.disabled = true; b.textContent = t('please_wait'); const r = await syncAll(true); toast(r && !r.err ? `✓ ${t('sync_done')}${r.sent ? ` · ${r.sent} ${t('sync_sent')}` : ''}${r.local ? ` · ${r.local} ${t('sync_local')}` : ''}` : t('error') + ': ' + ((r && r.err && r.err.message) || '—'), r && r.err); render(); };
+  box.append(
+    h('div', { class: 'small muted' }, t('phones_help')),
+    !cloud.ready ? h('div', { class: 'authmsg bad' }, t('sync_signin')) : null,
+    cloud.ready && (!cloud.team || cloud.team.missing || !cloud.team.team_id) ? h('div', { class: 'authmsg bad' }, t('sync_noteam')) : null,
+    cloud.ready && !cloud.isOwner ? h('div', { class: 'xs muted' }, t('sync_staff_note')) : null,
+    h('section', { class: 'card' },
+      h('div', { class: 'b' }, '☁ ', t('master_copy')), h('div', { class: 'small' }, countLine(master)),
+      h('div', { class: 'xs muted' }, `${t('this_phone')}: ${cloud.email || '—'} · ${t('app_ver')} ${APP_BUILD}${S.pending ? ` · ⏳ ${S.pending} ${t('sync_pending')}` : ''}${cfg.get('sync.at', null) ? ` · ${t('last_sync')} ${ago(cfg.get('sync.at'))}` : ''}`),
+      h('button', { class: 'btn gold', onclick: run }, '⟳ ', t('sync_now'))),
+    h('div', { class: 'b' }, t('phones') + ` (${devs.length})`),
+    ...devs.map(([id, d]) => {
+      const same = d.counts && Object.keys(lbl).every((k) => (d.counts[k] ?? 0) === (master[k] ?? 0));
+      const old = d.app && d.app !== (S.newBuild || APP_BUILD);
+      return h('div', { class: 'card inset' },
+        h('div', { class: 'between' }, h('span', { class: 'b' }, `${d.ua === 'iPhone' ? '📱' : d.ua === 'Android' ? '📱' : '💻'} ${d.who || d.email || id}${id === deviceId() ? ' (' + t('this_phone') + ')' : ''}`),
+          h('span', { class: 'badge ' + (same && !old ? 'ok' : 'warn') }, same && !old ? '✓ ' + t('aligned') : '⚠ ' + t('not_aligned'))),
+        h('div', { class: 'xs muted' }, `${d.email || ''} · ${t('last_seen')} ${ago(d.at)} · ${t('app_ver')} ${d.app || '?'}${old ? ' (' + t('old_ver') + ')' : ''}${d.pending ? ` · ⏳ ${d.pending}` : ''}`),
+        d.counts ? h('div', { class: 'xs' }, countLine(d.counts)) : null);
+    }),
+    h('section', { class: 'card' },
+      h('div', { class: 'b' }, t('dups_title')),
+      h('div', { class: 'small' }, nd ? `${dups.brokers.length} ${t('brokers')} · ${dups.customers.length} ${t('customers')} · ${dups.properties.length} ${t('my_props')}` : '✓ ' + t('no_dups')),
+      nd ? h('div', { class: 'xs muted' }, [...dups.brokers.map((g) => '🤝 ' + g.map((r) => r.name).join(' = ')), ...dups.customers.map((g) => '👤 ' + g.map((r) => r.name || r.phone).join(' = ')), ...dups.properties.map((g) => '🏠 ' + (g[0].title || propTitle(g[0])) + ' ×' + g.length)].slice(0, 12).join('\n')) : null,
+      nd && canDelete() ? h('button', { class: 'btn', onclick: async (ev) => { if (!(await ask(t('dups_q')))) return; ev.currentTarget.disabled = true; try { const n = await mergeDups(); toast(`✓ ${n} ${t('dups_merged')}`); render(); } catch (e) { fail(e); } } }, t('dups_merge')) : null));
+  return [backHdr(t('phones'), t('master_copy')), box];
+}
+
 // ---------- start ----------
 let hiddenAt = 0, locked = false;
 document.addEventListener('visibilitychange', async () => {
@@ -2993,6 +3209,10 @@ document.addEventListener('visibilitychange', async () => {
   setTimeout(() => autoBackup().catch(() => {}), 3000);
   render();
   startLive();
+  setTimeout(() => syncAll().then(() => { if (S.tab === 'more' || S.detail?.kind === 'phones') render(); }).catch(() => {}), 1500);
+  checkVersion();
+  window.addEventListener('online', () => syncAll().catch(() => {}));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkVersion(); if (Date.now() - Date.parse(cfg.get('sync.at', 0) || 0) > 5 * 6e4) syncAll().catch(() => {}); } });
   if (cloud.ready && cloud.isOwner && cloud.team && cloud.team.team_id) cloud.members().then((m) => { S.members = m; }).catch(() => {});
   loadPlaces();
   setTimeout(() => loadHighways(cfg).catch(() => {}), 4000);

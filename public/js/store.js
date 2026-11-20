@@ -29,8 +29,35 @@ export const DEFAULT_SB_URL = 'https://qzcpydazbhcehjzuvhni.supabase.co';
 
 export const cfg = {
   get(k, d) { const v = localStorage.getItem('ami.' + k); return v == null ? d : JSON.parse(v); },
-  set(k, v) { localStorage.setItem('ami.' + k, JSON.stringify(v)); },
+  // onSet lets the app copy shared settings (WhatsApp leads, own places, pins...) to the team's master copy.
+  set(k, v, quiet) { localStorage.setItem('ami.' + k, JSON.stringify(v)); if (!quiet && cfg.onSet) { try { cfg.onSet(k); } catch { /* never block a save */ } } },
   del(k) { localStorage.removeItem('ami.' + k); },
+  onSet: null,
+};
+// A save that failed because the phone was offline waits here and is sent as soon as the network is back,
+// so no phone keeps a private version of a record.
+const isNetErr = (e) => !navigator.onLine || /fetch|network|load failed|timed? ?out|ECONN|Failed to fetch/i.test(String((e && (e.message || e)) || ''));
+export const outbox = {
+  async list() { return (await kvGet('outbox').catch(() => null)) || []; },
+  async add(op) { const a = await this.list(); const i = a.findIndex((x) => x.table === op.table && x.id === op.id); if (i >= 0) a[i] = op; else a.push(op); await kvSet('outbox', a); },
+  async flush() {
+    if (!cloud.ready) return 0;
+    const a = await this.list(); if (!a.length) return 0;
+    let n = 0; const left = [];
+    for (const op of a) {
+      try {
+        if (op.kind === 'del') { const { error } = await sb.from(op.table).delete().eq('id', op.id); if (error) throw error; }
+        else await upsertLoose(op.table, op.row);
+        n++;
+      } catch (e) {
+        if (isNetErr(e)) { left.push(op, ...a.slice(a.indexOf(op) + 1)); break; }
+        op.tries = (op.tries || 0) + 1; op.err = String(e.message || e).slice(0, 200);
+        if (op.tries < 5) left.push(op);
+      }
+    }
+    await kvSet('outbox', left);
+    return n;
+  },
 };
 
 let sb = null, session = null, team = null, chan = null;
@@ -128,6 +155,9 @@ export const store = {
         if (table === 'market') q = q.order('day', { ascending: false }).limit(1);
         const { data, error } = await q;
         if (error) throw error;
+        // changes still waiting in the outbox win over the cloud copy until they are sent
+        const pend = (await outbox.list()).filter((o) => o.table === table);
+        for (const o of pend) { const i = data.findIndex((r) => r.id === o.id); if (o.kind === 'del') { if (i >= 0) data.splice(i, 1); } else if (i >= 0) data[i] = o.row; else data.push(o.row); }
         kvSet('cache:' + table, data).catch(() => {});
         return data;
       } catch (e) {
@@ -143,8 +173,18 @@ export const store = {
     const now = new Date().toISOString();
     const row = { ...rec, id: rec.id || uuid(), created_at: rec.created_at || now, updated_at: now };
     if (cloud.ready) {
-      const saved = await upsertLoose(table, row);
-      return { ...row, ...saved };
+      try {
+        const saved = await upsertLoose(table, row);
+        return { ...row, ...saved };
+      } catch (e) {
+        if (!isNetErr(e)) throw e;
+        // offline: keep it on the phone and send it later
+        await outbox.add({ kind: 'save', table, id: row.id, row, at: now });
+        const c = (await kvGet('cache:' + table).catch(() => null)) || [], i = c.findIndex((r) => r.id === row.id);
+        if (i >= 0) c[i] = row; else c.push(row);
+        kvSet('cache:' + table, c).catch(() => {});
+        return { ...row, pending: true };
+      }
     }
     const rows = await localList(table), i = rows.findIndex((r) => r.id === row.id);
     if (i >= 0) rows[i] = row; else rows.push(row);
@@ -152,7 +192,10 @@ export const store = {
     return row;
   },
   async remove(table, id) {
-    if (cloud.ready) { const { error } = await sb.from(table).delete().eq('id', id); if (error) throw error; }
+    if (cloud.ready) {
+      try { const { error } = await sb.from(table).delete().eq('id', id); if (error) throw error; }
+      catch (e) { if (!isNetErr(e)) throw e; await outbox.add({ kind: 'del', table, id, at: new Date().toISOString() }); }
+    }
     else await kvSet('tbl:' + table, (await localList(table)).filter((r) => r.id !== id));
   },
   // Files (photos, documents). Returns a reference string kept on the record.
@@ -265,3 +308,6 @@ export const localBackup = {
   },
   async get(at) { return kvGet('backup:' + at); },
 };
+
+// Raw phone storage, used by the master-copy sync to look at what only this phone has.
+export const kv = { get: kvGet, set: kvSet, del: kvDel, localList };

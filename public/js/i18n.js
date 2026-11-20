@@ -277,6 +277,23 @@ Object.assign(T, {
   contact_help: ['iPhone: Contacts માં દલાલ ખોલો → નંબર પર લાંબું દબાવો → Copy → અહીં ફરી "કૉન્ટેક્ટમાંથી" દબાવો', 'iPhone: open the broker in Contacts → long-press the number → Copy → tap "From contacts" again'],
 });
 
+// ---------- v5 (Nov 2026): master copy across phones, WhatsApp listing format, societies ----------
+Object.assign(T, {
+  phones: ['બધા ફોન', 'All phones'], master_copy: ['માસ્ટર કૉપી (બધા ફોનનો ભેગો ડેટા)', 'Master copy (everything from all phones)'],
+  phones_help: ['દરેક ફોનનો ડેટા એક જ માસ્ટર કૉપીમાં ભેગો થાય છે અને દરેક ફોન એ જ બતાવે છે: મિલકત, દલાલ, ગ્રાહક, ઇન્ક્વાયરી, WhatsApp/છાપાના લીડ, પોતાની જગ્યાઓ, પિન, મેસેજ ટેમ્પ્લેટ અને સેટિંગ. ઇન્ટરનેટ ન હોય ત્યારે સેવ કરેલું પણ નેટ આવતાં જ મોકલાય છે.', 'Every phone\'s data is joined into one master copy and every phone shows the same: properties, dalals, customers, inquiries, WhatsApp/paper leads, own places, pins, message templates and settings. Saves made without internet are sent as soon as the network is back.'],
+  sync_signin: ['આ ફોન લૉગ-ઇન નથી: તેનો ડેટા માસ્ટરમાં નથી જતો. લૉગ-ઇન કરો.', 'This phone is not signed in, so its data is not in the master copy. Sign in.'],
+  sync_noteam: ['આ ફોન ટીમમાં નથી: માલિક પાસેથી કોડ લઈ ટીમમાં જોડાઓ, પછી જ ડેટા બધા સાથે મળશે.', 'This phone is not in the team: join with an owner\'s invite code, then its data joins everyone\'s.'],
+  sync_staff_note: ['સ્ટાફ ફોન: મિલકત, દલાલ, લીડ બધું જ દેખાય; ગ્રાહકો/ઇન્ક્વાયરી ફક્ત પોતાના (માલિક બધું જુએ).', 'Staff phone: sees all properties, dalals and leads; customers/inquiries only their own (owners see all).'],
+  this_phone: ['આ ફોન', 'this phone'], app_ver: ['વર્ઝન', 'version'], sync_pending: ['મોકલવાના બાકી', 'waiting to send'], last_sync: ['છેલ્લું સિંક', 'last sync'],
+  sync_now: ['હમણાં સિંક કરો', 'Sync now'], sync_done: ['બધું સિંક થયું', 'All synced'], sync_sent: ['બાકી સેવ મોકલ્યા', 'pending saves sent'], sync_local: ['ફોનમાંથી ઉમેર્યા', 'added from this phone'],
+  aligned: ['એકસરખો', 'matches'], not_aligned: ['અલગ', 'differs'], last_seen: ['છેલ્લે', 'last seen'], old_ver: ['જૂનું – એપ ખોલતાં અપડેટ થશે', 'old – updates when the app opens'],
+  just_now: ['હમણાં', 'just now'], min_ago: ['મિનિટ પહેલાં', 'min ago'], hr_ago: ['કલાક પહેલાં', 'h ago'], days_ago: ['દિવસ પહેલાં', 'days ago'],
+  dups_title: ['ડુપ્લિકેટ (અલગ ફોનથી બે વાર ઉમેરાયેલા)', 'Duplicates (added twice from different phones)'], no_dups: ['કોઈ ડુપ્લિકેટ નથી', 'No duplicates'],
+  dups_q: ['એક જ નંબરના દલાલ/ગ્રાહક અને એક જ મિલકત ભેગા કરીએ? વિગતો, ફોટા, દલાલ અને ઇન્ક્વાયરી સાચવાઈ રહેશે.', 'Merge dalals/customers with the same number and identical properties? Details, photos, dalals and inquiries are kept.'],
+  dups_merge: ['ભેગા કરો', 'Merge them'], dups_merged: ['ભેગા થયા', 'merged'],
+  new_version: ['નવું વર્ઝન આવ્યું – અપડેટ માટે દબાવો', 'New version – tap to update'],
+});
+
 let lang = localStorage.getItem('ami.lang') || 'gu';
 export const getLang = () => lang;
 export function setLang(l) { lang = l; localStorage.setItem('ami.lang', l); document.documentElement.lang = l; }
