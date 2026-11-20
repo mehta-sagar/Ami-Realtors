@@ -2300,7 +2300,8 @@ function socFilter() {
     && (!F.ready || /ready/i.test(s.status || '') || s.src === 'osm')
     && (!F.bhk || (s.configs || []).some((c) => (F.bhk >= 5 ? c.bhk >= 5 : c.bhk === F.bhk)))
     && (max == null || (s.configs || []).some((c) => (c.pmin || c.pmax) && (c.pmin || c.pmax) <= max) || (s.price_from && s.price_from <= max))
-    && (!F.sale || socListings(s).props.length || socListings(s).ads.length));
+    && (!F.sale || socListings(s).props.length || socListings(s).ads.length)
+    && (!F.mine || cfg.get('soclist', []).includes(s.id)));
 }
 function viewSocieties() {
   if (!S.socs) { loadSocieties().then(render).catch(fail); return [h('div', { class: 'empty' }, t('loading'))]; }
@@ -2321,7 +2322,10 @@ function viewSocieties() {
     h('div', { class: 'chips scroll' },
       [['all', t('all')], ['apartment', t('flat')], ['villa', t('bungalow')], ['commercial', t('shop') + '/' + t('office')]].map(([v, l]) => h('button', { class: 'chip' + (F.kind === v ? ' on' : ''), onclick: () => { F.kind = v; render(); } }, l)),
       h('button', { class: 'chip' + (F.ready ? ' on' : ''), onclick: () => { F.ready = !F.ready; render(); } }, t('ready_only')),
-      h('button', { class: 'chip' + (F.sale ? ' on' : ''), onclick: () => { F.sale = !F.sale; render(); } }, '🏷 ', t('for_sale_now'))),
+      h('button', { class: 'chip' + (F.sale ? ' on' : ''), onclick: () => { F.sale = !F.sale; render(); } }, '🏷 ', t('for_sale_now')),
+      h('button', { class: 'chip' + (F.mine ? ' on' : ''), onclick: () => { F.mine = !F.mine; render(); } }, '★ ', t('my_list'), ` (${cfg.get('soclist', []).length})`),
+      cfg.get('soclist', []).length ? h('button', { class: 'chip', onclick: shareSocList }, icon('wa', 14), ' ', t('share_list')) : null,
+      h('button', { class: 'chip', onclick: () => socCsv(socFilter()) }, '⬇ CSV')),
     h('div', { class: 'grid2' }, h('input', { class: 'input', inputmode: 'decimal', placeholder: t('max_lakh'), value: F.max, oninput: (e) => { F.max = e.target.value; clearTimeout(S.sqT); S.sqT = setTimeout(drawList, 300); } }),
       h('button', { class: 'btn', onclick: () => { S.soc3d = S.soc3d === false; if (S.socMap) S.socMap.easeTo({ pitch: S.soc3d === false ? 0 : 60 }); } }, '🏙 2D / 3D')),
     h('div', { id: 'socmap', class: 'socmap' }),
@@ -2333,7 +2337,8 @@ function socCard(s, l) {
   const r = socRates(s), best = r.rows.filter((x) => x.price).sort((a, b) => a.price - b.price)[0];
   return h('article', { class: 'card tap', onclick: (e) => { if (e.target.closest('a,button')) return; openSociety(s); } },
     h('div', { class: 'between top' }, h('div', { class: 'grow' }, h('div', { class: 'title' }, s.name), h('div', { class: 'small muted' }, [s.builder, s.locality || areaName(areaById(s.area_id), getLang())].filter(Boolean).join(' · '))),
-      l.props.length || l.ads.length ? h('span', { class: 'badge warn' }, `🏷 ${l.props.length + l.ads.length}`) : null),
+      l.props.length || l.ads.length ? h('span', { class: 'badge warn' }, `🏷 ${l.props.length + l.ads.length}`) : null,
+      h('button', { class: 'iconbtn star' + (cfg.get('soclist', []).includes(s.id) ? ' on' : ''), 'aria-label': t('my_list'), onclick: (e) => { e.stopPropagation(); const L = cfg.get('soclist', []); cfg.set('soclist', L.includes(s.id) ? L.filter((x) => x !== s.id) : [...L, s.id]); e.currentTarget.classList.toggle('on'); } }, '★')),
     h('div', { class: 'small' }, [s.status, s.possession && t('possession') + ' ' + s.possession, r.rows.map((x) => (x.bhk ? x.bhk + ' BHK' : x.type)).filter((v, i, a) => a.indexOf(v) === i).join(', ')].filter(Boolean).join(' · ')),
     best ? h('div', { class: 'b' }, `${t('from')} ${moneyShort(best.price)}`, best.rate ? h('span', { class: 'muted small' }, ` · ₹${Math.round(best.rate).toLocaleString('en-IN')}/sq ft`) : null)
       : r.model ? h('div', { class: 'small goldtext' }, `≈ ₹${Math.round(r.model.value).toLocaleString('en-IN')}/sq ft (${t('model_price')})`) : null,
@@ -2427,6 +2432,23 @@ function openSociety(s) {
     h('button', { class: 'btn', onclick: () => copyText(socText(s, r, l)) }, '📋 ', t('copy_soc')),
   ]);
   facilitiesAround(s.lat, s.lng, cfg, 1500).then((v) => { fac.v = v; sh.redraw(); }).catch(() => { fac.v = {}; sh.redraw(); });
+}
+function shareSocList() {
+  const L = cfg.get('soclist', []), list = (S.socs || []).filter((s) => L.includes(s.id));
+  const txt = ['🏢 *Shortlist – Ami Realtors*', ...list.map((s, i) => { const r = socRates(s), p = r.rows.filter((x) => x.price).map((x) => x.price); return `${i + 1}. ${s.name} (${s.locality || areaName(areaById(s.area_id), 'en') || ''})${p.length ? ' · from ' + moneyShort(Math.min(...p)) : ''}\n   ${gmaps(s.lat, s.lng)}`; }), `${BRAND.person} · ${BRAND.phones}`].join('\n');
+  window.open(waLink('', txt), '_blank');
+}
+function socCsv(list) {
+  const esc = (v) => (v == null ? '' : /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v));
+  const rows = [['name', 'builder', 'locality', 'status', 'possession', 'rera', 'type', 'bhk', 'size_min_sqft', 'size_max_sqft', 'price_min', 'price_max', 'rate_per_sqft', 'area_model_rate', 'lat', 'lng', 'listings_for_sale', 'source', 'link']];
+  for (const s of list) {
+    const r = socRates(s), l = socListings(s), base = [s.name, s.builder, s.locality || areaName(areaById(s.area_id), 'en'), s.status, s.possession, s.rera_full || s.rera];
+    const tail = [r.model ? Math.round(r.model.value) : '', s.lat, s.lng, l.props.length + l.ads.length, s.src, s.url || gmaps(s.lat, s.lng)];
+    if (!r.rows.length) rows.push([...base, '', '', '', '', '', '', '', ...tail]);
+    for (const x of r.rows) rows.push([...base, x.type, x.bhk, x.min, x.max, x.pmin, x.pmax, x.rate ? Math.round(x.rate) : '', ...tail]);
+  }
+  const a = h('a', { href: URL.createObjectURL(new Blob(['\ufeff' + rows.map((r) => r.map(esc).join(',')).join('\n')], { type: 'text/csv' })), download: `surat-societies-${new Date().toISOString().slice(0, 10)}.csv` });
+  document.body.append(a); a.click(); setTimeout(() => a.remove(), 500);
 }
 function socText(s, r, l) {
   return [`🏢 *${s.name}*`, [s.builder, s.locality || areaName(areaById(s.area_id), 'en')].filter(Boolean).join(' · '), [s.status, s.possession && 'Possession ' + s.possession].filter(Boolean).join(' · '),
@@ -3268,9 +3290,9 @@ function viewTeam() {
 //  3. Old app versions left open for days: the app checks version.json and reloads itself.
 // Every phone also reports a heartbeat (who, app version, counts, pending saves) so the Phones screen shows
 // whether all phones match the master copy.
-const APP_BUILD = '2026-11-20.2';
+const APP_BUILD = '2026-11-20.3';
 const KV_MARK = '§kv§';
-const KV_KEYS = ['leads.own', 'myareas', 'projpins', 'templates', 'myphones', 'bizPhone', 'vigha', 'np.premIn', 'np.premOut', 'reports', 'devices', 'socpins'];
+const KV_KEYS = ['leads.own', 'myareas', 'projpins', 'templates', 'myphones', 'bizPhone', 'vigha', 'np.premIn', 'np.premOut', 'reports', 'devices', 'socpins', 'soclist'];
 const KV_CAP = { 'leads.own': 1500, reports: 500, templates: 200 };
 const deviceId = () => { let id = cfg.get('device.id', null); if (!id) { id = 'd' + Math.random().toString(36).slice(2, 10); cfg.set('device.id', id, true); } return id; };
 async function kvId(key) {

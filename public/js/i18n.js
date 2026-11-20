@@ -300,6 +300,7 @@ Object.assign(T, {
   soc_units: ['યુનિટ, સાઇઝ અને ભાવ', 'Units, sizes and prices'], soc_units_note: ['બિલ્ડરની સાઇઝ (કાર્પેટ કે સુપર બિલ્ટ-અપ). ≈ = ભાવ છાપ્યો નથી, વિસ્તારના મોડેલ ભાવથી અંદાજ. ⚠ = વિસ્તાર કરતાં ઘણો અલગ – તપાસો.', 'Builder sizes (carpet or super built-up). ≈ = no price printed, estimated from the area model. ⚠ = far from the area – check.'],
   rent_est: ['ભાડું (અંદાજ)', 'Rent (estimate)'], add_listing_here: ['અહીં મિલકત ઉમેરો', 'Add a listing here'], copy_soc: ['સોસાયટીની વિગત કૉપી', 'Copy society details'],
   map_offline: ['નકશો લોડ ન થયો – ઇન્ટરનેટ તપાસો', 'Map did not load – check the internet'], from: ['થી શરૂ', 'from'], building: ['બિલ્ડિંગ', 'Building'], floors: ['માળ', 'floors'],
+  my_list: ['મારું લિસ્ટ', 'My list'], share_list: ['લિસ્ટ મોકલો', 'Send list'],
   new_version: ['નવું વર્ઝન આવ્યું – અપડેટ માટે દબાવો', 'New version – tap to update'],
 });
 

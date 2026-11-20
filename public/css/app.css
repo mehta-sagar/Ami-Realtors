@@ -260,3 +260,5 @@ h1.sm { font-size: 20px; line-height: 1.2; overflow: hidden; text-overflow: elli
 .socmap { height: 58vh; min-height: 340px; flex: none; border-radius: 18px; overflow: hidden; margin: 6px 0 4px; background: #e9e6df; }
 .socmap .maplibregl-marker .pin { cursor: pointer; border-width: 2px; border-style: solid; }
 .socleg { display: flex; flex-wrap: wrap; gap: 2px 6px; }
+.iconbtn.star { font-size: 20px; color: #c9ccd3; background: none; border: 0; padding: 0 2px; }
+.iconbtn.star.on { color: #E3B341; }
