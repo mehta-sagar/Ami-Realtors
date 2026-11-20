@@ -301,6 +301,8 @@ Object.assign(T, {
   rent_est: ['ભાડું (અંદાજ)', 'Rent (estimate)'], add_listing_here: ['અહીં મિલકત ઉમેરો', 'Add a listing here'], copy_soc: ['સોસાયટીની વિગત કૉપી', 'Copy society details'],
   map_offline: ['નકશો લોડ ન થયો – ઇન્ટરનેટ તપાસો', 'Map did not load – check the internet'], from: ['થી શરૂ', 'from'], building: ['બિલ્ડિંગ', 'Building'], floors: ['માળ', 'floors'],
   my_list: ['મારું લિસ્ટ', 'My list'], share_list: ['લિસ્ટ મોકલો', 'Send list'],
+  soc_shape: ['ટાવર અને માળ (3D માટે)', 'Towers and floors (for 3D)'], soc_shape_help: ['સુરતમાં નકશા પર મોટાભાગની બિલ્ડિંગની આઉટલાઇન હજી નથી, તેથી આછા બ્લોક અંદાજે છે. ટાવર, માળ અને સાચી જગ્યા અહીં નાખો – બધા ફોનમાં દેખાશે.', 'Most Surat buildings have no outline on the map yet, so the light blocks are approximate. Enter towers, floors and the exact spot here – every phone sees it.'], towers: ['ટાવર', 'Towers'],
+  lit_approx: ['આછો બ્લોક = અંદાજિત બિલ્ડિંગ', 'Light block = approximate building'],
   new_version: ['નવું વર્ઝન આવ્યું – અપડેટ માટે દબાવો', 'New version – tap to update'],
 });
 

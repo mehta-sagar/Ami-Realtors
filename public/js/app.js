@@ -2289,6 +2289,25 @@ function grow(geom, k = 1.05) {
   const cx = ring.reduce((a, p) => a + p[0], 0) / ring.length, cy = ring.reduce((a, p) => a + p[1], 0) / ring.length;
   return { type: 'Polygon', coordinates: [ring.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k])] };
 }
+// OpenStreetMap has almost no building outlines in Surat yet, so a society without one gets an approximate block
+// ("≈"): one per tower, height from the floors Dad or the builder gave (default ~13 floors for flats). Marked lighter
+// on the map and called approximate on screen. Towers/floors typed on the society card are shared with every phone.
+const box = (lat, lng, w, d, dx = 0, dy = 0) => {
+  const mLat = 1 / 111320, mLng = 1 / (111320 * Math.cos((lat * Math.PI) / 180)), cx = lng + dx * mLng, cy = lat + dy * mLat, hw = (w / 2) * mLng, hd = (d / 2) * mLat;
+  return { type: 'Polygon', coordinates: [[[cx - hw, cy - hd], [cx + hw, cy - hd], [cx + hw, cy + hd], [cx - hw, cy + hd], [cx - hw, cy - hd]]] };
+};
+const socInfo = (s) => (cfg.get('socpins', {}) || {})[s.id] || {};
+function massing(list) {
+  const out = [];
+  for (const s of list) {
+    if (s.src === 'osm' && !s.levels) continue;
+    const info = socInfo(s), lat = info.lat ?? s.lat, lng = info.lng ?? s.lng;
+    if (s.kind === 'villa') { for (let i = 0; i < 6; i++) out.push({ type: 'Feature', properties: { id: s.id, h: (info.floors || 2) * 3.1 }, geometry: box(lat, lng, 10, 13, (i % 3 - 1) * 16, (Math.floor(i / 3) - 0.5) * 20) }); continue; }
+    const n = Math.max(1, Math.min(12, info.towers || 1)), floors = info.floors || s.levels || (s.kind === 'commercial' ? 9 : 13), w = s.kind === 'commercial' ? 34 : 22;
+    for (let i = 0; i < n; i++) out.push({ type: 'Feature', properties: { id: s.id, h: floors * 3.1 }, geometry: box(lat, lng, w, w, (i % 4 - (Math.min(n, 4) - 1) / 2) * (w + 12), -Math.floor(i / 4) * (w + 12)) });
+  }
+  return { type: 'FeatureCollection', features: out };
+}
 function socGeo(list) {
   return { type: 'FeatureCollection', features: list.map((s) => ({ type: 'Feature', properties: { id: s.id, name: s.name, src: s.src, n: socListings(s).props.length }, geometry: { type: 'Point', coordinates: [s.lng, s.lat] } })) };
 }
@@ -2311,7 +2330,7 @@ function viewSocieties() {
     const list = socFilter().map((s) => ({ s, l: socListings(s) })).sort((a, b) => (b.l.props.length + b.l.ads.length) - (a.l.props.length + a.l.ads.length) || (b.s.configs.length - a.s.configs.length) || a.s.name.localeCompare(b.s.name));
     count.textContent = `${list.length} ${t('societies')} · ${t('soc_src')}`;
     box.replaceChildren(...list.slice(0, F.n).map(({ s, l }) => socCard(s, l)), list.length > F.n ? h('button', { class: 'btn', onclick: () => { F.n += 40; drawList(); } }, '+ ', list.length - F.n) : '');
-    if (S.socMap && S.socMap.getSource('socs')) S.socMap.getSource('socs').setData(socGeo(list.map((x) => x.s)));
+    if (S.socMap && S.socMap.getSource('socs')) { S.socMap.getSource('socs').setData(socGeo(list.map((x) => x.s))); S.socMap.getSource('gen').setData(massing(list.map((x) => x.s))); }
   };
   S.drawSocList = drawList;
   const search = h('input', { type: 'search', placeholder: t('search_soc'), value: F.q, autocomplete: 'off', autocorrect: 'off', spellcheck: 'false', enterkeyhint: 'search', oninput: (e) => { F.q = e.target.value; F.n = 30; clearTimeout(S.sqT); S.sqT = setTimeout(drawList, 200); }, onkeydown: (e) => { if (e.key === 'Enter') { e.target.blur(); const s = socFilter()[0]; if (s && S.socMap) S.socMap.flyTo({ center: [s.lng, s.lat], zoom: 17, pitch: 60 }); } } });
@@ -2329,7 +2348,7 @@ function viewSocieties() {
     h('div', { class: 'grid2' }, h('input', { class: 'input', inputmode: 'decimal', placeholder: t('max_lakh'), value: F.max, oninput: (e) => { F.max = e.target.value; clearTimeout(S.sqT); S.sqT = setTimeout(drawList, 300); } }),
       h('button', { class: 'btn', onclick: () => { S.soc3d = S.soc3d === false; if (S.socMap) S.socMap.easeTo({ pitch: S.soc3d === false ? 0 : 60 }); } }, '🏙 2D / 3D')),
     h('div', { id: 'socmap', class: 'socmap' }),
-    h('div', { class: 'xs muted socleg' }, h('span', { style: 'color:' + LIT.sale }, '■ '), t('lit_sale'), '  ', h('span', { style: 'color:' + LIT.rent }, '■ '), t('lit_rent'), '  ', h('span', { style: 'color:' + LIT.paper }, '■ '), t('lit_paper'), '  ', h('span', { style: 'color:#ff2d55' }, '■ '), t('lit_floor')),
+    h('div', { class: 'xs muted socleg' }, h('span', { style: 'color:' + LIT.sale }, '■ '), t('lit_sale'), '  ', h('span', { style: 'color:' + LIT.rent }, '■ '), t('lit_rent'), '  ', h('span', { style: 'color:' + LIT.paper }, '■ '), t('lit_paper'), '  ', h('span', { style: 'color:#ff2d55' }, '■ '), t('lit_floor'), '  ', h('span', { style: 'color:#b8c2d6' }, '■ '), t('lit_approx')),
     count, box,
   ];
 }
@@ -2359,6 +2378,8 @@ async function initSocMap() {
     const H = ['coalesce', ['get', 'render_height'], 9], B = ['coalesce', ['get', 'render_min_height'], 0];
     map.addLayer({ id: 'bld3d', type: 'fill-extrusion', source: src, 'source-layer': 'building', minzoom: 13,
       paint: { 'fill-extrusion-color': ['interpolate', ['linear'], H, 0, '#d9d4c7', 30, '#c4c9d4', 90, '#9aa6bd'], 'fill-extrusion-height': H, 'fill-extrusion-base': B, 'fill-extrusion-opacity': 0.88 } });
+    map.addSource('gen', { type: 'geojson', data: massing(socFilter()) });
+    map.addLayer({ id: 'gen3d', type: 'fill-extrusion', source: 'gen', minzoom: 13, paint: { 'fill-extrusion-color': '#b8c2d6', 'fill-extrusion-height': ['get', 'h'], 'fill-extrusion-base': 0, 'fill-extrusion-opacity': 0.55 } });
     map.addSource('lit', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
     map.addLayer({ id: 'lit-bld', type: 'fill-extrusion', source: 'lit', filter: ['==', ['get', 'part'], 'b'], paint: { 'fill-extrusion-color': ['get', 'c'], 'fill-extrusion-height': ['get', 'h'], 'fill-extrusion-base': 0, 'fill-extrusion-opacity': 0.95 } });
     map.addLayer({ id: 'lit-floor', type: 'fill-extrusion', source: 'lit', filter: ['==', ['get', 'part'], 'f'], paint: { 'fill-extrusion-color': '#ff2d55', 'fill-extrusion-height': ['get', 'h'], 'fill-extrusion-base': ['get', 'b'], 'fill-extrusion-opacity': 1 } });
@@ -2388,10 +2409,12 @@ function lightUp(map) {
   for (const x of litItems()) {
     if (!b.contains([x.lng, x.lat])) continue;
     const pt = map.project([x.lng, x.lat]);
-    const f = map.getZoom() >= 14 ? map.queryRenderedFeatures([[pt.x - 2, pt.y - 2], [pt.x + 2, pt.y + 2]], { layers: ['bld3d'] })[0] : null;
+    let f = map.getZoom() >= 14 ? map.queryRenderedFeatures([[pt.x - 2, pt.y - 2], [pt.x + 2, pt.y + 2]], { layers: ['bld3d', 'gen3d'] })[0] : null;
+    // no mapped building under the pin: an approximate block at the pin, as tall as the listing says
+    if (!f && map.getZoom() >= 14) { const ft = x.prop ? (readExt(x.prop).floors_total || (String(x.prop.floor || '').match(/\/(\d+)/) || [])[1]) : null; f = { geometry: box(x.lat, x.lng, 18, 18), properties: { render_height: (Number(ft) || (x.prop && x.prop.ptype === 'bungalow' ? 2 : 10)) * 3.1 } }; }
     let top = 12;
     if (f) {
-      const g = grow(f.geometry), hgt = Number(f.properties.render_height) || 9; top = hgt + 0.6;
+      const g = grow(f.geometry), hgt = Number(f.properties.render_height ?? f.properties.h) || 9; top = hgt + 0.6;
       if (g) {
         feats.push({ type: 'Feature', properties: { part: 'b', c: LIT[x.kind], h: hgt + 0.4 }, geometry: g });
         if (x.floor != null && x.floor >= 0) { const fb = Math.min(hgt - 1, x.floor * 3.1), fh = Math.min(hgt + 0.8, fb + 3.1); feats.push({ type: 'Feature', properties: { part: 'f', b: Math.max(0, fb), h: fh }, geometry: grow(f.geometry, 1.08) }); }
@@ -2428,6 +2451,11 @@ function openSociety(s) {
       gmapsBtn(s.lat, s.lng),
       s.url ? h('a', { class: 'btn', href: s.url, target: '_blank', rel: 'noopener' }, '99acres') : s.phone ? h('a', { class: 'btn green', href: 'tel:+91' + tel(s.phone) }, t('call')) : h('span', {}),
       h('button', { class: 'btn', onclick: () => { sh.close(); if (S.socMap) S.socMap.flyTo({ center: [s.lng, s.lat], zoom: 17.5, pitch: 62 }); } }, '🏙 3D')),
+    h('div', { class: 'card inset' }, h('div', { class: 'b' }, t('soc_shape')), h('div', { class: 'xs muted' }, t('soc_shape_help')),
+      h('div', { class: 'grid3' },
+        field(t('towers'), h('input', { class: 'input', inputmode: 'numeric', value: socInfo(s).towers || '', onchange: (e) => saveSocInfo(s, { towers: N(e.target.value) }) })),
+        field(t('floors'), h('input', { class: 'input', inputmode: 'numeric', value: socInfo(s).floors || '', onchange: (e) => saveSocInfo(s, { floors: N(e.target.value) }) })),
+        h('button', { class: 'btn sm', onclick: () => pinPicker(s.name, { lat: socInfo(s).lat ?? s.lat, lng: socInfo(s).lng ?? s.lng, exact: true }, (ll) => saveSocInfo(s, { lat: +ll.lat.toFixed(6), lng: +ll.lng.toFixed(6) })) }, '📍 ', t('map_pin')))),
     h('button', { class: 'btn gold', onclick: () => { sh.close(); propertyForm({ lat: s.lat, lng: s.lng, area_id: s.area_id, ptype: s.kind === 'commercial' ? 'shop' : s.kind === 'villa' ? 'bungalow' : 'flat', ext: { society: s.name } }); } }, '+ ', t('add_listing_here')),
     h('button', { class: 'btn', onclick: () => copyText(socText(s, r, l)) }, '📋 ', t('copy_soc')),
   ]);
@@ -2449,6 +2477,11 @@ function socCsv(list) {
   }
   const a = h('a', { href: URL.createObjectURL(new Blob(['\ufeff' + rows.map((r) => r.map(esc).join(',')).join('\n')], { type: 'text/csv' })), download: `surat-societies-${new Date().toISOString().slice(0, 10)}.csv` });
   document.body.append(a); a.click(); setTimeout(() => a.remove(), 500);
+}
+function saveSocInfo(s, patch) {
+  const all = { ...(cfg.get('socpins', {}) || {}) }; all[s.id] = { ...(all[s.id] || {}), ...patch, at: new Date().toISOString() };
+  cfg.set('socpins', all); if (patch.lat != null) { s.lat = patch.lat; s.lng = patch.lng; }
+  if (S.socMap && S.socMap.getSource('gen')) S.socMap.getSource('gen').setData(massing(socFilter())); toast(t('saved'));
 }
 function socText(s, r, l) {
   return [`🏢 *${s.name}*`, [s.builder, s.locality || areaName(areaById(s.area_id), 'en')].filter(Boolean).join(' · '), [s.status, s.possession && 'Possession ' + s.possession].filter(Boolean).join(' · '),
@@ -3290,7 +3323,7 @@ function viewTeam() {
 //  3. Old app versions left open for days: the app checks version.json and reloads itself.
 // Every phone also reports a heartbeat (who, app version, counts, pending saves) so the Phones screen shows
 // whether all phones match the master copy.
-const APP_BUILD = '2026-11-20.3';
+const APP_BUILD = '2026-11-20.4';
 const KV_MARK = '§kv§';
 const KV_KEYS = ['leads.own', 'myareas', 'projpins', 'templates', 'myphones', 'bizPhone', 'vigha', 'np.premIn', 'np.premOut', 'reports', 'devices', 'socpins', 'soclist'];
 const KV_CAP = { 'leads.own': 1500, reports: 500, templates: 200 };
