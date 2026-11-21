@@ -49,5 +49,8 @@
  },
  "chowk-bazaar": {
   "metro": "construction"
+ },
+ "valsad": {
+  "flood": "prone"
  }
 }
